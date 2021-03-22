@@ -1,27 +1,27 @@
-# InTrain
+# inTrain
 
 ## Disclaimer
 
-This code is still full of commented parts and debugging instructions and needs to be cleaned up. Also, some of the internal documentation is still in Italian and needs to be translated. Use it at your own risk. We do not take any responsibility for any kind of damage it might cause. That said, once you meet the prerequisites and edit the configuration files accordingly, InTrain should work as is. Please, read the License section below before downloading InTrain.
+This code is still full of commented parts and debugging instructions and needs to be cleaned up. Also, some of the internal documentation is still in Italian and needs to be translated. Use it at your own risk. We do not take any responsibility for any kind of damage it might cause. That said, once you meet the prerequisites and edit the configuration files accordingly, inTrain should work as is. Please, read the License section below before downloading inTrain.
 
-## What is InTrain and how it works
+## What is inTrain and how it works
 
-InTrain (which stands for _Interpreter Training_) is a [WebRTC](https://webrtc.org/) based platform for conference interpreter training, conceived and developed for the Department of Interpretation and Translation (DIT) at the University of Bologna by Gabriele Carioli and Nicoletta Spinolo.
+inTrain (which stands for _INterpreter TRAINing_) is a [WebRTC](https://webrtc.org/) based platform for conference interpreter training, conceived and developed for the Department of Interpretation and Translation (DIT) at the University of Bologna by Gabriele Carioli and Nicoletta Spinolo.
 
 The system connects a supervisor (instructor), an interpreter and a speaker.
 
-InTrain WebRTC connections are peer-to-peer. There's a single audio/video WebRTC connection between the supervisor and the speaker, the supervisor and the interpreter, the speaker and the interpreter. .
+inTrain WebRTC connections are peer-to-peer. There's a single audio/video WebRTC connection between the supervisor and the speaker, the supervisor and the interpreter, the speaker and the interpreter. .
 
 ## Prerequisites
 
 - A working [PeerJS server](https://github.com/peers/peerjs-server). See [README-PEERJS.md](/README-PEERJS.md) for a hint.
 - One or more STUN servers; you may use a free existing one or setup your own (e.g. [CoTURN](https://github.com/coturn/coturn)).
-- One or more TURN servers; you may buy access to an existing one or set up your own (e.g. [CoTURN](https://github.com/coturn/coturn)). You may try without a TURN server but users behind a symmetrical NAT won't be able to use InTrain.
-- A web server supporting HTTPS and URL rewriting to host your InTrain installation. No server-side scripting is needed. Here I refer to Apache but any other modern web server should be fine.
+- One or more TURN servers; you may buy access to an existing one or set up your own (e.g. [CoTURN](https://github.com/coturn/coturn)). You may try without a TURN server but users behind a symmetrical NAT won't be able to use inTrain.
+- A web server supporting HTTPS and URL rewriting to host your inTrain installation. No server-side scripting is needed. Here I refer to Apache but any other modern web server should be fine.
 
 The PeerJS server setting is mandatory. The PeerJS server is used to keep track of active connections. It generates very low network traffic and workload for your server. The authors of PeerJS offer free access to theirs, but many people use it and you may find it busy. You may have to set up your own ([https://github.com/peers/peerjs-server](https://github.com/peers/peerjs-server)). 
 
-STUN, TURN (and ICE) are a set of IETF standard protocols for negotiating traversing NATs when establishing peer-to-peer communication sessions. WebRTC and other VoIP stacks implement support for ICE to improve the reliability of IP communications. The PeerJS library used by InTrain makes it's ICE (Interactive Connectivity Establishment) implementation by coordinating STUN and TURN to make a connection between hosts. A host uses Session Traversal Utilities for NAT (STUN) to discover its public IP address when it is located behind a NAT/Firewall. When this host wants to receive an incoming connection from another party, it provides this public IP address as a possible location where it can receive a connection. If the NAT/Firewall still won't allow the two hosts to connect directly, they make a connection to a server implementing Traversal Using Relay around NAT (TURN), which will relay media between the two parties. 
+STUN, TURN (and ICE) are a set of IETF standard protocols for negotiating traversing NATs when establishing peer-to-peer communication sessions. WebRTC and other VoIP stacks implement support for ICE to improve the reliability of IP communications. The PeerJS library used by inTrain makes it's ICE (Interactive Connectivity Establishment) implementation by coordinating STUN and TURN to make a connection between hosts. A host uses Session Traversal Utilities for NAT (STUN) to discover its public IP address when it is located behind a NAT/Firewall. When this host wants to receive an incoming connection from another party, it provides this public IP address as a possible location where it can receive a connection. If the NAT/Firewall still won't allow the two hosts to connect directly, they make a connection to a server implementing Traversal Using Relay around NAT (TURN), which will relay media between the two parties. 
 
 A STUN server may be enough for testing purposes but you'll definitely also need a TURN server in a production environment.
 
@@ -29,11 +29,11 @@ You can find plenty of free STUN servers. Google provides at least a dozen for f
 
 If you setup your own STUN, TURN or PeerJS server, be sure that their ports are not blocked by your firewall for inbound connections (expecially PeerJS which may not use a standard port). Also, verify that you can access those ports from your location.
 
-Once you have your working PeerJS server and access to at least a TURN and a TURN server, you can download the InTrain webroot from GitHub, set up the configuration files and have your InTrain installation served by a webserver.
+Once you have your working PeerJS server and access to at least a TURN and a TURN server, you can download the inTrain webroot from GitHub, set up the configuration files and have your inTrain installation served by a webserver.
 
 ## Installation
 
-Create a webroot directory and deploy InTrain into it.
+Create a webroot directory and deploy inTrain into it.
 
 ```bash
 [you@localhost ~]$ sudo mkdir /var/www/virtualhosts/your_site_webroot
@@ -48,7 +48,7 @@ URL rewriting must be also enabled so that the extension for php scripts and htm
 
 ## Upgrading
 
-Basically you need to get the new version of InTrain from GitHub (just do a ```git clone https://github.com/bilo1967/intrain.git``` in a temporary directory) and replace everything on your webroot except your configuration file (always check for additions or changes) and any images you may have replaced or customized. Always make a backup copy of your webroot before trying an upgrade.
+Basically you need to get the new version of inTrain from GitHub (just do a ```git clone https://github.com/bilo1967/intrain.git``` in a temporary directory) and replace everything on your webroot except your configuration file (always check for additions or changes) and any images you may have replaced or customized. Always make a backup copy of your webroot before trying an upgrade.
 
 
 ## Configuration and authentication module
@@ -85,7 +85,7 @@ const PeerJSConfig = {
 
 ## License
 
-InTrain is available under the [GNU Affero General Public v3](https://www.gnu.org/licenses/agpl-3.0.html) License. 
+inTrain is available under the [GNU Affero General Public v3](https://www.gnu.org/licenses/agpl-3.0.html) License. 
 
 In brief, this program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as  published by the Free Software Foundation, either version 3 of the  License, or (at your option) any later version.
 
@@ -93,7 +93,7 @@ This program is distributed in the hope that it will be useful, but **WITHOUT AN
 
 Documentation is available under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) license. 
 
-InTrain uses several third-party frameworks, components, libraries and resources:
+inTrain uses several third-party frameworks, components, libraries and resources:
 * [PeerJS](https://peerjs.com/">https://peerjs.com/)
 * [JQuery](https://jquery.com/">https://jquery.com/)
 * [Bootstrap 4](https://getbootstrap.com/)
