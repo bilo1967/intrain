@@ -1,0 +1,6 @@
+{
+  "root": "/",
+  "clean_urls": true,
+  "canonical_host": "${HOST}",
+  "https_only": true,
+}
