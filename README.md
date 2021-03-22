@@ -17,7 +17,7 @@ InTrain WebRTC connections are peer-to-peer. There's a single audio/video WebRTC
 - A working [PeerJS server](https://github.com/peers/peerjs-server). See [README-PEERJS.md](/README-PEERJS.md) for a hint.
 - One or more STUN servers; you may use a free existing one or setup your own (e.g. [CoTURN](https://github.com/coturn/coturn)).
 - One or more TURN servers; you may buy access to an existing one or set up your own (e.g. [CoTURN](https://github.com/coturn/coturn)). You may try without a TURN server but users behind a symmetrical NAT won't be able to use InTrain.
-- A web server supporting PHP (≥ 5.5), HTTPS and URL rewriting to host your InTrain installation. Here I refer to Apache but any other modern web server should be fine.
+- A web server supporting HTTPS and URL rewriting to host your InTrain installation. No server-side scripting is needed. Here I refer to Apache but any other modern web server should be fine.
 
 The PeerJS server setting is mandatory. The PeerJS server is used to keep track of active connections. It generates very low network traffic and workload for your server. The authors of PeerJS offer free access to theirs, but many people use it and you may find it busy. You may have to set up your own ([https://github.com/peers/peerjs-server](https://github.com/peers/peerjs-server)). 
 
