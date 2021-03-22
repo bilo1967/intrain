@@ -1,0 +1,1513 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+  
+  <meta name="description" content="Web based interpreter training tool">
+  <meta name="keywords" content="interpreter,interpreting,training,remote,web based,webrtc">
+
+  <!-- favicon for all devices -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icons/favicon-16x16.png">
+  <link rel="manifest" href="/images/icons/site.webmanifest">
+  <link rel="mask-icon" href="/images/icons/safari-pinned-tab.svg" color="#5bbad5">
+  <link rel="shortcut icon" href="/images/icons/favicon.ico">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="msapplication-config" content="/images/icons/browserconfig.xml">
+  <meta name="theme-color" content="#ffffff">
+
+  <title>intrain:supervisor</title>
+
+  <!-- 
+    Come registrare: 
+    https://recordrtc.org/ 
+    https://github.com/muaz-khan/RecordRTC
+    https://github.com/streamproc/MediaStreamRecorder
+    
+    // Solo registrazione audio da audiocontext
+    https://github.com/cwilso/AudioRecorder
+    
+    
+https://webrtc.github.io/samples/src/content/getusermedia/record/
+https://www.webrtc-experiment.com/RecordRTC/simple-demos/    
+https://webrtc.github.io/samples/src/content/peerconnection/pc1/    
+
+    WebRTC server?
+    https://github.com/meetecho/janus-gateway
+    
+    Explore HTML5 audio
+    https://dzone.com/articles/exploring-html5-web-audio
+    
+  -->
+  
+  <!-- script src="https://use.fontawesome.com/7f33ee3a55.js"></script -->
+  <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
+  
+  
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/intrain.css?0.06">
+
+  <script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
+
+  <script
+  src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"
+  integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
+  crossorigin="anonymous"></script>
+  
+  
+  <script
+  src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>  
+  
+  <script src="js/jquery.swapelements.js"></script>
+  <script src="js/peerjs.min.js"></script>
+  <!-- script src="js/jquery.i18n.js"></script-->
+
+  <script src="js/utils.js?0.01"></script>
+  <script src="js/common.js?0.06"></script>
+  <script src="js/config.js?0.04"></script>
+  <script src="js/intrain.js?0.06"></script>
+  <script src="js/log.js?0.01"></script>
+  <script src="js/io-devices.js"></script>
+
+
+  <!-- https://github.com/daneden/animate.css -->
+  <link rel="stylesheet" href="css/animate.min.css">
+  <script src="js/animatecss.js"></script>
+
+  <!-- Decalage chronometer component -->  
+  <link rel="stylesheet" href="css/decalage.css">
+  <script src="js/decalage.js"></script>
+  
+  
+  <!-- Audio recorder from AudioContext -->
+  <script src="js/recorderjs/recorder.js"></script>
+  
+
+  <!-- Input clear button -->  
+  <script src="js/bootstrap4-input-clearer.min.js"></script>
+
+  
+
+  <!-- MediaElementJS HTML5 Video Player -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/mediaelementplayer.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/mediaelement-and-player.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/dailymotion.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/facebook.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/soundcloud.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/twitch.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/vimeo.min.js"></script>
+
+
+
+<script>
+
+   
+speakerAudioMutedDefault = false;
+interpreterAudioDefault = false;
+// supervisorAudioMutedDefault = false;
+
+speakerAudioMuted      = speakerAudioMutedDefault;
+interpreterAudioMuted  = interpreterAudioDefault;
+//supervisorAudioMuted = supervisorAudioMutedDefault;
+
+myRole = RoleSupervisor;
+myColor = ColorSupervisor;
+
+
+
+// NB: speaker=1 (L), interpreter=2 (R)
+var audioCtx      = new AudioContext();
+var split1        = audioCtx.createChannelSplitter(2); // Splitter di canali
+var split2        = audioCtx.createChannelSplitter(2); // Splitter di canali
+var gain1         = audioCtx.createGain(); // Volume canale 1
+var gain2         = audioCtx.createGain(); // Volume canale 2
+var mix           = audioCtx.createChannelMerger(2, 2); // Mixer di canali
+var channel1      = null;
+var channel2      = null;
+
+var speakerSource = null;
+var interpreterSource = null;
+var mySource = null;
+
+// AudioRecorder: the two audio sources be mixed as separate L/R
+// stereo tracks, both on mix (which will be eventually connected to
+// the output) and mixrec, which is connected to the audio recorder
+var zeroGain      = null;
+var mixrec        = null; // Mixer di canali
+var audioRecorder = null;
+var recIndex      = 1; 
+
+
+// Canvas to draw an audio waveform for the microphone
+var micGraph = null;
+var micGraphCanvasCtx = null;
+
+
+function initRecorder() {
+    
+    mixrec        = audioCtx.createChannelMerger(2, 2); // Channel mixer for the recorder
+    audioRecorder = new Recorder( mixrec );
+    zeroGain = audioCtx.createGain();
+
+    split1.connect(mixrec, 0, 1);
+    split2.connect(mixrec, 0, 0);
+
+    // Connect to a gain node with gain value = 0 (so it will be
+    // silent) and then to destination to activate the audio flow
+    zeroGain.gain.value = 0.0;
+    mixrec.connect( zeroGain );
+    
+    zeroGain.connect( audioCtx.destination );
+}
+
+
+
+// Various toggles
+var swapChannels = false; // swap channels toggle variable
+var boostVolume = false;  // boost volume
+var showPlayer = false;   // show player and load controls
+
+
+// Crossfade implementation
+initCrossFader();
+initRecorder();
+
+
+// When the page has been loaded
+$(document).ready(function() {
+
+    micGraph = $("#vumeter")[0];
+    micGraphCanvasCtx = micGraph.getContext("2d");
+
+
+    // Init tooltips
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip()
+    })
+    
+    // clear button in inputs
+    $(function() {
+      $('.clearer').clearer();
+    });    
+    
+    initMuted(); // Mute/unmute partners (set defaults)
+    loadClock(); // Start clock
+    
+
+    
+    // check for notifications support
+    // you can omit the 'window' keyword
+    if (window.Notification) {
+        console.log("Requesting permission to notify incoming connections.");
+        window.Notification.requestPermission();
+    } else {
+        console.warn("Notifications are not supported for this Browser/OS version yet.");
+    }    
+
+        
+
+    var playDelay = false;
+    // init player
+
+    
+	$('#myplayer').mediaelementplayer({
+        startVolume: 1,
+        stretching: 'responsive',
+        controls: true,
+        alwaysShowControls: true,
+        features: ["playpause", "progress", "current", "duration", "tracks", "volume", "fullscreen"],
+        success: function(mediaElement, originalNode, instance) {
+        
+            myVideoPlayer = instance; 
+            myVideoMediaElement = mediaElement;
+/*
+            mediaElement.addEventListener('loadstart',      function() { console.log('loadstart'); }, false);
+            mediaElement.addEventListener('durationchange', function() { console.log('durationchange'); }, false);
+            mediaElement.addEventListener('loadedmetadata', function() { console.log('loadedmetadata'); }, false);
+            mediaElement.addEventListener('loadeddata',     function() { console.log('loadeddata'); }, false);
+            mediaElement.addEventListener('canplay',        function() { console.log('canplay'); }, false);
+            mediaElement.addEventListener('canplaythrough', function() { console.log('canplaythrough'); }, false);
+            mediaElement.addEventListener('suspend',        function() { console.log('suspend'); }, false);
+            mediaElement.addEventListener('abort',          function() { console.log('abort'); }, false);
+            mediaElement.addEventListener('error',          function() { console.log('error'); }, false);
+            mediaElement.addEventListener('emptied',        function() { console.log('emptied'); }, false);
+            mediaElement.addEventListener('stalled',        function() { console.log('stalled'); }, false);
+            mediaElement.addEventListener('playing',        function() { console.log('playing'); }, false);
+            mediaElement.addEventListener('waiting',        function() { console.log('waiting'); }, false);
+            mediaElement.addEventListener('seeking',        function() { console.log('seeking'); }, false);
+            mediaElement.addEventListener('seeked',         function() { console.log('seeked'); }, false);
+            //mediaElement.addEventListener('timeupdate',     function() { console.log('timeupdate'); }, false);
+            mediaElement.addEventListener('ended',          function() { console.log('ended'); }, false);
+            mediaElement.addEventListener('ratechange',     function() { console.log('ratechange'); }, false);
+            mediaElement.addEventListener('volumechange',   function() { console.log('volumechange'  ); }, false);
+*/
+            mediaElement.addEventListener('progress', function() { 
+                console.log('progress', myVideoPlayer.currentTime);  
+            }, false);
+            
+            mediaElement.addEventListener('pause', function() { 
+                console.log('pause', myVideoPlayer.currentTime); 
+                if (interpreterData && interpreterData.open)
+                    interpreterData.send({action: "pausevideo"});
+                
+            }, false);
+            
+            mediaElement.addEventListener('play', function() {
+                console.log("play from", myVideoPlayer.currentTime);
+                if (interpreterData && interpreterData.open)
+                    interpreterData.send({action: "playvideo"});
+            }, false);
+            
+            
+            instance.prepare = function() {
+                if (interpreterData && interpreterData.open)
+                    interpreterData.send({action: "seekvideo", time: 0.0, pause: true});
+                myVideoPlayer.setCurrentTime(0.0);
+                myVideoPlayer.pause();
+            };
+
+            
+            
+            // These hacks are to get events (play, seek) before they're
+            // actually handled on the supervisor side, and run them on
+            // to the interpreter side so that they can be handled almost
+            // in parallel, reducing the delay.
+            var pfx = '.' + this.classPrefix;
+            
+            $(pfx + 'playpause-button, ' + pfx + 'overlay-play').on('click', function() {
+                if (! myVideoPlayer.paused) {
+                    if (interpreterData && interpreterData.open)
+                        interpreterData.send({action: "playvideo"});
+                }
+                console.log("CLICK playpause button ( paused:", myVideoPlayer.paused, ")");
+            });
+            
+            /*
+            $(pfx + 'overlay-button').on('click', function(e) {
+                console.log("CLICK overlay button ( paused:", myVideoPlayer.paused, ")");
+            });            
+            */
+            
+            $(pfx + 'time-slider').on('click', function() {
+                var w = myVideoPlayer.total.offsetWidth;
+                var p = $(pfx + 'time-slider ' + pfx + 'time-hovered').attr("pos");
+                var d = myVideoPlayer.getDuration();
+                
+                var percentage = p/w;
+                var t = (percentage <= 0.02 ? 0 : percentage * d) + 0.25;
+                
+                if  (t > d) t = d;                
+                
+                if (interpreterData && interpreterData.open)
+                    interpreterData.send({action: "seekvideo", time: t.toFixed(4)});
+                
+                console.log("seek video to", t.toFixed(4));
+                
+            });             
+	    }
+	});
+       
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    $('#login-dialog').modal({keyboard: false, backdrop: 'static'});
+    $('#cancel-button').attr("disabled", true);
+
+    speakerVideo = $("#speakerVideo")[0];
+    interpreterVideo = $("#interpreterVideo")[0];
+    localVideo = $("#localVideo")[0];
+    
+    // Connect user video panel with webcam and headset
+
+/*    
+    navigator.mediaDevices
+        .getUserMedia(SupervisorMediaStreamConstraints)
+        .then(gotLocalMediaStream)
+        .catch(handleLocalMediaStreamError);
+*/
+    setDeviceSelectors({
+       vs: $('#select-video-source')[0], // select box for video source devices
+       as: $('#select-audio-source')[0], // select box for audio source devices
+       ao: $('#select-audio-output')[0], // select box for audio output devices
+    });
+    $('#select-video-source').on('change', setUserMediaConstraints);
+    $('#select-audio-source').on('change', setUserMediaConstraints);
+    //$('#select-audio-output').on('change', changeAudioDestination);
+    
+    navigator.mediaDevices
+        .enumerateDevices()
+        .then(gotDevices)
+        .catch(handleLocalMediaStreamError);
+
+    setUserMediaConstraints();
+
+
+
+    /* Clicked "connect" */
+    $('#join-button').on("click", function(e){
+        console.log("Connect/disconnect button pressed");
+        e.preventDefault();
+        
+        // Toggle connect/disconnect
+        if (peerConnected) {
+            console.log("Closing...");
+
+            $("#login-info").html("You're disconnected");
+            $('#login-dialog').modal('show');
+            $('#cancel-button').attr("disabled", true);
+
+            if (speakerData && speakerData.open) {
+                speakerData.send({action: "leaving", message: "bye"});
+            }
+            if (interpreterData && interpreterData.open) {
+                interpreterData.send({action: "leaving", message: "bye"});
+            }
+            
+            setTimeout(function() { 
+                //supervisorData.close(); 
+                myPeer.destroy()
+            }, WaitBeforeClose);
+            
+            
+            return true;
+        }
+        
+        // Enable cancel button in login form
+        $('#cancel-button').attr("disabled", false);
+
+                
+        // Get username
+        userName = $("#username").val().trim();
+        
+        if (userName == "") {
+            logToPanel("User name is empty", "info");
+            return false;
+        }
+        
+        userID = userName.toLowerCase().hash64(); // userName.replace('@', "_AT_").replace('.', "_DOT_");
+        
+        console.log("Peer: trying to create peer using supplied userID");
+        myPeer = new Peer(userID, PeerJSConfig, SupervisorPeerOptions);
+        
+        // Handle incoming call calls
+        myPeer.on('call', function(c) {
+
+            var role = c.options.metadata.role; // Who's connecting
+            
+            if (! verifyMediaConnection(c, role)) {
+                var dt = getDateTime();
+                var m = dt.hms + " - Incoming call from another " + role + " rejected because we're busy.";
+                
+                console.warn("Peer: reject call from", role);
+                
+                logToPanel(m, "danger");
+                logToChat(m);
+                c.close();
+                return false;
+            }
+            
+            console.log("Peer: call from", role);
+
+            if (role == "speaker" || role == "interpreter") {
+            
+                if (role == "speaker") {
+                    speakerMedia = c;
+                } else {
+                    interpreterMedia = c;
+                }
+            
+                c.answer(localStream);
+                
+                c.on('stream', function(mediaStream) {
+                
+                    if (role == "speaker") {
+                        speakerVideo.srcObject = mediaStream;
+                        speakerMediaStream = mediaStream;
+                        
+                        speakerVideo.onloadedmetadata = function(e) {
+                            speakerVideo.play();
+                            speakerVideo.muted = true;
+                        }
+                    } else {
+                        interpreterVideo.srcObject = mediaStream;
+                        interpreterMediaStream = mediaStream;
+                        
+                        interpreterVideo.onloadedmetadata = function(e) {
+                            interpreterVideo.play();
+                            interpreterVideo.muted = true;
+                        }                    
+                    }
+                  
+                    initCrossFader();
+                });
+                c.on('close', function() {
+                    resetConnection(role);
+                    logToPanel("<b>" + role + "</b> media connection closed", "danger");
+                    logToChat("<b>" + role + "</b> media connection closed");
+                    console.log(role + " media connection closed");
+                    initCrossFader();
+                });
+            }
+
+        });
+        
+        
+        var peerConnecting = false;
+        
+        // Handle incoming data
+        myPeer.on('connection', function(c) { 
+        
+            console.log("Incoming connection");
+            
+            var role = c.options.metadata.role; // Who's connecting
+            
+            console.log("Peer: data connection from", role);
+
+            if (setupDataConnection(c, role)) {
+                console.log("Connection handle has been set for", role);
+                
+
+                
+                // Push a notification if permission is granted and 
+                // only if the browser window is not focused
+                if (Notification.permission === "granted" && !document.hasFocus()) {
+                
+                    
+                    var notification = new Notification(
+                        'Incoming connection from ' + role,
+                        {
+                            "icon": '/images/icons/favicon-16x16.png' 
+                        }
+                    );
+                    
+                    // Show browser window and close notification on user click
+                    notification.onclick = function(e) {
+                        e.preventDefault();
+                        window.focus();
+                        notification.close();
+                    }
+                }                
+
+                
+                while (peerConnecting) {
+                    setTimeout(() => { console.log("Wait for data connection to complete"); }, 500);
+                }
+                peerConnecting = true;
+                
+                console.log(
+                    "call from:" + role + "; " +
+                    "speaker status:" + (speakerData ? (speakerData.open?"open":"closed") : "none") + "; " +
+                    "interpreter status:" + (interpreterData ? (interpreterData.open?"open":"closed") : "none")
+                );
+
+                // if intepreter is connecting and speaker is already connected
+                // tell the speaker to call the intepreter
+                if (role == RoleInterpreter && speakerData && speakerData.open) {
+                    
+                    console.log("Asking the speaker to call the intepreter (" + c.peer + ")");
+                    setTimeout(function() { 
+                        speakerData.send({action: 'dial', peerid: c.peer, role: role});
+                    }, 0);
+                }
+
+                // if speaker is connecting and intepreter is already connected
+                // tell the intepreter to call the speaker
+                if (role == RoleSpeaker && interpreterData && interpreterData.open) {
+                
+                    console.log("Asking the interpreter to call the speaker (" + c.peer + ")");
+                    setTimeout(function() { 
+                        interpreterData.send({action: 'dial', peerid: c.peer, role: role});
+                    }, 0);
+                }
+                
+                
+                // Handle data connections
+                switch (role) {
+                case RoleInterpreter:
+                case RoleSpeaker:
+                    c.on('data', function(data) {
+                        var act = (typeof data === "object") ? data.action : "chat";
+
+                        console.log("received:", data);
+
+                        switch (act) {
+                        case 'chat':
+                            logToChat(data.message, role, role == RoleSpeaker ? ColorSpeaker : ColorInterpreter);
+                            break;
+                        case 'leaving':
+                            resetConnection(role);
+                            logToPanel("<b>" + role + "</b> has logged out", "danger");
+                            logToChat("<b>" + role + "</b> has logged out");
+                            console.log(role + " has logged out");
+                            initCrossFader();
+                            break;
+                        case 'sendfile':
+                            var link = getFileDownloadLinkFromData(data);
+                            if (link !== null) {
+                                console.log("Received file '" + data.filename + "' of type '" + data.filetype + "' from " + role);
+                                logToChat("The " + role + " has sent you a file: " + link);
+                            } else {
+                                console.warn("Invalid file transfer from", role);
+                                logToChat("Invalid file transfer from", role);
+                            }
+                            break;                             
+                        }
+                    });
+                    peerConnecting = false;
+                    
+                    break;
+                case RoleSupervisor:
+                    break;
+                }                
+	        } else {
+                console.log("Rejecting connection");
+                //c.send({action: "reject", message: "This training session is busy"});
+                setTimeout(function() { c.close(); }, WaitBeforeClose);
+                //c.close()
+                return false;
+            }
+        });
+
+        myPeer.on('open', function(){
+          console.log("Peer: open");
+          // here you have myPeer.id
+          peerConnected = true;
+          peerError = false;
+
+          logToPanel("Connection successful. You're now logged on as <strong>" + userName + "</strong> [id=" + myPeer.id + "]. Your couterparts can now call you using the username you provided.", "success");
+          logToChat("New training session initiated");
+
+          $("#username").prop("disabled", true);
+          $("#join-button").text("Disconnect");
+          $("#join-button").removeClass("btn-primary").addClass("btn-warning");
+          $('#login-status').html('');
+          $('#login-dialog').modal('hide');
+          
+          $("#login-info").html("You've joined the training session as <strong>" + userName + "</strong>. You are the <strong>" + myRole + "</strong>.");
+          
+          loadAndPlay("sounds/whistle.mp3");
+          
+        });
+        
+        myPeer.on('close', function() {
+
+          peerConnected = false;
+          
+          console.log("Peer: close");          
+          
+          logToPanel("Connection closed", "success");
+	      logToChat("Training session closed");
+          $("#username").prop("disabled", false);
+          
+          $("#join-button").text("Connect");
+          $("#join-button").removeClass("btn-warning").addClass("btn-primary");
+        });
+        
+        myPeer.on('disconnected', function(){
+          // myPeer.reconnect();
+        });
+        
+        myPeer.on('error', peerErrors);
+       
+        return false;
+    });
+
+    loadCommonHandlers();
+    
+    $('#swap-channels').on('click', function(){
+        swapChannels = !swapChannels;
+        $("label[for='swap-channels']").text(swapChannels ? "Swap R/L:" : "Swap L/R:" );
+        initCrossFader();
+    });
+    $('#boost-volume').on('click', function(){
+        boostVolume = !boostVolume;
+        $('#boost-volume > i').toggleClass("fa-volume-up fa-volume-down");
+        $('#cross-fader').trigger('input');
+    });
+    
+    $('#cross-fader').on('input', function(){
+    
+        var val = $(this).val();
+        var min = $(this).attr('min');
+        var max = $(this).attr('max');
+        
+        var m1 = speakerAudioMuted ? 0.0001 : 1;
+        var m2 = interpreterAudioMuted ? 0.0001 : 1;
+        
+        var b = parseInt(val) / (parseInt(max) - parseInt(min));
+        var v = boostVolume ? 8 : 2 ; //1.5*parseInt(volume.value) / (parseInt(volume.max) - parseInt(volume.min));
+        
+        //console.log("Crossfade value:", b);
+        
+        var vol1 = m1 * v * Math.cos((1.0 - b) * 0.5 * Math.PI);
+        var vol2 = m2 * v * Math.cos(b * 0.5 * Math.PI)
+        
+        // exponentialRampToValueAtTime does not allow to set volume to 0
+        if (showPlayer && myVideoPlayer && !myVideoPlayer.paused) {
+            myVideoPlayer.setVolume(Math.cos((1.0 - b) * 0.5 * Math.PI));
+            gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+        } else {
+            if (vol1 == 0) {
+                gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+            } else {
+                gain1.gain.exponentialRampToValueAtTime(vol1, audioCtx.currentTime);
+            }
+        }
+        if (vol2 == 0) {
+            gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+        } else {
+            gain2.gain.exponentialRampToValueAtTime(vol2, audioCtx.currentTime);
+        }
+        
+    });      
+
+  
+    $('#run-player').on('click', function() {
+        var videoURL = $('#video-url').val();
+        myVideoPlayer.setSrc(videoURL);
+        if (interpreterData && interpreterData.open) {
+
+            console.log("Sending video " + videoURL + " to interpreter");
+            interpreterData.send({
+                action: "loadvideo",
+                url: videoURL,
+                time: /*myVideoPlayer.getCurrentTime() +*/ 0.01,
+                pause: true
+            });
+            
+            //interpreterData.send({action: "seekvideo", time: 0.0, pause: true});
+            myVideoPlayer.setSrc(videoURL);
+            myVideoPlayer.setCurrentTime(0.0);
+            myVideoPlayer.pause();
+
+            
+
+        }
+
+        //myVideoPlayer.play();
+        //myVideoPlayer.volume = 1;        
+        console.log(videoURL);
+    });
+    
+    $('#load-player').on('click', function() {
+        showPlayer = !showPlayer;
+        
+        if (showPlayer) {
+            if (interpreterData && interpreterData.open)
+                interpreterData.send({action: "showplayer"});
+        
+            $('#load-player i').removeClass('fab fa-youtube').addClass('fas fa-times-circle');
+            $('#player-container').removeClass('stack-bottom').addClass('stack-top');
+            //$('#player-panel').fadeTo(1000, 1);
+            $('#player-panel').fadeTo(0, 1);
+            $('#player-panel').animate({ width: $('#player-panel').css('max-width')}, 400);
+            
+        } else {
+            if (interpreterData && interpreterData.open)
+                interpreterData.send({action: "hideplayer"});
+        
+            $('#load-player i').removeClass('fas fa-times-circle').addClass('fab fa-youtube');
+            $('#player-container').removeClass('stack-top').addClass('stack-bottom');
+            //$('#player-panel').fadeTo(500, 0);
+            $('#player-panel').animate({ width: '0' }, 400);
+            $('#player-panel').fadeTo(0, 0);
+            
+        }
+    });
+
+    $('#briefing-mode').on('click', function() {
+        console.log("Setup audio for breafing");
+        // Enable local microphone, if disabled
+        if (!isMicEnabled())
+            $('#toggle-microphone').trigger('click');
+
+        animateCSS('#toggle-microphone', 'heartBeat');
+    
+        if (interpreterData && interpreterData.open)
+            interpreterData.send({action: "setaudiomode", mode: "briefing"});
+        if (speakerData && speakerData.open)
+            speakerData.send({action: "setaudiomode", mode: "briefing"});
+    });
+
+    $('#training-mode').on('click', function() {
+        // Disable local microphone, if enabled
+        console.log("Setup audio for training session");
+        
+        if (isMicEnabled()) {
+            $('#toggle-microphone').trigger('click');
+        }
+        animateCSS('#toggle-microphone', 'heartBeat');
+        
+        if (interpreterData && interpreterData.open)
+            interpreterData.send({action: "setaudiomode", mode: "training"});
+        if (speakerData && speakerData.open)
+            speakerData.send({action: "setaudiomode", mode: "training"});
+    });
+    
+    
+    $("input[data-toggle='tooltip']").mouseout(function(){
+      $(this).tooltip('hide');
+    });
+
+
+
+
+    $('#record-audio').on('click', function(e) {
+    
+        console.log("Record clicked");
+        
+        if ($("#record-audio > i").hasClass("fa-square")) {
+        
+            console.log("Stop recording");
+            $("#record-audio > i").removeClass("fa-square").addClass("fa-circle");
+              
+            audioRecorder.stop();
+            audioRecorder.getBuffers( saveAudio );
+             
+            $("#save-audio").removeClass("disabled");
+            $("#save-audio > i").removeClass("fa-cog fa-spin").addClass("fa-save");
+            
+            
+            $("label[for='save-audio']").html("File ready");
+            
+            
+        } else {
+        
+            console.log("Restart recording");
+            
+            if (!audioRecorder) return;
+           
+
+            $("#record-audio > i").removeClass("fa-circle").addClass("fa-square");
+            
+            audioRecorder.clear();
+            audioRecorder.record();
+
+            $("#save-audio").addClass("disabled");
+            $("#save-audio > i").removeClass("fa-save").addClass("fa-cog fa-spin");
+
+            $("label[for='save-audio']").html("Recording&hellip;");
+            
+            
+        }
+    });
+    
+    $('#save-audio').on('click', function(e) {
+        if ($(this).hasClass('disabled')) {
+            e.preventDefault();
+        } else {
+            console.log("Save audio file");
+        }
+    });
+    
+    
+});
+
+// Start/stop decalage timer when pressing space bar
+$(document).keypress(function(e) {
+  if (e.target.id != 'chattext'  && e.which == 32) {
+    $("#timer-startstop").trigger("click");
+    e.preventDefault();
+  }
+});
+
+function brownianNoise(g) {
+    var lastOut = 0.0;
+    var node = audioCtx.createScriptProcessor(1024, 2, 2);
+    node.onaudioprocess = function(e) {
+        var output = e.outputBuffer.getChannelData(0);
+        for (var i = 0; i < 1024; i++) {
+            var white = Math.random() * 2 - 1;
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i];
+            output[i] *= g; 
+        }
+    }
+    return node;
+}
+
+function brownianNoise2(g) {
+
+    var lastOut = 0.0;
+    
+    var node = audioCtx.createBufferSource(),
+        buffer = audioCtx.createBuffer(1, 8192, audioCtx.sampleRate),
+        data = buffer.getChannelData(0);
+    
+    for (var i = 0; i < 8192; i++) {
+        var white = Math.random() * 2 - 1;
+        data[i] = (lastOut + (0.03 * white)) / 1.02;
+        lastOut = data[i];
+        data[i] *= g; 
+    }
+    
+    node.buffer = buffer;
+    node.loop = true;
+    
+    node.start(0);
+    
+    return node;
+}
+
+function silence() {
+
+    var node = audioCtx.createBufferSource(),
+        buffer = audioCtx.createBuffer(1, 512, audioCtx.sampleRate),
+        data = buffer.getChannelData(0);
+    
+    for (var i = 0; i < 512; i++) {
+        data[i] = 0; 
+    }
+    node.buffer = buffer;
+    node.loop = true;
+    node.start(0);
+    
+    return node;
+}
+
+function oscillator(freq = 11, vol = 0.01) {
+    var o = audioCtx.createOscillator();
+    o.type = "sine";
+    o.frequency = freq;
+    var  g = audioCtx.createGain()
+    o.connect(g);
+    g.gain.exponentialRampToValueAtTime(vol, audioCtx.currentTime);
+    o.start();
+    return g;
+}
+
+function reconnectChannel(channel, stream) {
+    if (stream) {
+    } else {
+    }
+}
+
+function initCrossFader() {
+
+    if (typeof channel1 === "object" && channel1 != null) {
+        console.log("Disconnecting audio channel 1");
+        channel1.disconnect();
+    }
+    if (typeof channel2 === "object" && channel2 != null) {
+        console.log("Disconnecting audio channel 2");
+        channel2.disconnect();
+    }
+    
+
+    if (speakerMedia && speakerMedia.open && speakerMediaStream) {
+        console.log("Adding speaker audio to crossfader...");
+        channel1 = audioCtx.createMediaStreamSource(speakerMediaStream);
+    } else {
+        console.log("Replacing speaker audio with brownian noise in the crossfader...");
+        channel1 = brownianNoise(0.0025);
+    }
+    
+    if (interpreterMedia && interpreterMedia && interpreterMediaStream) {
+        console.log("Adding interpreter audio to crossfader...");    
+        channel2 = audioCtx.createMediaStreamSource(interpreterMediaStream);
+    } else {
+        console.log("Replacing interpreter audio with brownian noise in the crossfader...");
+        channel2 = brownianNoise(0.0025);
+    }
+    
+    if (swapChannels) {
+        var tmp = channel1;
+        channel1 = channel2;
+        channel2 = tmp;
+    }
+    
+    channel1.connect(split1, 0, 0);
+    channel2.connect(split2, 0, 0);
+   
+    split1.connect(gain1);
+    split2.connect(gain2);
+    
+    gain1.connect(mix, 0, 1);
+    gain2.connect(mix, 0, 0);
+     
+    mix.connect(audioCtx.destination);
+}
+
+
+
+function initRecorder() {
+    
+    mixrec        = audioCtx.createChannelMerger(2, 2); // Channel mixer for the recorder
+    audioRecorder = new Recorder( mixrec );
+    zeroGain = audioCtx.createGain();
+
+    split1.connect(mixrec, 0, 1);
+    split2.connect(mixrec, 0, 0);
+
+    // Connect to a gain node with gain value = 0 
+    // so it will be silent and then to destination
+    // to activate the audio flow
+    zeroGain.gain.value = 0.0;
+    mixrec.connect( zeroGain );
+    
+    zeroGain.connect( audioCtx.destination );
+}
+
+
+// the ONLY time saveAudio is called is right after a 
+// new recording is completed, so here's where we should
+// set up the download.
+function saveAudio( buffers ) {
+
+    audioRecorder.exportWAV( doneEncoding );
+}
+
+function doneEncoding( blob ) {
+    var filename = appName + "-mixed-audio-file-" + ((recIndex<10)?"0":"") + recIndex + ".wav"
+    var url = Recorder.setupDownload( blob, filename, "save-audio");
+    
+    console.log("Audio file created from blob:", url);
+    
+    $("#recordings").append(
+        "<li class='list-group-item'><a href='" + url + "' download='" + filename + "'>" +
+        "record n. " + (recIndex) + " (" + blob.size + " bytes)</a></li>"
+    );
+    
+    recIndex++;
+}
+
+
+
+
+// Sets the MediaStream as the video element src.
+function gotLocalMediaStream(mediaStream) {
+
+    // Save local microphone and camera status
+    micEnabled = isMicEnabled();
+    if (micEnabled === null) micEnabled = !supervisorAudioMutedDefault;
+    camEnabled = isCamEnabled() !== false;
+
+    window.stream = mediaStream; // make stream available to console
+      
+    localVideo.srcObject = mediaStream;
+    localStream = mediaStream;
+   
+    localVideo.play();
+    localVideo.muted = true;
+    
+    localVideo.onloadedmetadata = function(e) {
+        localVideo.play();
+        localVideo.muted = true;
+    }
+   
+    // connect microphone to node chain
+    var mic = audioCtx.createMediaStreamSource(mediaStream);
+    
+    // Create an analyser to draw a waveform for mic input
+    var analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    var bufferLength = analyser.frequencyBinCount;
+    var dataArray = new Uint8Array(bufferLength);
+    
+    // Create a zero gain node to avoid own mic feedback to headphones
+    var zeroGain = audioCtx.createGain();
+    zeroGain.gain.value = 0.0;
+    
+    // Create node chain 
+    mic.connect(analyser);
+    analyser.connect(zeroGain);
+    zeroGain.connect(audioCtx.destination);
+    
+    // Draw microphone output waveform
+    (function draw() {
+        var drawVisual = requestAnimationFrame(draw);
+        
+        analyser.getByteFrequencyData(dataArray);
+        
+        micGraphCanvasCtx.fillStyle = 'rgb(240, 240, 240)';
+        micGraphCanvasCtx.fillRect(0, 0, micGraph.width, micGraph.height);
+
+        const bars = 12;
+        const floor = 150;
+        
+        var barWidth = Math.floor(micGraph.width / bars);
+        var max = 0;
+        for(var i = 0; i < dataArray.length; i++) {
+            if (max < dataArray[i]) max = dataArray[i];
+        }
+        //var avg = sum / dataArray.length;
+        max = (max - floor); if (max < 0) max = 0;
+        max = max / (255 - floor);
+        
+        for (var j = 0, x = 0; j < bars * max; j++) {
+            micGraphCanvasCtx.fillStyle = 'rgb(0,255,0)';
+            micGraphCanvasCtx.fillRect(x + 2, 0, barWidth - 4, micGraph.height);
+            x += barWidth;
+        }
+        
+        micGraphCanvasCtx.stroke();        
+    } ()) ;
+    
+    mix.connect(audioCtx.destination);
+    
+    
+    // Microphone is disabled by default
+    //localStream.getAudioTracks()[0].enabled = false;
+    
+    console.log('Received local stream.');
+
+    // Il a different video or audio device has been 
+    // selected we need to replace these tracks in 
+    // streams to to connected peers, also;    
+    replaceStreamInMediaConnection(speakerMedia, mediaStream);
+    replaceStreamInMediaConnection(interpreterMedia, mediaStream);
+
+    // Restore local microphone and camera status
+    enableMic(micEnabled);
+    enableCam(camEnabled);
+    
+    // Pass argument to next element in promise chain
+    return navigator.mediaDevices.enumerateDevices();
+}
+
+// Handles error by logging a message to the console.
+function handleLocalMediaStreamError(error) {
+  console.error(`navigator.getUserMedia error: ${error.toString()}.`);
+}
+
+
+
+
+  
+
+
+
+</script>
+</head>
+<body class="background-supervisor">
+<div id="logo"><img src="./images/logo_uniBO_white_UpperLeft.png" /></div>
+
+<!-- Header: begin -->
+<div class="undroppable container clearfix bg-light border rounded mt-2 mb-2 p-2 opacity-75 opacity-hover-100 app-width" >
+  <div class="float-left" id="login-info">You're not logged in</div>
+  <div class="float-right">
+    <div class="btn btn-sm btn-success">
+      <i id="config-button" class="fas fa-cog" aria-hidden="true" data-toggle="modal" data-target="#config-panel"></i>
+    </div>
+  
+    <div class="btn btn-sm btn-danger">
+      <i id="logout-button" class="fas fa-power-off" aria-hidden="true"></i>
+    </div>
+  </div>
+</div>
+<!-- Header: end -->
+
+
+<!-- Main panel:begin -->
+<div class="undroppable container bg-light  border rounded app-width pb-0">
+
+  <div class="d-inline-flex w-100">
+    <h1 class="display-4">intrain:supervisor</h1>
+    <div class="ml-auto"><div class="clock"><span id="date"></span> - <span id="hours"></span>:<span id="minutes"></span>:<span id="seconds"></span></div></div>
+  </div>
+    
+  <!-- external frame: begin -->
+  <div class="flex-column">
+  
+    <!-- video and chat blocks: begin -->
+    <div class="d-flex justify-content-start ">
+    
+      <!-- left column: begin -->
+      <div class="d-inline-flex justify-content-start p-1 m-1 align-items-stretch border rounded">
+      
+        <div class="flex-column p-0 mr-2">
+
+          <!-- stacked mini video 1 --> 
+          <div class="video-container" id="video1">
+            <video id="interpreterVideo" class="border rounded mini-video" data-source="" data-video-url="" autoplay playsinline poster="images/buono.jpg" muted></video>
+            <div id="interpreter-video-caption" class="video-caption">[ interpreter ]</div>
+            <div class="video-button video-button-position-bl">
+              <input type="file" name="file" id="send-file-to-interpreter" class="input-file" />
+              <label for="send-file-to-interpreter" class="p-0 m-0" data-toggle="tooltip" title="Send a file to the interpreter"><i class="fas fa-file-upload fa-lg"></i></label>            
+            </div>
+            
+            <div class="video-button video-button-position-br" id="interpreter-fullscreen">
+                <i class="fas fa-expand-arrows-alt fa-lg" data-toggle="tooltip" title="full screeen"></i></label>
+            </div>
+            
+            <div class="video-button video-button-position-tl" id="interpreter-audio-toggle">
+                <i class="fas fa-volume-mute fa-lg" data-toggle="tooltip" title="mute/un&shy;mute the in&shy;ter&shy;preter's au&shy;dio"></i></label>
+            </div>            
+          </div>
+
+          <!-- stacked mini video 2 (you) -->  
+          <div class="video-container mt-2" id="video2">
+            <video id="localVideo" class="border rounded mini-video mirrored"
+                   data-source="" data-video-url="" autoplay playsinline 
+                   poster="images/cattivo.jpg"></video>
+            <div class="video-caption">[ you ]</div>
+            <div class="video-button">
+              <i id="toggle-camera" class="fas fa-lg fa-video-slash"  data-toggle="tooltip" title="Turn on/off your webcam"></i>
+            </div>
+          </div>
+          <div class="d-inline-flex w-100 mt-2">
+            <canvas class="d-inline-flex border rounded" style="width:186px; height:var(--normal-button-height)" id="vumeter"></canvas>
+            &nbsp;
+            <button id="toggle-microphone" class="btn btn-sm btn-danger w-3em">
+              <i class="fas fa-microphone-slash" aria-hidden="true" data-toggle="tooltip" title="Turn on/off your microphone"></i>
+            </button>
+          </div>        
+          
+        </div>
+        <!-- stacked mini videos: end -->
+        
+        <!-- main video: begin -->
+        <div class="normal-video-width ml-auto position-relative">
+          <div class="video-button video-button-position-tr hide-on-demand">
+            <i class="fas fa-exchange-alt fa-lg" id="swap-button"></i>
+          </div>
+          
+          <div class="player-container stack-bottom" id="player-container">
+            <video id="myplayer" height="100%" class="border rounded" control="controls" src="" preload="none"></video>
+          </div>
+
+          <div class="video-container" id="video3">
+            <video id="speakerVideo"  class="normal-video border rounded" data-source="" data-video-url="" autoplay playsinline poster="images/brutto.jpg" muted></video>
+            <div id="speaker-video-caption" class="video-caption">[ speaker ]</div>
+            <div class="video-button video-button-position-bl">
+              <input type="file" name="file" id="send-file-to-speaker" class="input-file" />
+              <label for="send-file-to-speaker" class="p-0 m-0" c-lass="btn btn-success" data-toggle="tooltip" title="Send a file to the speaker"><i class="fas fa-file-upload fa-lg"></i></label>            
+            </div>
+            <div class="video-button video-button-position-tl" id="speaker-audio-toggle">
+                <i class="fas fa-volume-mute fa-lg" data-toggle="tooltip" title="mute/un&shy;mute the speak&shy;er's au&shy;dio"></i></label>
+            </div>            
+            <div class="video-button video-button-position-br" id="speaker-fullscreen">
+                <i class="fas fa-expand-arrows-alt fa-lg" data-toggle="tooltip" title="full screeen"></i></label>
+            </div>
+            
+          </div>
+          
+          <!-- audio controls: begin -->
+          <div class="normal-video-width d-inline-flex justify-content-end mt-1">
+          
+            <div class="form-inline mr-auto">
+              <div>
+                <label for="record-audio" style="font-size: 0.5em">Record</label>
+                <button id="record-audio" class="btn-w-1 btn btn-success btn-sm" type="button">
+                  <i class="fas fa-circle" data-toggle="tooltip" title="Start/stop recording"></i>
+                </button>            
+              </div>
+              &nbsp; 
+              <div>
+                <label for="save-audio" style="font-size: 0.5em">Save audio</label>
+                <a id="save-audio" class="btn-w-1 btn btn-success disabled btn-sm" href="" >
+                  <i class="fas fa-save" data-toggle="tooltip" title="Save audio file"></i>
+                </a>            
+              </div>
+            </div>
+ 
+            <div class="form-inline">
+              <div>
+                <label for="balance" style="font-size: 0.5em">Crossfade+balance: </label>
+                <input class="round-slider" id="cross-fader" type="range" min="0" max="100" value="50" class="form-control-range" data-toggle="tooltip" title="Tune cross fad&shy;ing be&shy;tween speak&shy;er's and in&shy;ter&shy;preter's au&shy;dio chan&shy;nels"></input>
+              </div>
+              &nbsp; 
+              <div>
+                <label for="swap-channels" style="font-size: 0.5em">Swap L/R:</label>
+                <button id="swap-channels" class="btn-w-1 btn btn-success btn-sm" type="button">
+                  <i class="fas fa-random" data-toggle="tooltip" title="Switch left and right audio chan&shy;nels"></i>
+                </button>
+              </div>
+              &nbsp;
+              <div>
+                <label for="boost-volume" style="font-size: 0.5em">Boost</label>
+                <button id="boost-volume" class="btn-w-1 btn btn-success btn-sm " type="button">
+                  <i class="fas fa-volume-up" data-toggle="tooltip" title="Boost audio volume (2&times;)"></i>
+                </button>
+              </div>
+            </div> 
+          </div> 
+          <!-- audio controls: end -->
+          
+        </div>
+        <!-- audio controls: end -->
+        
+      </div>
+      <!-- left column: end -->
+   
+      <!-- right column (chat): begin -->
+      <div id="chatpanel" class="d-inline-flex justify-content-start mt-1 ml-1 mr-0 mb-0 flex-column w-100">
+        <div id="chatboard" class="bg-chat text-light align-self-stretch flex-grow border rounded p-1 mb-1" style="height:100%"></div>
+        <input id="chattext" placeholder="Type something here to chat..." class="bg-chat align-self-stretch border rounded mt-auto p-1">
+      </div>
+      <!-- right column (chat): end -->
+
+    </div>
+    <!-- video and chat blocks: end -->
+    
+    <!-- toolbar: begin -->
+    <div class="border rounded p-1 d-inline-flex justify-content-start w-100 toolbar ml-1">
+    
+        <!-- send file to all: begin -->
+        <div class="btn btn-sm btn-success btn-w-1">
+          <label for="send-file-to-all" class="p-0 m-0">
+            <i style="padding-top: 2px" class="fas fs-large fa-file-upload" title="Send a file to everyone" data-toggle="tooltip"></i>
+          </label>
+          <input type="file" name="file" id="send-file-to-all" class="input-file" />
+        </div>
+        <!-- send file to all: end -->
+
+        &nbsp;
+        &nbsp;
+
+        <!-- decalage chronometer:begin -->
+        <div class="d-flex d-inline-flex" style="position:relative">
+          <button id="timer-startstop" class="btn btn-sm btn-primary mr-1">
+            <i class="fas fs-large fa-stopwatch" data-toggle="tooltip" title="Start/stop chronometer (you can also press the space bar)"></i>
+          </button>
+          <div id="timer-display" class="text-light bg-primary pl-1 pr-1 rounded fs-large">00:00.0</div>
+          <button id="timer-reset" class="btn btn-sm btn-primary ml-1" data-toggle="tooltip" title="Double click to clear stats">
+            <i class="far fs-large fa-times-circle"></i>
+          </button>
+          <button id="timepad-toggle"class="btn btn-sm btn-primary ml-1">
+            <i class="fas fa-caret-down" data-toggle="tooltip" title="Show/hide stats"></i>
+          </button>
+          <div id="timepad" class="flex-fill bg-light border">
+            <div id="decalage-average" class="w-100 font-weight-bold" title="double click to copy text to clipboard">
+              (no values)
+            </div>
+          </div>
+        </div>
+        <!-- decalage chronometer:end -->
+        
+        &nbsp;
+        &nbsp;    
+    
+        <!-- player controls:begin -->
+        <div class="d-flex flex-column">
+          <div class="d-inline-flex">
+            <button id="load-player" class="btn btn-sm btn-info btn-w-2 mr-1">
+              <i class="fab fs-large fa-youtube" data-toggle="tooltip" title="Show/hide video player"></i>
+            </button>
+            <div id="player-panel" class="d-inline-flex transparent">
+              <div class="mr-1 w-100">
+                <input type="url" class="form-control clearer" id="video-url" placeholder="YouTube/Vimeo/Facebook video">
+              </div>
+              <button id="run-player" class="btn btn-sm btn-info" data-toggle="tooltip" title="Load video into player">
+                <i class="far fs-large fa-arrow-alt-circle-up"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- player controls:end -->
+    
+    
+        <!-- activity buttons: start -->
+        <div class="d-inline-flex ml-auto"> 
+          <div class="btn-group btn-group-toggle" data-toggle="buttons">
+            <button id="briefing-mode" class="btn btn-sm btn-warning btn-w-2 active">
+              <input type="radio" name="options" id="option1" autocomplete="off" checked>
+              <i class="fas fa-bullhorn" data-toggle="tooltip" title="Brief&shy;ing mode: un&shy;mute ev&shy;ery&shy;one"></i>
+            </button>
+            <button id="training-mode" class="btn btn-sm btn-warning btn-w-2">
+              <input type="radio" name="options" id="option3" autocomplete="off">
+              <i class="material-icons"  
+                 data-toggle="tooltip" 
+                 title="Train&shy;ing mode: your mi&shy;cro&shy;phone will be turn&shy;ed off and the in&shy;ter&shy;preter will be muted on the speak&shy;er's pan&shy;el.">
+                 record_voice_over<!--movie-->
+             </i>
+            </button>
+          </div>        
+        </div>
+        <!-- activity buttons: end -->    
+
+        
+    </div>
+    <!-- toolbar: end -->
+    
+    
+  </div>
+  <!-- external frame: end -->  
+
+  <div class="pt-2 row">
+    <div lass="col-sm">
+        &nbsp;&nbsp;&nbsp;&nbsp;<span id="company"></span> &ndash; <span id="license-compact"></span>
+    </div>
+    <div class="col-sm text-right">
+      <img class="pb-1" style="width: 1em" src="images/train.svg" >
+      <span id="appname"></span>
+    </div>
+  </div>
+
+</div>
+<!-- Main panel:end -->
+
+
+<!-- Message panel:begin -->
+<div id="log-panel" 
+     class="opacity-90 container border rounded mt-2 mb-2 p-2 alert-warning alert alert-dismissible fade show app-width" role="alert">
+  <!--i class="close p-2"  aria-hidden="true" data-dismiss="alert" aria-label="Close" >&times;</i-->
+  <span id="log-text">Ready to start&hellip;</span>
+</div>
+<!-- Message panel:end -->
+
+  
+  
+<!-- Logon dialog: begin -->
+<div class="modal fade" id="login-dialog" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">intrain: start a training session as supervisor</h5>
+      </div>
+      <div class="modal-body">
+
+        <form id="login-form">
+
+          <label for="username" class="col-form-label">Please, insert your username:</label>
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fas fa-user"></i></span>
+            </div>
+            <input type="text" class="form-control" id="username" placeholder="Enter a username">
+          </div>
+          <small id="usernameHelp" class="form-text text-muted">Please, enter the username you're going to use during this conference.</small>
+        </form>
+<!--
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username" class="col-form-label">Connect as supervisor:</label>
+            <input type="text" class="form-control clearer" id="username" placeholder="Enter a username">
+          </div>
+          <small id="usernameHelp" class="form-text text-muted">Please, enter the username you're going to use as supervisor of this training session. Once connected, you'll send it to the interpreter and the speaker (if any) and they will join you</small>
+        </form>
+-->        
+        <div id="login-status"></div>
+        
+        <hr/>
+
+        <div class="custom-control custom-checkbox pull-right">
+          <input type="checkbox" class="custom-control-input debug-checkbox" 
+                 id="debugging2" name="debugging2" 
+                 data-toggle='collapse' data-target='.download-log-link-container'>
+          <label class="custom-control-label" for="debugging2">Collect logs for developers</label>
+          <div class="w-100 collapse download-log-link-container" id="debugging-options-2">
+            <a href="#" id="download-log-2" class="download-log-link">download logs</a>
+          </div>
+        </div>
+
+        
+        
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning mr-auto" id="home-button">Exit</button> 
+        <button type="button" class="w-7em btn btn-secondary" id="cancel-button" disabled="true">Cancel</button>
+        <button type="button" class="w-7em btn btn-success" id="join-button" >Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Logon dialog: end -->  
+  
+  
+<!-- Config dialog: begin -->
+<!-- Modal -->
+<div class="modal fade" id="config-panel" tabindex="-1" role="dialog" aria-labelledby="config-panelTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Configuration</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      
+    <form class="form">
+    
+      <div class="form-group">
+        <label for="select-video-source">Select camera:</label>
+        <div class="input-group">
+          <div class="input-group-prepend">
+            <div class="input-group-text"><i class="fas fa-video"></i></div>
+          </div>
+          <select class="form-control" id="select-video-source"></select>
+        </div>
+      </div>
+      
+  
+      <div class="form-group">
+        <label for="select-audio-source">Select microphone:</label>
+        <div class="input-group">
+          <div class="input-group-prepend">
+            <div class="input-group-text"><i style="width:1em" class="fas fa-microphone"></i></div>
+          </div>
+          <select class="form-control" id="select-audio-source"></select>
+        </div>
+      </div>
+      
+      
+<!--    
+      
+      <div class="form-group">
+        <label for="select-audio-output">Select audio output:</label>
+        <div class="input-group">
+          <div class="input-group-prepend">
+            <div class="input-group-text"><i style="width:1em"   class="fas fa-headphones-alt"></i></div>
+          </div>
+          <select class="form-control" id="select-audio-output"></select>
+        </div>      
+      </div>
+      
+-->
+      <hr/>
+      
+      <div class="form-group">
+        <div class="custom-control custom-checkbox">
+          <input type="checkbox" class="custom-control-input debug-checkbox" id="debugging"
+          data-toggle='collapse' data-target='.download-log-link-container' >
+          <label class="custom-control-label" for="debugging">Collect logs for developers</label>
+          <div class="w-100 collapse download-log-link-container" id="debugging-options">
+            <a href="#" id="download-log" class="download-log-link">download logs</a>
+          </div>
+        </div>
+      </div>
+
+      
+      
+    </form>
+    
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div> 
+<!-- Config dialog: end -->  
+  
+  
+  
+  
+  
+  
+  
+  
+</body>
+</html>

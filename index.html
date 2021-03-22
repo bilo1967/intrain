@@ -1,0 +1,231 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+  
+  <meta name="description" content="Web based interpreter training tool">
+  <meta name="keywords" content="interpreter,interpreting,training,remote,web based,webrtc">
+
+  <!-- favicon for all devices -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icons/favicon-16x16.png">
+  <link rel="manifest" href="/images/icons/site.webmanifest">
+  <link rel="mask-icon" href="/images/icons/safari-pinned-tab.svg" color="#5bbad5">
+  <link rel="shortcut icon" href="/images/icons/favicon.ico">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="msapplication-config" content="/images/icons/browserconfig.xml">
+  <meta name="theme-color" content="#ffffff">
+
+  <title>intrain - web based interpreter training</title>
+  
+  <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
+
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+  <!-- link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet"-->
+  <link rel="stylesheet" href="css/intrain.css?0.08">
+  
+   
+  <script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
+
+  <script
+  src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"
+  integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
+  crossorigin="anonymous"></script>
+  
+  <script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>  
+  
+  
+  <script src="js/peerjs.min.js"></script>
+  
+  <script src="js/utils.js"></script>
+  <script src="js/common.js?v=0.7"></script>
+  <script src="js/config.js?v=0.1"></script>
+  <script src="js/intrain.js?v=0.3"></script>  
+  <script src="js/js.cookie.js"></script>  
+  
+  
+  <!-- https://github.com/daneden/animate.css -->
+  <link rel="stylesheet" href="css/animate.min.css">
+  <script src="js/animatecss.js"></script>
+
+
+  
+
+  <style>
+
+
+
+#splash {  
+    //background-color: rgba(238, 238, 238, 0.81) !important;
+    background-image: url('images/splash.jpg');
+    //background-blend-mode: color;  
+    
+}
+
+#headset-icon {
+    cursor: pointer;
+}
+  
+
+  </style>
+  
+  
+<script>
+    $(document).ready(function() {
+    
+        $('.pop').popover({
+            trigger: 'hover',
+            html: true,
+        });
+        
+        addCopyright();
+    
+        // Set title and version
+        $("#app-name").html("Welcome to " + appName);
+        $("#app-version").html("(version " + appVersion + ")");
+    
+        // Cookie to check if splash screen has already been displayed
+        var splash = Cookies.get('splash' + appVersion);
+        
+        // Display splash screen only if coming from another location
+        if (!splash) {
+            $('#splash').modal({
+                keyboard: false,
+                focus: true,
+            });
+            $(".transparent").fadeTo(100, 1);
+            Cookies.set('splash' + appVersion, true);
+        } else {
+            $(".transparent").fadeTo(2000, 1);
+        }
+        
+        $('#splash-close').on("click", function() {
+            $('#splash').fadeOut(1500);
+            setTimeout(function() {
+                
+                $("#splash").modal('hide');
+                
+                loadAndPlay("sounds/heartbeat.mp3");
+                animateCSS('#headset-icon', 'heartBeat', 8);
+            }, 1100)        
+        });
+        
+        $('#headset-icon').on("click", function() {
+            $('#splash').fadeOut(500);
+            setTimeout(function() {
+                $("#splash").modal('hide');
+                loadAndPlay("sounds/heartbeat.mp3");
+                animateCSS('#headset-icon', 'heartBeat', 8);
+            }, 500)        
+        });        
+        
+    });
+</script>
+
+</head>
+<body class="background-index">
+
+<div class="transparent">
+<div id="logo"><img src="./images/logo_uniBO_white_UpperLeft.png" /></div>
+
+    <div class="container bg-light opacity-90 opacity-hover-100 border rounded app-width mt-4 pb-2">
+    
+      <h1 class="display-4">inTrain</h1>  
+      <h4 class="display-5">web based interpreter training</h4>
+      
+      <p>Choose your role</p>
+      <ul>
+        <li><a href="supervisor"
+            class="pop"
+            title="The supervisor opens the training session"
+            data-toggle="popover"
+            data-trigger="hover"
+            data-content="The supervisor (assessor/teacher/tutor) opens the training session. He/she logs in by providing any username, as long as it is unique (your email address is fine and will not be logged, recorded or used in any way outside of the intended uses of this application).<br>After logging in, the supervidor waits for the interpreter and the speaker to join the session.<br>Permissions to access webcam and microphone will be asked and <b>must</b> be granted. Notifications can be optionally authorized. They will be only used to notify when someone joins the session." 
+            >Supervisor</a></li>
+    
+        <li><a href="interpreter"
+            class="pop"
+            title="The interpreter joins the supervisor"
+            data-toggle="popover"
+            data-trigger="hover"
+            data-content="The interpreter joins the training session by entering the supervisor's username. The supervisor must be already logged in.
+            Permissions to use webcam and microphone will be asked and <b>must</b> be granted."     
+            class="pop"
+            >Interpreter</a></li>
+    
+        <li><a href="speaker"
+            title="The speaker joins the supervisor"
+            data-toggle="popover"
+            data-trigger="hover"
+            data-content="The speaker joins the training session by entering the supervisor's username. The supervisor must be already logged in.
+            Permissions to use webcam and microphone will be asked and <b>must</b> be granted."
+            class="pop"
+            >Speaker</a></li>
+    
+      </ul>
+    
+      <div class="alert alert-warning">
+        <span class="fa-stack fa-2x">
+          <i class="fas fa-square fa-stack-2x"></i>
+          <i id="headset-icon" class="fas fa-headset fa-stack-1x fa-inverse"> </i>
+        </span>Please, <div style="display: inline-block" id="headset-disclaimer">plug in</div> your headset and your webcam <b>before</b> clicking any of the links above.
+      </div>
+      
+      <p>You can download the user manual <a href="intrain-user-manual.pdf" target="_blank">here</a>.</p>
+      
+  <div class="pt-2 row">
+    <div class="col-sm-8 text-left">
+      <span id="company"></span>
+      <span style="font-size: 0.85em">
+        <span id="license"></span>
+        <span id="credits"></span>
+      </span>
+    </div>
+    
+    <div class="col-sm text-right">
+      <img class="pb-1" style="width: 1em" src="images/train.svg" >
+      <span id="appname"></span>
+    </div>
+  </div>      
+        
+    </div>
+  
+</div>
+</div>
+
+
+<div id="splash" class="modal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content" >
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <span id="app-name">Welcome to inTrain</span>
+          <span id="app-version"></span>
+        </h5>
+        
+      </div>
+      <div class="modal-body">
+        <p>Web based training for interpreters.</p>
+        <p style="font-size: 0.85em">This web application is distributed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.html">GNU Affero General Public License v3</a> (see <a href="credits" target="_blank">credits</a>)</p>
+      </div>
+      <div class="modal-footer">
+        <button id="splash-close" type="button" class="btn btn-success mr-auto ml-auto">Let's start!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+</body>
+</html>  

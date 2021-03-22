@@ -1,0 +1,46 @@
+.fs-large {  font-size: 1.5rem; }
+#timer-display {
+    font-family: "Open Sans";
+    cursor: default;
+    user-select: none;
+}
+
+#timepad {
+    position: absolute;
+    display: none;
+    width: 100%;
+    max-height: calc(7.5em + 5px);
+    z-index: 1;
+    top: calc(100%);
+    font-family: "Open Sans";
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+#decalage-average {
+    background: SeaGreen;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+}
+
+#decalage-average:hover {
+    background: MediumSeaGreen;
+}
+
+.decalage {
+    width: calc(100% - 1em);
+    border-bottom: 1px dashed grey;
+    user-select: none;
+    cursor: default;
+}
+.decalage:hover {
+    background: LemonChiffon;
+}
+
+.delete-decalage {
+    width: 0.5em;
+    cursor: pointer;
+    float: right;
+    user-select: none;
+}
+

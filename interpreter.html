@@ -1,0 +1,940 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+  
+  <meta name="description" content="Web based interpreter training tool">
+  <meta name="keywords" content="interpreter,interpreting,training,remote,web based,webrtc">
+  
+  <!-- favicon for all devices -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icons/favicon-16x16.png">
+  <link rel="manifest" href="/images/icons/site.webmanifest">
+  <link rel="mask-icon" href="/images/icons/safari-pinned-tab.svg" color="#5bbad5">
+  <link rel="shortcut icon" href="/images/icons/favicon.ico">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="msapplication-config" content="/images/icons/browserconfig.xml">
+  <meta name="theme-color" content="#ffffff">
+
+  <title>intrain:interpreter</title>
+  
+  
+
+  <!-- script src="https://use.fontawesome.com/7f33ee3a55.js"></script -->
+  <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+  <link rel="stylesheet" href="css/intrain.css?0.9">
+  
+   
+  <script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
+
+  <script
+  src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"
+  integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
+  crossorigin="anonymous"></script>
+  
+  <script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>  
+  
+  
+  <script src="js/jquery.swapelements.js"></script>
+  <script src="js/peerjs.min.js"></script>
+  
+  <!-- Audio recorder from AudioContext -->
+  <script src="js/recorderjs/recorder.js"></script>  
+  
+  <script src="js/utils.js?0.01"></script>
+  <script src="js/common.js?0.06"></script>
+  <script src="js/config.js?0.04"></script>
+  <script src="js/intrain.js?0.06"></script>
+  <script src="js/log.js?0.02"></script>
+  <script src="js/io-devices.js"></script>
+
+
+  <!-- https://github.com/daneden/animate.css -->
+  <link rel="stylesheet" href="css/animate.min.css">
+  <script src="js/animatecss.js"></script>
+
+  <!-- Input clear button -->  
+  <script src="js/bootstrap4-input-clearer.min.js"></script>
+
+
+  <!-- MediaElementJS HTML5 Video Player -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/mediaelementplayer.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/mediaelement-and-player.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/dailymotion.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/facebook.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/soundcloud.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/twitch.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/vimeo.min.js"></script>
+  
+<style>
+    .mejs__overlay-button {display:none;}
+</style>  
+
+  
+<script>
+
+var localVideo;
+var localStream;
+
+myRole = RoleInterpreter;
+myColor = ColorInterpreter;
+
+speakerAudioMutedDefault = false;
+//interpreterAudioDefault = false;
+supervisorAudioMutedDefault = false;
+
+speakerAudioMuted      = speakerAudioMutedDefault;
+//interpreterAudioMuted  = interpreterAudioDefault;
+supervisorAudioMuted = supervisorAudioMutedDefault;
+
+
+// Video player
+var showPlayer = false;
+
+
+// Canvas to draw an audio waveform for the microphone
+var micGraph = null;
+var micGraphCanvasCtx = null;
+
+$(document).ready(function() {
+
+    micGraph = $("#vumeter")[0];
+    micGraphCanvasCtx = micGraph.getContext("2d");
+
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip()
+    })
+    // clear button in inputs
+    $(function() {
+      $('.clearer').clearer();
+    }); 
+
+    initMuted();
+    loadClock();
+    
+
+    $('#login-dialog').modal({keyboard: false, backdrop: 'static'});
+    $('#cancel-button').attr("disabled", true);
+
+    supervisorVideo = $("#supervisorVideo")[0];
+    speakerVideo = $("#speakerVideo")[0];
+    localVideo = $("#localVideo")[0];
+
+/*
+    navigator.mediaDevices
+        .getUserMedia(InterpreterMediaStreamConstraints)
+        .then(gotLocalMediaStream)
+        .catch(handleLocalMediaStreamError);
+*/
+
+    setDeviceSelectors({
+       vs: $('#select-video-source')[0], // select box for video source devices
+       as: $('#select-audio-source')[0], // select box for audio source devices
+       ao: $('#select-audio-output')[0], // select box for audio output devices
+    });
+    $('#select-video-source').on('change', setUserMediaConstraints);
+    $('#select-audio-source').on('change', setUserMediaConstraints);
+    //$('#select-audio-output').on('change', changeAudioDestination);
+    
+    navigator.mediaDevices
+        .enumerateDevices()
+        .then(gotDevices)
+        .catch(handleLocalMediaStreamError);
+
+    setUserMediaConstraints(); 
+
+
+    // init player
+	$('#myplayer').mediaelementplayer({
+        startVolume: 1,
+        stretching: 'responsive',
+        controls: true,
+        alwaysShowControls: false,
+        features: [
+        //  "playpause",
+        //  "progress",
+            "current",
+            "duration",
+        //  "tracks",
+            "volume",
+            "fullscreen"
+        ],
+        success: function(mediaElement, originalNode, instance) {
+            myVideoPlayer = instance;
+            myVideoMediaElement = mediaElement;            
+	    }
+        
+	});
+
+    
+    $("#join-button").on("click", function(e) {
+    
+        e.preventDefault();
+        
+        console.log("Call/disconnect button pressed"); 
+
+        // We're connected and we want to disconnect
+        if (peerConnected) {
+            console.log("Closing...");
+            
+            // Notify everybody we're disconnecting
+            if (supervisorData && supervisorData.open) {
+                supervisorData.send({action: "leaving", message: "bye"});
+            }
+            if (speakerData && speakerData.open) {
+                speakerData.send({action: "leaving", message: "bye"});
+            }
+
+            $("#login-info").html("You're disconnected");
+            $('#cancel-button').attr("disabled", true);
+            logToChat("You are not connected");
+            
+            $('#login-dialog').modal('show');
+            
+            // Close all data/media connections, streams and reset handlers
+            setTimeout(function() { 
+                //myPeer.destroy();
+                closeAllConnections();
+            }, 0);
+            
+            return true;
+        }
+        
+        // Enable cancel button in login form
+        $('#cancel-button').attr("disabled", false);
+        
+        
+
+        userName = $("#username").val().trim();
+        if (userName == "") {
+            logToPanel("User name is empty", "info");
+            return false;
+        }    
+        userID = userName.toLowerCase().hash64();
+        
+        myPeer = new Peer(PeerJSConfig, InterpreterPeerOptions);
+
+        
+        // Should receive an incoming call only from the speaker
+        myPeer.on('connection', function(c) { 
+        
+            var role = c.options.metadata.role; // Who's connecting
+
+            if (setupDataConnection(c, role)) {
+                console.log("Connection handle has been set");
+                // Handle data connections
+                switch (role) {
+                case RoleInterpreter:
+                    break;
+                case RoleSpeaker:
+                    speakerData.on('data', function(data) {
+                        handleChat(data, RoleSpeaker, ColorSpeaker);
+                    });
+                    break;
+                case RoleSupervisor:
+                    break;
+                }                
+            } else {
+                console.warn("Rejecting data connection");
+                c.close();
+            }
+        });  
+        
+        // Should receive a call only from the speaker
+        myPeer.on('call', function(c) {
+            
+            var role = c.options.metadata.role; // Who's connecting
+            
+            console.log("media call from ", c);
+            
+            switch (role) {
+            case RoleSpeaker:
+                speakerMedia = c;
+                speakerMedia.answer(localStream);
+                speakerMedia.on('stream', function(mediaStream) {
+                  
+                  speakerVideo.srcObject = mediaStream;
+                  speakerMediaStream = mediaStream;
+                 
+                  //speakerVideo.play();
+                  //speakerVideo.muted = speakerAudioMuted;
+
+                  speakerVideo.onloadedmetadata = function(e) {
+                      speakerVideo.play();
+                      speakerVideo.muted = speakerAudioMuted;
+                  }
+                });  
+                speakerMedia.on('close', function() {
+                    resetConnection(RoleSpeaker);
+                    logToPanel("<b>" + RoleSpeaker + "</b> media connection closed", "danger");
+                    logToChat("<b>" + RoleSpeaker + "</b> media connection closed");
+                    console.log(RoleSpeaker + " media connection closed");
+                });                   
+                break;
+            case RoleInterpreter:
+                break;
+            case RoleSupervisor:
+
+                break;
+            }
+        
+        });        
+
+        myPeer.on('open', function(){
+
+            console.log("Peer: open");
+
+            // here you have myPeer.id
+            peerConnected = true;
+            peerError = false;
+            
+            logToPanel("Connection successful. You're now connected to the signaling server as <strong>" + myPeer.id + "</strong>. Trying to establish a data connection to " + userName, "success");
+            
+            $("#username").prop("disabled", true);
+            $("#join-button").text("Disconnect");
+            $("#join-button").removeClass("btn-success").addClass("btn-warning");
+            $('#login-status').html('');
+            $('#login-dialog').modal('hide');
+
+            logToPanel("Trying to join the training session");
+            
+            console.log("Joining", userName, "as", myRole)
+            supervisorData = myPeer.connect(userID, { 
+                metadata: {role: myRole}, 
+                reliable: true, 
+            });
+            
+            supervisorData.on('open', function() {
+            
+                $("#login-info").html("You've joined the training session as the <strong>" + myRole + "</strong> [id=" + myPeer.id + "]");
+                
+                logToChat("You have joined the training session");
+                logToPanel("You have joined the training session");
+                
+                console.log("Established data connection to the supervisor");
+              
+                supervisorData.on('data', function(data) {
+                    var act = (typeof data === "object") ? data.action : "chat";
+                    
+                    console.log("received: " + JSON.stringify(data) +  " from ", RoleSupervisor);
+                    
+                    switch (act) {
+                    case 'chat':
+                        logToChat(data.message, RoleSupervisor, ColorSupervisor);
+                        break;
+                    case 'leaving':
+                        logToChat("The training session is over. You're not connected.");
+                        logToPanel("The supervisor has terminated this training session. You're not connected.", "warning", true);
+                        closeAllConnections();
+                        $("#login-info").html("You're disconnected");
+                        $('#cancel-button').attr("disabled", true);
+                        break;
+                    case 'sendfile':
+                        var link = getFileDownloadLinkFromData(data);
+                        if (link !== null) {
+                            console.log("Received file '" + data.filename + "' of type '" + data.filetype + "' from " + RoleSupervisor);
+                            logToChat("The " + RoleSupervisor + " has sent you a file: " + link);
+                        } else {
+                            console.warn("Invalid file transfer from", RoleSupervisor);
+                            logToChat("Invalid file transfer from", RoleSupervisor);
+                        }
+                        break;                        
+                    case 'dial':
+                        console.log('Supervisor told me to call the', data.role, 'using id', data.peerid);
+                        dialPeer(data.peerid, myRole, data.role);
+                        break;
+                    case 'reject':
+                        console.warn(act, data.message);
+                        logToPanel(data.message, "warning", true);
+                        $('#join-button').trigger("click");
+                        break;
+
+                    case 'showplayer':
+                        $('#player-container').removeClass('stack-bottom').addClass('stack-top');
+                        $('#player-panel').fadeTo(1000, 1);
+                        showPlayer = true;
+
+                        // Mute speaker audio while in video player mode
+                        if (speakerMedia && speakerMedia.open) 
+                            muteMicrophone(RoleSpeaker, true);
+                        
+                        break;
+                        
+                    case 'hideplayer':
+                        showPlayer = false;
+                        $('#player-container').removeClass('stack-top').addClass('stack-bottom');
+                        $('#player-panel').fadeTo(500, 0);;
+                        break;
+ 
+                    case 'loadvideo':
+                    
+                        $('#player-container').removeClass('stack-bottom').addClass('stack-top');
+                        $('#player-panel').fadeTo(1000, 1);
+                        if (myVideoPlayer != null) {
+                            console.log("Received video " + data.url);
+                            myVideoPlayer.setSrc(data.url);
+                            if (data.time)
+                                myVideoPlayer.setCurrentTime(parseFloat(data.time));
+                            if (data.pause)
+                                myVideoPlayer.pause();
+                        }
+                        break;
+                    case 'playvideo':
+                        if (myVideoPlayer != null) {
+                            console.log("play video");
+                            myVideoPlayer.play();
+                        }
+                        break;
+                    case 'pausevideo':
+                        if (myVideoPlayer != null) {
+                            console.log("pause video");
+                            myVideoPlayer.pause();
+                        }
+                        break;
+                    case 'seekvideo':
+                        if (myVideoPlayer != null) {
+                            //myVideoPlayer.pause();
+                            myVideoMediaElement.setCurrentTime(parseFloat(data.time));
+                            if (data.pause) myVideoPlayer.pause();
+                            console.log("seek video to", data.time);
+                        }
+                        break;
+                    case 'setaudiomode':
+                        if (data.mode == "training") {
+/*
+                            if (!supervisorAudioMuted) {
+                                muteMicrophone(RoleSupervisor, true);
+                                animateCSS('#supervisor-audio-toggle', 'heartBeat');
+                            }
+*/
+                            if (!isMicEnabled()) {
+                                animateCSS('#toggle-microphone', 'rubberBand');
+                                loadAndPlay("sounds/boing.wav");
+                            }
+                            
+                            if (showPlayer) {
+                                if (!speakerAudioMuted && speakerMedia && speakerMedia.open) {
+                                    muteMicrophone(RoleSpeaker, true);
+                                    animateCSS('#speaker-audio-toggle', 'heartBeat');
+                                }
+                            } else {
+                                if (speakerAudioMuted && speakerMedia && speakerMedia.open) {
+                                    muteMicrophone(RoleSpeaker, false);
+                                    animateCSS('#speaker-audio-toggle', 'heartBeat');
+                                }
+                            }
+                        } else if (data.mode == "briefing") {
+                            if (!isMicEnabled()) {
+                                animateCSS('#toggle-microphone', 'rubberBand');
+                                loadAndPlay("sounds/boing.wav");
+                            }                        
+                            if (supervisorAudioMuted) {
+                                muteMicrophone(RoleSupervisor, false);
+                                animateCSS('#supervisor-audio-toggle', 'heartBeat');
+                            }
+                            if (speakerAudioMuted && speakerMedia && speakerMedia.open) {
+                                muteMicrophone(RoleSpeaker, false);
+                                animateCSS('#speaker-audio-toggle', 'heartBeat');
+                            }
+                        } else {
+                            // ignore
+                        }
+                        break;
+                        
+                    }
+                });
+            });
+            supervisorData.on('close', function() {
+                resetConnection(RoleSupervisor);
+                logToPanel("<b>" + RoleSupervisor + "</b> data connection closed", "danger");
+                logToChat("<b>" + RoleSupervisor + "</b> data connection closed");
+                console.log(RoleSupervisor + " data connection closed");
+            });
+            supervisorData.on('error', function(err) {
+                console.error('error in data connection from ' + RoleSupervisor + ':', err);
+                logToPanel("Connection failed: maybe " + userName + " is already connected with someone else with your role?", "warning", true);
+                $('#join-button').trigger("click");        
+            });
+            
+            // Video call
+            supervisorMedia = myPeer.call(userID, localStream, { metadata: {role: myRole} } );
+
+            supervisorMedia.on('stream', function(mediaStream) {
+                // `stream` is the mediaStream of the remote peer.
+                // Here you'd add it to an HTML video/canvas element.
+                
+                supervisorVideo.srcObject = mediaStream;
+                supervisorMediaStream = mediaStream;
+                
+                //supervisorVideo.play();
+                //supervisorVideo.muted = supervisorAudioMuted;
+                
+                supervisorVideo.onloadedmetadata = function(e) {
+                    supervisorVideo.play();
+                    supervisorVideo.muted = supervisorAudioMuted;
+                }
+                
+                loadAndPlay("sounds/whistle.mp3");
+            });
+            supervisorMedia.on('close', function() {
+                resetConnection(RoleSupervisor);
+                logToPanel("<b>" + RoleSupervisor + "</b> media connection closed", "danger");
+                logToChat("<b>" + RoleSupervisor + "</b> media connection closed");
+                console.log(RoleSupervisor + " media connection closed");
+            });            
+
+        });
+        
+        myPeer.on('close', function(){
+          peerConnected = false;
+          
+          logToPanel("Connection closed", "success");
+          $("#username").prop("disabled", false);
+          
+          $("#join-button").text("Call");
+          $("#join-button").removeClass("btn-warning").addClass("btn-success");
+        });
+        
+        myPeer.on('disconnected', function(){
+          // myPeer.reconnect();
+        });
+        
+        myPeer.on('error', peerErrors);
+       
+        return false;
+        
+    });
+    
+    loadCommonHandlers();
+
+
+    $('#load-player').on('click', function() {
+        showPlayer = !showPlayer;
+        
+        if (showPlayer) {
+            $('#load-player i').removeClass('fab fa-youtube').addClass('fas fa-times-circle');
+            $('#player-container').removeClass('stack-bottom').addClass('stack-top');
+        } else {
+            $('#load-player i').removeClass('fas fa-times-circle').addClass('fab fa-youtube');
+            $('#player-container').removeClass('stack-top').addClass('stack-bottom');
+        }
+    });
+
+});
+
+// Sets the MediaStream as the video element src.
+function gotLocalMediaStream(mediaStream) {
+
+    // Save local microphone and camera status
+    micEnabled = isMicEnabled();
+    if (micEnabled === null) micEnabled = !supervisorAudioMutedDefault;
+    camEnabled = isCamEnabled() !== false;
+
+    window.stream = mediaStream; // make stream available to console
+    
+    localVideo.srcObject = mediaStream;
+    localStream = mediaStream;
+    
+    localVideo.play();
+    localVideo.muted = true;
+    
+    localVideo.onloadedmetadata = function(e) {
+        localVideo.play();
+        localVideo.muted = true;
+    }
+    
+    // Creo un AudioContext
+    var audioCtx = new AudioContext();
+    
+    // connect microphone to node chain
+    var mic = audioCtx.createMediaStreamSource(mediaStream);
+    
+    // Create an analyser to draw a waveform for mic input
+    var analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    var bufferLength = analyser.frequencyBinCount;
+    var dataArray = new Uint8Array(bufferLength);
+
+    // Create a zero gain node to avoid own mic feedback to headphones
+    var zeroGain = audioCtx.createGain();
+    zeroGain.gain.value = 0.0;
+    
+    // Create node chain 
+    mic.connect(analyser);
+    analyser.connect(zeroGain);
+    zeroGain.connect(audioCtx.destination);
+
+    // Draw microphone output waveform
+    (function draw() {
+        var drawVisual = requestAnimationFrame(draw);
+        
+        analyser.getByteFrequencyData(dataArray);
+        
+        micGraphCanvasCtx.fillStyle = 'rgb(240, 240, 240)';
+        micGraphCanvasCtx.fillRect(0, 0, micGraph.width, micGraph.height);
+
+        const bars = 12;
+        const floor = 150;
+        
+        var barWidth = Math.floor(micGraph.width / bars);
+        var max = 0;
+        for(var i = 0; i < dataArray.length; i++) {
+            if (max < dataArray[i]) max = dataArray[i];
+        }
+        //var avg = sum / dataArray.length;
+        max = (max - floor); if (max < 0) max = 0;
+        max = max / (255 - floor);
+        
+        for (var j = 0, x = 0; j < bars * max; j++) {
+            micGraphCanvasCtx.fillStyle = 'rgb(0,255,0)';
+            micGraphCanvasCtx.fillRect(x + 2, 0, barWidth - 4, micGraph.height);
+            x += barWidth;
+        }
+        
+        micGraphCanvasCtx.stroke();        
+    } ()) ;
+    
+
+    console.log('Received local stream.');
+    
+    // Il a different video or audio device has been 
+    // selected we need to replace these tracks in 
+    // streams to to connected peers, also;  
+    replaceStreamInMediaConnection(speakerMedia, mediaStream);
+    replaceStreamInMediaConnection(supervisorMedia, mediaStream);
+
+    // Restore local microphone and camera status
+    enableMic(micEnabled);
+    enableCam(camEnabled);    
+    
+    // Pass argument to next element in promise chain
+    return navigator.mediaDevices.enumerateDevices();  
+}
+
+// Handles error by logging a message to the console.
+function handleLocalMediaStreamError(error) {
+  console.error(`navigator.getUserMedia error: ${error.toString()}.`);
+}
+
+
+
+</script>
+
+</head>
+<body class="background-interpreter">
+<div id="logo"><img src="./images/logo_uniBO_white_UpperLeft.png" /></div>
+
+<!-- Header: begin -->
+<div class="undroppable container clearfix bg-light border rounded mt-2 mb-2 p-2 opacity-75 opacity-hover-100 app-width" >
+  <div class="float-left" id="login-info">You're not logged in</div>
+  <div class="float-right">
+    <div class="btn btn-sm btn-success">
+      <i id="config-button" class="fas fa-cog" aria-hidden="true" data-toggle="modal" data-target="#config-panel"></i>
+    </div>
+  
+    <div class="btn btn-sm btn-danger">
+      <i id="logout-button" class="fas fa-power-off" aria-hidden="true"></i>
+    </div>
+  </div>
+</div>
+<!-- Header: end -->
+
+
+
+<!-- Main panel: begin -->
+<div class="undroppable container bg-light  border rounded app-width pb-0">
+
+  <div class="d-inline-flex w-100">
+    <h1 class="display-4">intrain:interpreter</h1>
+    <div class="ml-auto"><div class="clock"><span id="date"></span> - <span id="hours"></span>:<span id="minutes"></span>:<span id="seconds"></span></div></div>
+  </div>
+  
+  <!-- external frame: begin -->
+  <div class="flex-column">
+  
+    <!-- video and chat blocks: begin -->
+    <div class="d-flex justify-content-start">
+
+      <!-- left column (videos): begin -->
+      <div class="d-inline-flex justify-content-start p-1 m-1 align-items-stretch border rounded">
+      
+        <!-- stacked mini videos: begin --> 
+        <div class="flex-column p-0 mr-2">
+
+          <!-- stacked mini video 1 --> 
+          <div class="video-container" id="video1">
+            <video id="supervisorVideo" class="border rounded mini-video" data-source="" data-video-url="" autoplay playsinline poster="images/cattivo.jpg" muted></video>
+            <div id="supervisor-video-caption" class="video-caption">[ supervisor ]</div>
+            <div class="video-button video-button-position-bl" >
+              <div data-toggle="tooltip" title="Send a file to the supervisor"> 
+                <input type="file" name="file" id="send-file-to-supervisor" class="input-file" />
+                <label for="send-file-to-supervisor" class="p-0 m-0" data-toggle="tooltip" title="Send a file to the supervisor"><i class="fas fa-file-upload fa-lg"></i></label>
+              </div>
+            </div>
+
+            <div class="video-button video-button-position-br" id="supervisor-fullscreen">
+                <i class="fas fa-expand-arrows-alt fa-lg" data-toggle="tooltip" title="full screeen"></i></label>
+            </div>
+            
+
+            <div class="video-button video-button-position-tl" id="supervisor-audio-toggle">
+                <i class="fas fa-volume-mute fa-lg" data-toggle="tooltip" title="mute/un&shy;mute the su&shy;per&shy;vi&shy;sor's au&shy;dio"></i></label>
+            </div>
+          </div>
+
+          <!-- stacked mini video 2 --> 
+          <div class="video-container  mt-2" id="video2">
+            <video id="localVideo" class="border rounded mini-video mirrored"
+                   data-source="" data-video-url="" autoplay playsinline 
+                   poster="images/buono.jpg" muted></video>
+            <div class="video-caption">[ you ]</div>
+            <div class="video-button">
+              <i id="toggle-camera" class="fas fa-lg fa-video-slash"  data-toggle="tooltip" title="Turn on/off your webcam"></i>
+            </div>
+          </div>
+          <div class="d-inline-flex w-100 mt-2">
+            <canvas class="d-inline-flex border rounded" style="width:186px; height:var(--normal-button-height)" id="vumeter"></canvas>
+            &nbsp;
+            <button id="toggle-microphone" class="btn btn-sm btn-danger w-3em">
+              <i class="fas fa-microphone-slash" aria-hidden="true" data-toggle="tooltip" title="Turn on/off your microphone"></i>
+            </button>
+          </div>           
+          
+        </div>
+        <!-- stacked mini videos: end -->
+
+        <!-- main video: begin -->
+        <div class="normal-video-width ml-auto position-relative">
+          <div class="video-button video-button-position-tr">
+            <i class="fas fa-exchange-alt fa-lg" id="swap-button"></i>
+          </div>
+
+          <!-- video player -->
+          <div class="player-container stack-bottom" id="player-container">
+            <video id="myplayer" height="100%" class="border rounded" control="controls" src="" preload="none"></video>
+          </div>          
+        
+          <div class="video-container" id="video3">
+            <video class="normal-video border rounded" data-source="" data-video-url="" autoplay playsinline poster="images/brutto.jpg" id="speakerVideo" muted></video>
+            <div id="speaker-video-caption" class="video-caption">[ speaker ]</div>
+            <div class="video-button video-button-position-bl">
+              <div data-toggle="tooltip" title="Send a file to the speaker">
+                <input type="file" name="file" id="send-file-to-speaker" class="input-file" />
+                <label for="send-file-to-speaker" class="p-0 m-0"><i class="fas fa-file-upload fa-lg"></i></label>            
+              </div>
+            </div>
+            <div class="video-button video-button-position-tl" id="speaker-audio-toggle">
+                <i class="fas fa-volume-mute fa-lg" data-toggle="tooltip" title="mute/un&shy;mute the speak&shy;er's au&shy;dio"></i></label>
+            </div>
+            <div class="video-button video-button-position-br" id="speaker-fullscreen">
+                <i class="fas fa-expand-arrows-alt fa-lg" data-toggle="tooltip" title="full screeen"></i></label>
+            </div>
+          </div>
+
+          <!-- audio controls: begin -->  
+          <div class="normal-video-width d-inline-flex justify-content-end mt-1" style="height: var(--normal-button-height)">
+          </div>
+          <!-- audio controls: end -->
+
+        </div>
+        <!-- main video: end -->
+        
+      </div>
+      <!-- left column: end -->
+      
+      <!-- right column (chat): begin -->
+      <div id="chatpanel" class="d-inline-flex justify-content-start mt-1 ml-1 mr-0 mb-0 flex-column w-100">
+        <div id="chatboard" class="bg-chat text-light align-self-stretch flex-grow border rounded p-1 mb-1" style="height:100%"></div>
+        <input id="chattext" class="bg-chat align-self-stretch border rounded mt-auto p-1">
+      </div>
+      <!-- right column (chat): end -->
+
+    </div>
+    <!-- video and chat blocks: end -->
+    
+    <!-- toolbar: begin -->
+    <div class="border rounded p-1 d-inline-flex justify-content-start w-100 toolbar ml-1">
+
+        <!-- send file to all: begin -->
+        <div class="btn btn-sm btn-success btn-w-1">
+          <label for="send-file-to-all" class="p-0 m-0">
+            <i style="padding-top: 2px" class="fas fs-large fa-file-upload" title="Send a file to everyone" data-toggle="tooltip"></i>
+          </label>
+          <input type="file" name="file" id="send-file-to-all" class="input-file" />
+        </div>
+        <!-- send file to all: end -->
+    </div>
+    <!-- toolbar: end -->    
+    
+  </div>
+  <!-- external frame: end -->  
+  
+  <div class="pt-2 row">
+    <div lass="col-sm">
+        &nbsp;&nbsp;&nbsp;&nbsp;<span id="company"></span> &ndash; <span id="license-compact"></span>
+    </div>
+    <div class="col-sm text-right">
+      <img class="pb-1" style="width: 1em" src="images/train.svg" >
+      <span id="appname"></span>
+    </div>
+  </div>
+  
+</div>
+<!-- Main panel: end -->
+
+
+
+<!-- Message panel:begin -->
+<div id="log-panel" 
+     class="opacity-90 container border rounded mt-2 mb-2 p-2 alert-warning alert alert-dismissible fade show app-width" role="alert">
+  <!--i class="close p-2" aria-hidden="true" data-dismiss="alert" aria-label="Close" >&times;</i-->
+    <span id="log-text">Ready to start&hellip;</span>
+</div>
+<!-- Message panel:end -->
+
+
+
+
+
+<!-- Logon dialog: begin -->
+<div class="modal fade" id="login-dialog" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">intrain: join a training session as interpreter</h5>
+      </div>
+      <div class="modal-body">
+
+        <form id="login-form">
+          <label for="username" class="col-form-label">Call the supervisor:</label>
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fas fa-phone-alt"></i></span>
+            </div>
+            <input type="text" class="form-control" id="username" placeholder="Enter a username">
+          </div>
+          <small id="usernameHelp" class="form-text text-muted small font-weight-light">Insert the username of the supervisor of the training session and then click the <em>call</em> button.</small>
+        </form>
+<!--
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username" class="col-form-label">Call the supervisor:</label>
+            <input type="text" class="form-control clearer" id="username" placeholder="Enter a username">
+          </div>
+          <small id="usernameHelp" class="form-text text-muted small font-weight-light">Insert the username of the supervisor of the training session and then click the <em>call</em> button.</small>
+        </form>
+-->
+        <div id="login-status"></div>
+        
+        <hr/>
+
+        <div class="custom-control custom-checkbox pull-right">
+          <input type="checkbox" class="custom-control-input debug-checkbox" 
+                 id="debugging2" name="debugging2" 
+                 data-toggle='collapse' data-target='.download-log-link-container'>
+          <label class="custom-control-label" for="debugging2">Collect logs for developers</label>
+          <div class="w-100 collapse download-log-link-container" id="debugging-options-2">
+            <a href="#" id="download-log-2" class="download-log-link">download logs</a>
+          </div>
+        </div>
+        
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning mr-auto" id="home-button">Exit</button> 
+        <button type="button" class="w-7em btn btn-secondary" id="cancel-button" disabled="true">Cancel</button>
+        <button type="button" class="w-7em btn btn-success" id="join-button" >Call</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Logon dialog: end -->
+
+<!-- Config dialog: begin -->
+<!-- Modal -->
+<div class="modal fade" id="config-panel" tabindex="-1" role="dialog" aria-labelledby="config-panelTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Configuration</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      
+    <form class="form">
+
+      <div class="form-group">
+        <label for="select-video-source">Select camera:</label>
+        <div class="input-group">
+          <div class="input-group-prepend">
+            <div class="input-group-text"><i class="fas fa-video"></i></div>
+          </div>
+          <select class="form-control" id="select-video-source"></select>
+        </div>
+      </div>
+      
+  
+      <div class="form-group">
+        <label for="select-audio-source">Select microphone:</label>
+        <div class="input-group">
+          <div class="input-group-prepend">
+            <div class="input-group-text"><i style="width:1em" class="fas fa-microphone"></i></div>
+          </div>
+          <select class="form-control" id="select-audio-source"></select>
+        </div>
+      </div>
+      
+      
+<!--    
+      
+      <div class="form-group">
+        <label for="select-audio-output">Select audio output:</label>
+        <div class="input-group">
+          <div class="input-group-prepend">
+            <div class="input-group-text"><i style="width:1em"   class="fas fa-headphones-alt"></i></div>
+          </div>
+          <select class="form-control" id="select-audio-output"></select>
+        </div>      
+      </div>
+      
+-->    
+      <hr/>
+
+      <div class="form-group">
+        <div class="custom-control custom-checkbox">
+          <input type="checkbox" class="custom-control-input debug-checkbox" id="debugging"
+          data-toggle='collapse' data-target='.download-log-link-container' >
+          <label class="custom-control-label" for="debugging">Collect logs for developers</label>
+          <div class="w-100 collapse download-log-link-container" id="debugging-options">
+            <a href="#" id="download-log" class="download-log-link">download logs</a>
+          </div>
+        </div>
+      </div>
+
+
+      
+      
+    </form>
+    
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div> 
+<!-- Config dialog: end -->  
+
+</body>
+</html>  
