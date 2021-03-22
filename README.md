@@ -29,7 +29,7 @@ You can find plenty of free STUN servers. Google provides at least a dozen for f
 
 If you setup your own STUN, TURN or PeerJS server, be sure that their ports are not blocked by your firewall for inbound connections (expecially PeerJS which may not use a standard port). Also, verify that you can access those ports from your location.
 
-Once you have your working PeerJS server and access to at least a TURN and a TURN server, you can download the inTrain webroot from GitHub, set up the configuration files and have your inTrain installation served by a webserver.
+Once you have your working PeerJS server and access to at least a STUN and a TURN server, you can download the inTrain webroot from GitHub, set up the configuration files and have your inTrain installation served by a webserver.
 
 ## Installation
 
