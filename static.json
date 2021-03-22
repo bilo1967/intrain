@@ -1,6 +1,5 @@
 {
-  "root": "master",
+  "root": "intrain/",
   "clean_urls": true,
-  "canonical_host": "${HOST}",
   "https_only": true,
 }
