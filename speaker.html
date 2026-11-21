@@ -186,7 +186,7 @@ $(document).ready(async function() {
             logToPanel("The supervisor has switched your role from interpreter to speaker", "danger");
         }
         setTimeout(() => {
-            joinSupervisor(null, InterpreterPeerOptions, setAudioMode);
+            joinSupervisor(null, SpeakerPeerOptions, setAudioMode);
         }, 500);
     } else {
         $('#login-dialog').modal({keyboard: false, backdrop: 'static'});    
@@ -247,33 +247,30 @@ $(document).ready(async function() {
 
 
     function sharingScreen() {
-    
-        if (!sharingScreenActive || !screenshareMediaStream) return false;
-        
-        return screenshareMediaStream.getTracks()[0].readyState == 'live';
+        return sharingScreenActive && screenshareMediaStream &&
+               screenshareMediaStream.getVideoTracks().some(track => track.readyState === 'live');
     }
     
-    function unshareScreen() {
-        
-        console.log('Unsharing screen - Restoring speaker stream to default');
-        
-        // Stop the tracks in current screenshare stream to actually stop screensharing
-        if (sharingScreen()) {
-            screenshareMediaStream.getTracks().forEach(track => track.stop());
-        }
-
+    async function unshareScreen() {
+        if (!sharingScreenActive) return;
+        console.log('Unsharing screen - restoring camera and microphone');
+        sharingScreenActive = false;
+        const shared = screenshareMediaStream;
         screenshareMediaStream = null;
-        sharingScreenActive = false;   
-        
-        localStream = localStreamBackup;
-        replaceStreamInMediaConnection(supervisorMedia, localStream);        
-        replaceStreamInMediaConnection(interpreterMedia, localStream);
-        
-        localVideo.srcObject = localStream;
-        
+        const backup = localStreamBackup;
+        localStreamBackup = null;
+        if (shared) {
+            shared.getTracks().forEach(track => { track.onended = null; track.stop(); });
+        }
+        if (backup) {
+            localStream = backup;
+            await Promise.allSettled([supervisorMedia, interpreterMedia]
+                .map(conn => replaceStreamInMediaConnection(conn, backup, false)));
+            localVideo.srcObject = backup;
+        }
         $('#share-screen > i').removeClass('fa-blink');
     }
-    
+
     function shareScreen(stream) {
     
         if (!sharingScreen()) {
@@ -285,19 +282,14 @@ $(document).ready(async function() {
             
             $('#share-screen > i').addClass('fa-blink');
             
-            stream.getTracks().forEach( (track) => {
-                track.onended = () => {
-                    console.log('Handle stop sharing screen once');
-                    unshareScreen();
-                }
-            });
+            const screenVideoTrack = stream.getVideoTracks()[0];
+            if (screenVideoTrack) screenVideoTrack.onended = () => unshareScreen();
             
             console.log('Speaker stream must be replaced and audio mixed');
 
 
             // Get a stream with merged audio tracks  
             // from mic (localStream) and screen share (stream)
-            playStream(stream, $('#select-audio-output').val());
             screenshareMediaStream = mergeAudioStreams(stream, localStream);
             
             if (screenshareMediaStream == null) {
@@ -319,8 +311,8 @@ $(document).ready(async function() {
 
             
             // Replace current stream in media connections
-            replaceStreamInMediaConnection(supervisorMedia, screenshareMediaStream);
-            replaceStreamInMediaConnection(interpreterMedia, screenshareMediaStream);
+            replaceStreamInMediaConnection(supervisorMedia, screenshareMediaStream, false);
+            replaceStreamInMediaConnection(interpreterMedia, screenshareMediaStream, false);
             
             
 
@@ -361,10 +353,10 @@ console.log('MERGEAUDIOSTREAMS');
   } else if (voiceStream.getAudioTracks().length == 0) {
   
       // Create just one source for desktop
-      const source = audioContext.createMediaStreamSource(voiceStream);
-      const voiceGain = audioContext.createGain();
-      source.connect(voiceGain).connect(destination);
-        
+      const source = audioContext.createMediaStreamSource(desktopStream);
+      const desktopGain = audioContext.createGain();
+      source.connect(desktopGain).connect(destination);
+
   } else {
   
       // Create two sources and mix them

@@ -77,12 +77,12 @@ function loadPeerHandlers(setAudioMode = () => {}) {
     //
     myPeer.on('connection', function(c) { 
 
-        var role = c.options.metadata.role; // Who's connecting
+        var role = c.options?.metadata?.role; // Who's connecting
 
         // Interpreter and speaker should receive an incoming data connection
         // only from each other, but not from the supervisor, who is called by
         // each of them
-        if (role == myRole || role == RoleSupervisor) return;
+        if (role == myRole || role == RoleSupervisor) { c.close(); return; }
 
         c.on('open', function() {
 
@@ -119,19 +119,25 @@ function loadPeerHandlers(setAudioMode = () => {}) {
     //
     myPeer.on('call', function(c) {
         
-        var role = c.options.metadata.role; // Who's connecting
+        var role = c.options?.metadata?.role; // Who's connecting
 
         // Interpreter and speaker should receive a media call only from each other
         // but not from the supervisor, who is called by each of them.
         // Interpreter cal also receive a screen share connection
-        if (role == myRole || role == RoleSupervisor || myRole == RoleSpeaker && role == RoleScreenShare) return;
+        if (role == myRole || role == RoleSupervisor ||
+            (myRole == RoleSpeaker && role == RoleScreenShare) ||
+            (role == RoleScreenShare && c.peer !== userID) ||
+            (role != RoleScreenShare && !verifyMediaConnection(c, role))) {
+            c.close();
+            return;
+        }
 
         console.log("media call from ", c);
         
         switch (role) {
         case RoleScreenShare:
             screenshareConnection = c;
-            screenshareConnection.answer(null);
+            screenshareConnection.answer();
             screenshareConnection.on('stream', function(stream) {
                 screenshareMediaStream = stream;
                 speakerVideo.srcObject = stream;
@@ -141,10 +147,16 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                     track.onended = () => {
                         console.log('Handle stop sharing screen once');
                         speakerVideo.srcObject = speakerMediaStream;
+                        speakerVideo.muted = speakerAudioMuted;
                         speakerVideo.load();
                     }
                 });                    
                 console.log('Receiving a screen share');
+            });
+            screenshareConnection.on('close', function() {
+                screenshareMediaStream = null;
+                speakerVideo.srcObject = speakerMediaStream;
+                speakerVideo.muted = speakerAudioMuted;
             });
             break;                
         case RoleSpeaker:
@@ -250,7 +262,7 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                 
                 switch (act) {
                 case 'chat':
-                    logToChat(data.message, RoleSupervisor, ColorSupervisor);
+                    logToChat(escapeHTML(data.message), RoleSupervisor, ColorSupervisor);
                     break;
                 case 'leaving':
                     logToChat("The training session is over. You're not connected.");
@@ -347,7 +359,7 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                         $('#recording-icon').html('Recording').addClass('fa-blink');
                     } else {
                         //$('#recording-indicator').html('').removeClass('fa-blink');
-                        $('#recording-icon').html('').addClass('fa-blink');
+                        $('#recording-icon').html('').removeClass('fa-blink');
                     }
                     
                     break;                    

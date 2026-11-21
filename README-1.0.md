@@ -1,0 +1,25 @@
+# InTrain 1.0 stabilization branch
+
+This branch starts from the deployed InTrain files supplied in November 2026, not from the older `master` application sources. It preserves the existing three roles, PeerJS full-mesh topology, stereo monitoring and WAV recording, video-player controls, and current screen-sharing implementation.
+
+## Deployment configuration
+
+`js/config.js` intentionally contains `SET_AT_DEPLOYMENT` placeholders for TURN credentials. Configure the PeerJS host and TURN credentials on the deployed web server; **never commit permanent TURN passwords to the public repository**. The deployed configuration may be kept out of version control. The remaining PeerJS/STUN/TURN configuration should be verified against the actual services in use.
+
+## Corrections
+
+- Close PeerJS media/data connections regardless of whether their `open` getter is an own property; avoid hanging on close events and recursive cleanup.
+- Reject unknown or conflicting incoming media connections, including unauthorized screen-share calls.
+- Prevent a failed camera/microphone selection from stopping the working capture; await outgoing track replacements and preserve the user's muted state.
+- Stop the previous Web Audio VU meter graph and animation when capture changes, without closing the shared AudioContext.
+- Correct automatic speaker reconnection after role switching.
+- Correct desktop-only audio capture for the speaker; clean up screen-sharing video and media connections when stopped from the browser or the application.
+- Avoid inheriting a disabled camera's video mute state when sharing a screen.
+- Send the current training/briefing mode and recording indicator when a late participant connects.
+- Escape incoming chat messages and file names before inserting them into HTML.
+
+## Verification
+
+Run the dependency-free regression tests with `node --test tests/smoke.test.js`. Check JavaScript syntax with `node --check js/intrain.js` and `node --check js/peercommon.js`. Tests exercise JavaScript with mocked browser APIs; they **do not** replace testing with real devices, multiple browsers, TURN/ICE, stereo monitoring, recording, or screen sharing.
+
+Suggested manual acceptance test: connect supervisor, speaker and interpreter; verify briefing/training audio routing, stereo balance, recorder output with separate L/R channels, role switching, late joining, reconnection, camera/microphone device changes, and screen sharing (with and without desktop audio, including stopping from the browser UI).

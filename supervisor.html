@@ -125,11 +125,11 @@ https://webrtc.github.io/samples/src/content/peerconnection/pc1/
 
    
 speakerAudioMutedDefault = false;
-interpreterAudioDefault = false;
+interpreterAudioMutedDefault = false;
 // supervisorAudioMutedDefault = false;
 
 speakerAudioMuted      = speakerAudioMutedDefault;
-interpreterAudioMuted  = interpreterAudioDefault;
+interpreterAudioMuted  = interpreterAudioMutedDefault;
 //supervisorAudioMuted = supervisorAudioMutedDefault;
 
 myRole = RoleSupervisor;
@@ -535,7 +535,7 @@ $(document).ready(async function() {
         // Handle incoming call calls
         myPeer.on('call', function(c) {
 
-            var role = c.options.metadata.role; // Who's connecting
+            var role = c.options?.metadata?.role; // Who's connecting
             
             if (! verifyMediaConnection(c, role)) {
                 var dt = getDateTime();
@@ -593,6 +593,10 @@ $(document).ready(async function() {
                     initCrossFader();
                 });
                 c.on('close', function() {
+                    if (role === RoleInterpreter && screenshareConnection) {
+                        closePeerConnection(screenshareConnection);
+                        screenshareConnection = null;
+                    }
                     resetConnection(role);
                     logToPanel("<b>" + role + "</b> media connection closed", "danger");
                     logToChat("<b>" + role + "</b> media connection closed");
@@ -612,7 +616,7 @@ $(document).ready(async function() {
         
             console.log("Incoming connection");
             
-            var role = c.options.metadata.role; // Who's connecting
+            var role = c.options?.metadata?.role; // Who's connecting
             
             console.log("Peer: data connection from", role);
 
@@ -626,9 +630,9 @@ $(document).ready(async function() {
                 if (setupDataConnection(c, role)) {
                     console.log("Connection handle has been set for", role);
                     
-                    // Send current session mode to connected peers
-                    //c.send({action: "setaudiomode", mode: sessionMode});
-                    setSessionMode(sessionMode);
+                    // Bring a late joiner up to date with session mode and recording.
+                    c.send({action: 'setaudiomode', mode: sessionMode});
+                    c.send({action: 'recording', mode: recording ? 'on' : 'off'});
                     
                     
                     
@@ -685,7 +689,7 @@ $(document).ready(async function() {
 
                             switch (act) {
                             case 'chat':
-                                logToChat(data.message, role, role == RoleSpeaker ? ColorSpeaker : ColorInterpreter);
+                                logToChat(escapeHTML(data.message), role, role == RoleSpeaker ? ColorSpeaker : ColorInterpreter);
                                 break;
                             case 'leaving':
                                 resetConnection(role);
@@ -741,7 +745,7 @@ $(document).ready(async function() {
             $('#login-status').html('');
             $('#login-dialog').modal('hide');
 
-            $("#login-info").html("You've started the training session as <strong>" + userName + "</strong>. You are the <strong>" + myRole + "</strong>.");
+            $("#login-info").html("You've started the training session as <strong>" + escapeHTML(userName) + "</strong>. You are the <strong>" + myRole + "</strong>.");
 
             loadAndPlay("sounds/whistle.mp3", $('#select-audio-output').val());
             
@@ -1040,35 +1044,28 @@ $(document).ready(async function() {
     });
     
     function sharingScreen() {
-    
-        if (!sharingScreenActive || !screenshareMediaStream) return false;
-        
-        return screenshareMediaStream.getTracks()[0].readyState == 'live';
+        return sharingScreenActive && screenshareMediaStream &&
+               screenshareMediaStream.getVideoTracks().some(track => track.readyState === 'live');
     }
     
     function unshareScreen() {
-        
+        if (!sharingScreenActive) return;
         console.log('Unsharing screen');
-        
-        // Stop the tracks in current screenshare stream to actually stop screensharing
-        if (sharingScreen()) {
-            screenshareMediaStream.getTracks().forEach(track => track.stop());
-            console.log("Closing screen share stream");
-            screenshareConnection.close();
-            screenshareConnection = null;
-        }
-
-        speakerVideo.srcObject = speakerMediaStream;
-        $('#share-screen > i').removeClass('fa-blink');
-        speakerVideo.load();
-
+        sharingScreenActive = false;
+        const stream = screenshareMediaStream;
         screenshareMediaStream = null;
-        sharingScreenActive = false;   
-
+        if (stream) stream.getTracks().forEach(track => {
+            track.onended = null;
+            track.stop();
+        });
+        closePeerConnection(screenshareConnection);
+        screenshareConnection = null;
+        speakerVideo.srcObject = speakerMediaStream;
+        speakerVideo.muted = true; // supervisor monitors through the stereo mixer
+        $('#share-screen > i').removeClass('fa-blink');
         initCrossFader();
-        
     }
-    
+
     function shareScreen(stream) {
     
         console.log("interpreterPeer: " + interpreterPeer);
@@ -1084,12 +1081,8 @@ $(document).ready(async function() {
             speakerVideo.srcObject = stream;
             $('#share-screen > i').addClass('fa-blink');
             
-            stream.getTracks().forEach( (track) => {
-                track.onended = () => {
-                    console.log('Handle stop sharing screen once');
-                    unshareScreen();
-                }
-            });
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) videoTrack.onended = () => unshareScreen();
             
             if (interpreterPeer != null) {
                 
@@ -1281,7 +1274,8 @@ function initCrossFader() {
         channel2.disconnect();
     }
     
-    if (sharingScreenActive) {
+    if (sharingScreenActive && screenshareMediaStream &&
+        screenshareMediaStream.getAudioTracks().length) {
         console.log("Adding screen share audio to crossfader...");
         channel1 = audioContext.createMediaStreamSource(screenshareMediaStream);
     } else if (speakerMedia && speakerMedia.open && speakerMediaStream) {

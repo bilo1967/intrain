@@ -1,11 +1,18 @@
 /* Load after common.js */
 
+// Escape text received from a peer before inserting it into HTML-based chat UI.
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
 function logToChat(m, w = "", color = "white") {
     
     var t = "";
     
     if (w != '') {
-        t = "<span style='color: " + color + ";'><strong>" + w + "</strong>: " + m + "<br/></span>";
+        t = "<span style='color: " + color + ";'><strong>" + escapeHTML(w) + "</strong>: " + m + "<br/></span>";
     } else {
         t = "<span style='color: " + color + ";'>" + m + "<br/></span>";
         
@@ -46,6 +53,10 @@ function logToPanel(m, c = "info", l = false) {
 function verifyMediaConnection(c, role) {
   if (c == null) return false;
   if (role != RoleSpeaker && role != RoleInterpreter && role != RoleSupervisor) return false;
+  // A role belongs to one Peer ID; a second caller must not hijack its media.
+  const knownPeer = role === RoleSpeaker ? speakerPeer :
+                    role === RoleInterpreter ? interpreterPeer : supervisorPeer;
+  if (knownPeer && knownPeer !== c.peer) return false;
   return !(
     (c != speakerMedia) && speakerMedia && speakerMedia.open && (role == RoleSpeaker) ||
     (c != interpreterMedia) && interpreterMedia && interpreterMedia.open && (role == RoleInterpreter) ||
@@ -67,8 +78,9 @@ function verifyDataConnection(c, role) {
     }
     
     // Refuse further data connections if partecipants are already connected
-    if (interpreterData != null && interpreterData.open && role == RoleInterpreter || 
-        speakerData != null && speakerData.open && role == RoleSpeaker ) {
+    if ((interpreterData && interpreterData.open && role == RoleInterpreter) ||
+        (speakerData && speakerData.open && role == RoleSpeaker) ||
+        (supervisorData && supervisorData.open && role == RoleSupervisor)) {
         return {action: "reject", message: "Some one with role '" + role + "' is already connected"};
     }
    
@@ -80,7 +92,7 @@ function verifyDataConnection(c, role) {
         }
         break;
     case RoleSpeaker:
-        if (speakerPeer != null && speakerPeer != c.peer && speakerPeer.open) {
+        if (speakerPeer != null && speakerPeer != c.peer) {
            return {action: "reject", message: "Can't establish speaker data and media connections from different peers"};
         }            
         break;
@@ -101,7 +113,7 @@ function setupDataConnection(c, role) {
 //      c.send(o);
 //  }    
     
-    var role = c.options.metadata.role;
+    var role = c.options?.metadata?.role;
     
     var err = verifyDataConnection(c, role);
     
@@ -123,7 +135,7 @@ function setupDataConnection(c, role) {
         }
         
         console.log(role, "has joined");
-        logToChat("<b>" + role + "</b> has joined us");
+        logToChat("<b>" + escapeHTML(role) + "</b> has joined us");
 
         return true;
     } else {
@@ -134,7 +146,7 @@ function setupDataConnection(c, role) {
 
 
 function enableMic(v) {
-    if (typeof micStream !== 'object') return null;
+    if (!micStream || typeof micStream.getAudioTracks !== 'function') return null;
     
     const tracks = micStream.getAudioTracks();
     // if MediaStream has reference to track
@@ -146,7 +158,7 @@ function enableMic(v) {
 }
 
 function enableCam(v) {
-    if (typeof micStream !== 'object') return null;
+    if (!micStream || typeof micStream.getAudioTracks !== 'function') return null;
     
     const tracks = micStream.getVideoTracks();
     // if MediaStream has reference to track
@@ -158,7 +170,7 @@ function enableCam(v) {
 }
 
 function toggleMic() {
-    if (typeof micStream !== 'object') return null;
+    if (!micStream || typeof micStream.getAudioTracks !== 'function') return null;
     
     const tracks = micStream.getAudioTracks();
     // if MediaStream has reference to track
@@ -170,7 +182,7 @@ function toggleMic() {
 }
 
 function toggleCam() {
-    if (typeof localStream !== 'object') return null;
+    if (!localStream || typeof localStream.getVideoTracks !== 'function') return null;
     
     const tracks = localStream.getVideoTracks();
     // if MediaStream has reference to track
@@ -182,13 +194,13 @@ function toggleCam() {
 }
 
 function isCamEnabled() {
-    if (typeof localStream !== 'object') return null;
-    return localStream.getVideoTracks()[0].enabled;
+    if (!localStream || typeof localStream.getVideoTracks !== 'function') return null;
+    return localStream.getVideoTracks()[0]?.enabled ?? null;
 }
 
 function isMicEnabled() {
-    if (typeof micStream !== 'object') return null;
-    return micStream.getAudioTracks()[0].enabled;
+    if (!micStream || typeof micStream.getAudioTracks !== 'function') return null;
+    return micStream.getAudioTracks()[0]?.enabled ?? null;
 }
 
 function addCopyright() {
@@ -256,7 +268,7 @@ function loadCommonHandlers() {
                 supervisorData.send({action: "chat", message: $(this).val()});
             }
             
-            logToChat($(this).val(), "me", myColor);
+            logToChat(escapeHTML($(this).val()), "me", myColor);
             
             $(this).val('');
             
@@ -423,33 +435,15 @@ function loadCommonHandlers() {
     });
     
     
-    // Handle page close or reload
-    window.addEventListener('beforeunload', async function (e) {
-        
-        if (!roleSwitching) e.preventDefault(); // Cancel the event
-        
-        console.warn("Page has been closed or reloaded");
-        
-        if (supervisorData && supervisorData.open) {
-            console.log("Bye supervisor");
-            supervisorData.send({action: "leaving", message: "bye"});
+    // beforeunload cannot wait for Promises or timers. Signal peers and close synchronously.
+    window.addEventListener('pagehide', function () {
+        for (const connection of [supervisorData, speakerData, interpreterData]) {
+            if (connection && connection.open) {
+                try { connection.send({action: 'leaving', message: 'bye'}); }
+                catch (error) { console.warn('Could not send leaving notification', error); }
+            }
         }
-        if (speakerData && speakerData.open) {
-            console.log("Bye speaker");
-            speakerData.send({action: "leaving", message: "bye"});
-        }  
-        if (interpreterData && interpreterData.open) {
-            console.log("Bye interpreter");
-            interpreterData.send({action: "leaving", message: "bye"});
-        }  
-        /*
-        setTimeout(function() {
-            closeAllConnections();
-            e.returnValue = true; // Chrome requires returnValue to be set
-        }, 1000);
-        */
-        await closeAllConnections();
-        e.returnValue = true;
+        closeAllConnections();
     });
 
     addCopyright();
@@ -478,190 +472,86 @@ function getFileDownloadLinkFromData(data) {
     var html = null;
     if (typeof data === "object") {
         var name = data.filename;
-        if (data.file.constructor === ArrayBuffer) {
+        if (typeof name === 'string' && data.file instanceof ArrayBuffer) {
             var dataView = new Uint8Array(data.file);
             var blob = new Blob([dataView]);
-            html = "<a href='" + URL.createObjectURL(blob) + "' download='" + name + "'>" + name + "</a>";
+            const safeName = escapeHTML(name);
+            html = "<a href='" + URL.createObjectURL(blob) + "' download='" + safeName + "'>" + safeName + "</a>";
         }
     }
     return html;
 }
 
-// Reset connection with a specific participant
-async function resetConnection(role, t = 0) {
-    
-    console.log(role + " is leaving, resetting connection.");
+// PeerJS exposes `open` as an inherited getter. Never use hasOwnProperty('open').
+// close() is synchronous; awaiting a `close` event can hang for already closed calls.
+function closePeerConnection(connection) {
+    if (!connection || typeof connection.close !== 'function') return;
+    try {
+        connection.close();
+    } catch (error) {
+        console.warn('Failed to close PeerJS connection', error);
+    }
+}
 
-    const closeConnection = async (obj) => {
-        if (obj && obj.hasOwnProperty('open') && obj.open ) {
-            await new Promise(resolve => {
-                obj.on('close', resolve);
-                obj.close();
-            });
-            return null;
-        }        
-    };
+async function resetConnection(role, t = 0) {
+    if (t > 0) await new Promise(resolve => setTimeout(resolve, t));
+    console.log(role + ' is leaving, resetting connection.');
 
     switch (role) {
-    case RoleInterpreter:
-        interpreterData  = await closeConnection(interpreterData);
-        interpreterMedia = await closeConnection(interpreterMedia);
-        interpreterMediaStream = null;
-        if (interpreterVideo) interpreterVideo.srcObject = null;    
+    case RoleInterpreter: {
+        const data = interpreterData, media = interpreterMedia;
+        interpreterData = interpreterMedia = interpreterMediaStream = null;
         interpreterPeer = null;
-        muteMicrophone(role, interpreterAudioMutedDefault);
+        if (interpreterVideo) interpreterVideo.srcObject = null;
+        closePeerConnection(data);
+        closePeerConnection(media);
         break;
-    case RoleSpeaker:
-        speakerData  = await closeConnection(speakerData);
-        speakerMedia = await closeConnection(speakerMedia);
-        speakerMediaStream = null;
-        if (speakerVideo) speakerVideo.srcObject = null;
-        speakerPeer = null;
-        muteMicrophone(role, speakerAudioMutedDefault);
-        break;    
-    case RoleSupervisor:
-        supervisorData  = await closeConnection(supervisorData);
-        supervisorMedia = await closeConnection(supervisorMedia);
-        supervisorMediaStream = null;
-        if (supervisorVideo) supervisorVideo.srcObject = null;    
-        supervisorPeer = null;
-        muteMicrophone(role, supervisorAudioMutedDefault);
-        break;    
     }
-
-/*    
-    setTimeout(function() {
-        switch (role) {
-        case RoleInterpreter:
-            if (interpreterData && interpreterData.open) interpreterData.close();
-            if (interpreterMedia && interpreterMedia.open) interpreterMedia.close();
-            interpreterData = null;
-            interpreterMedia = null;
-            interpreterMediaStream = null;
-            if (interpreterVideo) interpreterVideo.srcObject = null;    
-            interpreterPeer = null;
-            muteMicrophone(role, interpreterAudioMutedDefault);
-            break;
-        case RoleSpeaker:
-            if (speakerData && speakerData.open) speakerData.close();
-            if (speakerMedia && speakerMedia.open) speakerMedia.close();
-            speakerData = null;
-            speakerMedia = null;
-            speakerMediaStream = null;
-            if (speakerVideo) speakerVideo.srcObject = null;
-            speakerPeer = null;
-            muteMicrophone(role, speakerAudioMutedDefault);
-            break;    
-        case RoleSupervisor:
-            if (supervisorData && supervisorData.open) supervisorData.close();
-            if (supervisorMedia && supervisorMedia.open) supervisorMedia.close();
-            supervisorData = null;
-            supervisorMedia = null;
-            supervisorMediaStream = null;
-            if (supervisorVideo) supervisorVideo.srcObject = null;    
-            supervisorPeer = null;
-            muteMicrophone(role, supervisorAudioMutedDefault);
-            break;    
-        }
-    }, t);
-*/    
+    case RoleSpeaker: {
+        const data = speakerData, media = speakerMedia;
+        speakerData = speakerMedia = speakerMediaStream = null;
+        speakerPeer = null;
+        if (speakerVideo) speakerVideo.srcObject = null;
+        closePeerConnection(data);
+        closePeerConnection(media);
+        break;
+    }
+    case RoleSupervisor: {
+        const data = supervisorData, media = supervisorMedia;
+        supervisorData = supervisorMedia = supervisorMediaStream = null;
+        supervisorPeer = null;
+        if (supervisorVideo) supervisorVideo.srcObject = null;
+        closePeerConnection(data);
+        closePeerConnection(media);
+        break;
+    }
+    default:
+        return;
+    }
+    muteMicrophone(role, role === RoleSpeaker ? speakerAudioMutedDefault :
+                         role === RoleInterpreter ? interpreterAudioMutedDefault :
+                         supervisorAudioMutedDefault);
 }
-
 
 async function closeAllConnections(t = 0) {
-    
-    
-    console.log("Closing all connections");
-    
-    const closeConnection = async (obj) => {
-        if (obj && obj.hasOwnProperty('open') && obj.open ) {
-            await new Promise(resolve => {
-                obj.on('close', resolve);
-                obj.close();
-            });
-        }        
-    };
-    
-    if (myRole != RoleSpeaker) {
-        console.log('Closing connections to speaker');
-        await closeConnection(speakerData);
-        await closeConnection(speakerMedia);
-        speakerData = null;
-        speakerMedia = null;
-        console.log('Connections to speaker closed');
+    if (t > 0) await new Promise(resolve => setTimeout(resolve, t));
+    const connections = [speakerData, speakerMedia, interpreterData,
+                         interpreterMedia, supervisorData, supervisorMedia,
+                         screenshareConnection];
+    speakerData = speakerMedia = speakerMediaStream = speakerPeer = null;
+    interpreterData = interpreterMedia = interpreterMediaStream = interpreterPeer = null;
+    supervisorData = supervisorMedia = supervisorMediaStream = supervisorPeer = null;
+    screenshareConnection = null;
+    for (const connection of connections) closePeerConnection(connection);
+    if (myPeer && !myPeer.destroyed) {
+        try { myPeer.destroy(); }
+        catch (error) { console.warn('Failed to destroy peer', error); }
     }
-    if (myRole != RoleInterpreter) {
-        console.log('Closing connections to interpreter');
-        await closeConnection(interpreterData);
-        await closeConnection(interpreterMedia);
-        interpreterData = null;
-        interpreterMedia = null;
-        console.log('Connections to interpreter closed');
-    }
-    if (myRole != RoleSupervisor) {
-        console.log('Closing connections to supervisor');
-        await closeConnection(supervisorData);
-        await closeConnection(supervisorMedia);
-        supervisorData = null;
-        supervisorMedia = null;
-        console.log('Connections to supervisor closed');
-    }
-    
-    if (myPeer) {
-        console.log('Disconnectiong peer from PeerJS server');
-        await new Promise(resolve => {
-            myPeer.on('close', resolve);
-            myPeer.destroy(); // ==> fires myPeer.close
-        });
-        console.log('Peer disconnected and destroyed');
-    }
-    
+    peerConnected = false;
     initMuted();
-
-
-/*
-
-    if (myPeer)
-        console.log("peer disconnected:", myPeer.disconnected);
-    else
-        console.log("peer was not connected");
-
-    
-    setTimeout(function() {  
-//      if (myRole != RoleSpeaker) {
-            if (speakerData && speakerData.open) speakerData.close();
-            if (speakerMedia && speakerMedia.open) speakerMedia.close();
-            speakerData = null;
-            speakerMedia = null;
-//      }
-        
-//      if (myRole != RoleInterpreter) {
-            if (interpreterData && interpreterData.open) interpreterData.close();
-            if (interpreterMedia && interpreterMedia.open) interpreterMedia.close();
-            interpreterData = null;
-            interpreterMedia = null;
-//      }
-        
-//      if (myRole != RoleSupervisor) {
-            if (supervisorData && supervisorData.open) supervisorData.close();
-            if (supervisorMedia && supervisorMedia.open) supervisorMedia.close();
-            supervisorData = null;
-            supervisorMedia = null;
-//      }
-        
-        if (myPeer) myPeer.destroy(); // ==> fires myPeer.close
-        initMuted();
-    }, t);
-*/
 }
 
 
-
-
-
-    
-    
-    
 function peerErrors(err) {
 
     console.error("Peer: error", "'" + err.type + "'");
@@ -784,6 +674,9 @@ function dialPeer(calleeID, callerRole, calleeRole) {
     });
     c.on('close', function() {
         console.log(calleeRole + ' data connection closed');
+        if (calleeRole === RoleSpeaker && speakerData === c) resetConnection(calleeRole);
+        if (calleeRole === RoleInterpreter && interpreterData === c) resetConnection(calleeRole);
+        if (calleeRole === RoleSupervisor && supervisorData === c) resetConnection(calleeRole);
     });
     c.on('error', function(e) {
         console.error('Error', e, 'in data connection to', calleeRole);
@@ -797,7 +690,10 @@ function dialPeer(calleeID, callerRole, calleeRole) {
         
         v.srcObject = mediaStream;
         s = mediaStream;
-        
+        if (calleeRole === RoleSpeaker) speakerMediaStream = mediaStream;
+        else if (calleeRole === RoleInterpreter) interpreterMediaStream = mediaStream;
+        else if (calleeRole === RoleSupervisor) supervisorMediaStream = mediaStream;
+
         //v.play();
         //v.muted = (callerRole == RoleSpeaker && calleeRole == RoleInterpreter);
         
@@ -808,7 +704,9 @@ function dialPeer(calleeID, callerRole, calleeRole) {
     });
     m.on('close', function() {
         console.log(calleeRole + ' media connection closed');
-        v.srcObject = null;
+        if (calleeRole === RoleSpeaker && speakerMedia === m) resetConnection(calleeRole);
+        if (calleeRole === RoleInterpreter && interpreterMedia === m) resetConnection(calleeRole);
+        if (calleeRole === RoleSupervisor && supervisorMedia === m) resetConnection(calleeRole);
     });
     
     switch(calleeRole) {
@@ -839,7 +737,7 @@ function handleChat(data, callerRole, callerColor) {
     var action = (typeof data === "object") ? data.action : "chat";
     switch (action) {
     case 'chat':
-        logToChat(data.message, callerRole, callerColor);
+        logToChat(escapeHTML(data.message), callerRole, callerColor);
         break;
     case 'sendfile':
         var link = getFileDownloadLinkFromData(data);
@@ -1023,42 +921,45 @@ console.log('LOADANDPLAY');
 
 
 async function setUserMediaConstraints() {
-  try {
-    if (window.stream) {
-      window.stream.getTracks().forEach(track => {
-        track.stop();
-      });
+    // Replacing capture devices during a shared-screen session would overwrite
+    // its outgoing video track. Leave the existing capture intact in that case.
+    if (myRole === RoleSpeaker && sharingScreenActive) {
+        logToPanel('Stop screen sharing before changing camera or microphone.', 'warning');
+        return false;
     }
-    
+
     const videoSource = $('#select-video-source').val();
     const audioSource = $('#select-audio-source').val();
-    
-    var constraints = {};
-    switch (myRole) {
-      case RoleInterpreter:
-        constraints = InterpreterMediaStreamConstraints;
-        break;
-      case RoleSpeaker:
-        constraints = SpeakerMediaStreamConstraints;
-        break;
-      case RoleSupervisor:
-        constraints = SupervisorMediaStreamConstraints;
-        break;
+    const baseConstraints = myRole === RoleInterpreter ? InterpreterMediaStreamConstraints :
+                            myRole === RoleSpeaker ? SpeakerMediaStreamConstraints :
+                            SupervisorMediaStreamConstraints;
+    const constraints = {
+        audio: {...baseConstraints.audio, deviceId: audioSource && audioSource !== 'default'
+                    ? {exact: audioSource} : undefined},
+        video: {...baseConstraints.video, deviceId: videoSource && videoSource !== 'default'
+                    ? {exact: videoSource} : undefined}
+    };
+    const oldStream = micStream;
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        await gotLocalMediaStream(stream);
+        if (oldStream && oldStream !== stream) {
+            oldStream.getTracks().forEach(track => track.stop());
+        }
+        await getDevices();
+        return true;
+    } catch (error) {
+        // A failed selection must not leave the previous working stream stopped.
+        if (stream && stream !== oldStream) stream.getTracks().forEach(track => track.stop());
+        if (oldStream) {
+            await Promise.allSettled([speakerMedia, interpreterMedia, supervisorMedia]
+                .map(conn => replaceStreamInMediaConnection(conn, oldStream)));
+        }
+        handleLocalMediaStreamError(error);
+        return false;
     }
-    
-    constraints.audio.deviceId = audioSource ? {exact: audioSource} : undefined;
-    constraints.video.deviceId = videoSource ? {exact: videoSource} : undefined;
-    
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    await gotLocalMediaStream(stream);
-    await getDevices();
-    
-  } catch (error) {
-    handleLocalMediaStreamError(error);
-  }
 }
-
-
 
 
 
@@ -1087,40 +988,22 @@ function openFullscreen(elem) {
 // Call this function passing the media connection and the new
 // stream
 
-function replaceStreamInMediaConnection(conn, stream) {
-    
-    
-    console.log("CONNECTION:" + conn);
-    
-    if (!conn || typeof conn !== 'object' || !conn.open) return false;
-    if (!stream || typeof stream !== 'object') return false;
+async function replaceStreamInMediaConnection(conn, stream, preserveMute = true) {
+    if (!conn || !conn.open || !conn.peerConnection || !stream) return false;
 
-    console.log("Replacing stream in media conection to [peer:" + conn.peer +  "]");
-
-    let pc = conn.peerConnection;
-    let tracks = [ stream.getVideoTracks()[0], stream.getAudioTracks()[0] ];
-    
-    (function() { 
-        tracks.forEach((track) => {
-            
-            var sender = pc.getSenders().find((s) => {
-                return s.track.kind == track.kind;
-            });
-               
-            if (sender) {
-                track.enabled = sender.track.enabled; // Preserve enabled status of track
-                sender.replaceTrack(track); // Replace track
-                console.log('Replaced ' + track.kind + ' track.');
-            } else {
-                console.log('No ' + track.kind + ' track found.');
-            }
-        });
-    }) ();
-    
+    const pc = conn.peerConnection;
+    const senders = pc.getSenders();
+    const replacements = [];
+    for (const track of stream.getTracks()) {
+        const sender = senders.find(s => s.track && s.track.kind === track.kind);
+        if (!sender) continue;
+        // Preserve the user's mute/camera preferences across device changes.
+        if (preserveMute) track.enabled = sender.track.enabled;
+        replacements.push(sender.replaceTrack(track));
+    }
+    await Promise.all(replacements);
     return true;
 }
-
-
 
 
 // Setup the VU-Meter
@@ -1135,10 +1018,9 @@ function setVuMeter(stream, elem, options = {} ) {
 
     if (stream == null) return;
 
-    if (! stream instanceof MediaStream) throw Error("stream is not a MediaStream");
-    if (! elem instanceof HTMLCanvasElement) throw Error("elem parameter is not a canvas");
-    
-    if (typeof close === 'function') 
+    if (!(stream instanceof MediaStream)) throw Error('stream is not a MediaStream');
+    if (!(elem instanceof HTMLCanvasElement)) throw Error('elem parameter is not a canvas');
+
 
     // Check options consistency
     if (options.bars == 0) options.bars = 1
@@ -1191,8 +1073,8 @@ console.log('VUMETER');
     
     
     // Get canvas width and height
-    const w = elem.width * window.devicePixelRatio;
-    const h = elem.height * window.devicePixelRatio;
+    const w = Math.round((elem.clientWidth || elem.width) * (window.devicePixelRatio || 1));
+    const h = Math.round((elem.clientHeight || elem.height) * (window.devicePixelRatio || 1));
     
     elem.width = w;
     elem.height = h;
@@ -1213,6 +1095,9 @@ console.log('VUMETER');
     
     // Define draw function
     var draw = null;
+    let frameId = null;
+    let stopped = false;
+    const scheduleFrame = () => { if (!stopped) frameId = requestAnimationFrame(draw); };
     
     if (options.type == 'waveform') {
 
@@ -1224,7 +1109,7 @@ console.log('VUMETER');
 
         draw = () => {
 
-            var drawVisual = requestAnimationFrame(draw);
+            scheduleFrame();
 
             analyser.getByteTimeDomainData(dataArray);
 
@@ -1264,7 +1149,7 @@ console.log('VUMETER');
         
         
         draw = () => {
-            var drawVisual = requestAnimationFrame(draw);
+            scheduleFrame();
 
             analyser.getByteFrequencyData(dataArray);
 
@@ -1301,7 +1186,7 @@ console.log('VUMETER');
         // Just display dBs
         
         draw = () => {
-            var drawVisual = requestAnimationFrame(draw);
+            scheduleFrame();
 
             analyser.getByteFrequencyData(dataArray);
 
@@ -1326,8 +1211,12 @@ console.log('VUMETER');
     draw();
     
     return () => {
+        stopped = true;
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        srcNode.disconnect();
+        analyser.disconnect();
+        zeroGain.disconnect();
         canvasCtx.clearRect(0, 0, w, h);
-        audioContext.close();
     };
 }
 
@@ -1391,7 +1280,9 @@ function setSessionMode(mode, animate = true) {
 }
 
 // Sets the MediaStream as the video element src.
-function gotLocalMediaStream(mediaStream) {
+let stopLocalVuMeter = null;
+
+async function gotLocalMediaStream(mediaStream) {
 
     // Save local microphone and camera status
     micEnabled = isMicEnabled();
@@ -1410,8 +1301,11 @@ function gotLocalMediaStream(mediaStream) {
     }
     camEnabled = isCamEnabled() !== false;
     
-    window.stream = mediaStream; // make stream available to console0 
-    
+    // Do not publish the new local stream until all existing senders accept it.
+    await Promise.all([speakerMedia, interpreterMedia, supervisorMedia]
+        .map(conn => replaceStreamInMediaConnection(conn, mediaStream)));
+
+    window.stream = mediaStream; // accessible for debugging
     localVideo.srcObject = mediaStream;
     localStream = mediaStream;
     micStream = mediaStream;
@@ -1424,8 +1318,9 @@ function gotLocalMediaStream(mediaStream) {
         localVideo.muted = true;
     }
     
-    // Display vumeter
-    setVuMeter(mediaStream, micGraph, {bars: 16});
+    // Stop the previous animation and disconnect its Web Audio graph.
+    if (stopLocalVuMeter) stopLocalVuMeter();
+    stopLocalVuMeter = setVuMeter(mediaStream, micGraph, {bars: 16});
 
     
     console.log('Received local stream.');
@@ -1433,10 +1328,6 @@ function gotLocalMediaStream(mediaStream) {
     // Il a different video or audio device has been 
     // selected we need to replace these tracks in 
     // streams to to connected peers, also;    
-    if (myRole != RoleSpeaker)     replaceStreamInMediaConnection(speakerMedia, mediaStream);
-    if (myRole != RoleInterpreter) replaceStreamInMediaConnection(interpreterMedia, mediaStream);
-    if (myRole != RoleSupervisor)  replaceStreamInMediaConnection(supervisorMedia, mediaStream);
-
     // Restore local microphone and camera status
     enableMic(micEnabled);
     enableCam(camEnabled);        
