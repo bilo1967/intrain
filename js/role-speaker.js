@@ -53,15 +53,15 @@ $(document).ready(async function() {
     setDeviceSelector($('#select-audio-output').get(0), 'audiooutput'); // select box for audio output devices
 
     $('#select-video-source').on('change', async () => {
-        Cookies.set('speaker-video-source', $('#select-video-source').val(), { expires: 365 });
+        InTrainStorage.set('speaker-video-source', $('#select-video-source').val());
         await setUserMediaConstraints();
     });
     $('#select-audio-source').on('change', async () => {
-        Cookies.set('speaker-audio-source', $('#select-audio-source').val(), { expires: 365 });
+        InTrainStorage.set('speaker-audio-source', $('#select-audio-source').val());
         await setUserMediaConstraints();
     });
     $('#select-audio-output').on('change', () => {
-        Cookies.set('speaker-audio-output', $('#select-audio-output').val(), { expires: 365 });
+        InTrainStorage.set('speaker-audio-output', $('#select-audio-output').val());
         
         changeAudioDestination(interpreterVideo);
         changeAudioDestination(supervisorVideo);
@@ -78,9 +78,9 @@ $(document).ready(async function() {
             return deviceId && infos.some(device => device.deviceId === deviceId && device.kind === kind) ? deviceId : 'default';
         }
 
-        $('#select-video-source').val(validateDevice(Cookies.get('speaker-video-source'), 'videoinput' ));
-        $('#select-audio-source').val(validateDevice(Cookies.get('speaker-audio-source'), 'audioinput' ));
-        $('#select-audio-output').val(validateDevice(Cookies.get('speaker-audio-output'), 'audiooutput'));
+        $('#select-video-source').val(validateDevice(InTrainStorage.get('speaker-video-source'), 'videoinput' ));
+        $('#select-audio-source').val(validateDevice(InTrainStorage.get('speaker-audio-source'), 'audioinput' ));
+        $('#select-audio-output').val(validateDevice(InTrainStorage.get('speaker-audio-output'), 'audiooutput'));
 
         changeAudioDestination(interpreterVideo);
         changeAudioDestination(supervisorVideo);

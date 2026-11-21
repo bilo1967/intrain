@@ -24,13 +24,13 @@ $(document).ready(function() {
 		}
 		
         
-        var hideWhatsnew = Cookies.get('whatsnew-dismissed' + appVersion);
+        var hideWhatsnew = InTrainStorage.get('whatsnew-dismissed' + appVersion);
         
         if (!hideWhatsnew) {
             $("#whatsnew").css('display', 'block');
         }
         $("#dismiss-whatsnew").on('click', function() {
-            Cookies.set('whatsnew-dismissed' + appVersion, true);
+            InTrainStorage.set('whatsnew-dismissed' + appVersion, true);
             $("#whatsnew").fadeOut(200);
         });
         
@@ -44,8 +44,8 @@ $(document).ready(function() {
             $("#whatsnew").fadeIn(200);
         });
     
-        // Cookie to check if splash screen has already been displayed
-        var splash = Cookies.get('splash' + appVersion);
+        // Browser preference to avoid showing the splash screen on every visit
+        var splash = InTrainStorage.get('splash' + appVersion);
         
         // Display splash screen only if coming from another location
         if (!splash) {
@@ -54,7 +54,7 @@ $(document).ready(function() {
                 focus: true,
             });
             $(".transparent").fadeTo(100, 1);
-            Cookies.set('splash' + appVersion, true);
+            InTrainStorage.set('splash' + appVersion, true);
         } else {
             $(".transparent").fadeTo(2000, 1);
         }

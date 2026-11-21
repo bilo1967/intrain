@@ -75,9 +75,9 @@ $(document).ready(async function() {
 /*
     getDevices().then(() => {
         
-        $('#select-video-source').val(Cookies.get('supervisor-video-source') || 'default');
-        $('#select-audio-source').val(Cookies.get('supervisor-audio-source') || 'default');
-        $('#select-audio-output').val(Cookies.get('supervisor-audio-output') || 'default');
+        $('#select-video-source').val(InTrainStorage.get('supervisor-video-source') || 'default');
+        $('#select-audio-source').val(InTrainStorage.get('supervisor-audio-source') || 'default');
+        $('#select-audio-output').val(InTrainStorage.get('supervisor-audio-output') || 'default');
         
         changeAudioDestination(audioOutputElement);
         
@@ -98,9 +98,9 @@ $(document).ready(async function() {
         }
         
         // Load saved setting and apply, if available
-        $('#select-video-source').val(validateDevice(Cookies.get('supervisor-video-source'), 'videoinput' ));
-        $('#select-audio-source').val(validateDevice(Cookies.get('supervisor-audio-source'), 'audioinput' ));
-        $('#select-audio-output').val(validateDevice(Cookies.get('supervisor-audio-output'), 'audiooutput'));
+        $('#select-video-source').val(validateDevice(InTrainStorage.get('supervisor-video-source'), 'videoinput' ));
+        $('#select-audio-source').val(validateDevice(InTrainStorage.get('supervisor-audio-source'), 'audioinput' ));
+        $('#select-audio-output').val(validateDevice(InTrainStorage.get('supervisor-audio-output'), 'audiooutput'));
 
         // Connect mixed audio to output element
         changeAudioDestination(audioOutputElement);
@@ -159,15 +159,15 @@ $(document).ready(async function() {
         }
         
         $('#select-video-source').on('change', () => {
-            Cookies.set('supervisor-video-source', $('#select-video-source').val(), { expires: 365 });
+            InTrainStorage.set('supervisor-video-source', $('#select-video-source').val());
             setUserMediaConstraints();
         });
         $('#select-audio-source').on('change', () => {
-            Cookies.set('supervisor-audio-source', $('#select-audio-source').val(), { expires: 365 });
+            InTrainStorage.set('supervisor-audio-source', $('#select-audio-source').val());
             setUserMediaConstraints();
         });
         $('#select-audio-output').on('change', () => {
-            Cookies.set('supervisor-audio-output', $('#select-audio-output').val(), { expires: 365 });
+            InTrainStorage.set('supervisor-audio-output', $('#select-audio-output').val());
             changeAudioDestination(audioOutputElement);
         });
 
@@ -212,15 +212,15 @@ $(document).ready(async function() {
         }
         
         $('#select-video-source').on('change', () => {
-            Cookies.set('supervisor-video-source', $('#select-video-source').val(), { expires: 365 });
+            InTrainStorage.set('supervisor-video-source', $('#select-video-source').val());
             setUserMediaConstraints();
         });
         $('#select-audio-source').on('change', () => {
-            Cookies.set('supervisor-audio-source', $('#select-audio-source').val(), { expires: 365 });
+            InTrainStorage.set('supervisor-audio-source', $('#select-audio-source').val());
             setUserMediaConstraints();
         });
         $('#select-audio-output').on('change', () => {
-            Cookies.set('supervisor-audio-output', $('#select-audio-output').val(), { expires: 365 });
+            InTrainStorage.set('supervisor-audio-output', $('#select-audio-output').val());
             changeAudioDestination(audioOutputElement);
         });
 
