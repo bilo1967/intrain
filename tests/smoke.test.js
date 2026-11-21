@@ -274,3 +274,11 @@ test('a session starts with briefing mode; browser preferences cannot restore tr
     const storage = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
     assert.doesNotMatch(storage, /sessionStorage\.setItem\([^)]*sessionMode/);
 });
+
+test('camera enable/disable checks video tracks rather than audio availability', () => {
+    const c = loadApp();
+    const video = {enabled: true};
+    c.micStream = {getVideoTracks: () => [video]};
+    assert.equal(c.enableCam(false), false);
+    assert.equal(video.enabled, false);
+});

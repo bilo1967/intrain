@@ -157,7 +157,7 @@ function enableMic(v) {
 }
 
 function enableCam(v) {
-    if (!micStream || typeof micStream.getAudioTracks !== 'function') return null;
+    if (!micStream || typeof micStream.getVideoTracks !== 'function') return null;
     
     const tracks = micStream.getVideoTracks();
     // if MediaStream has reference to track

@@ -1,3 +1,16 @@
+/*
+ * Original recording and WebRTC references (formerly in supervisor.html <head>):
+ * https://recordrtc.org/
+ * https://github.com/muaz-khan/RecordRTC
+ * https://github.com/streamproc/MediaStreamRecorder
+ * Solo registrazione audio da AudioContext:
+ * https://github.com/cwilso/AudioRecorder
+ * https://webrtc.github.io/samples/src/content/getusermedia/record/
+ * https://www.webrtc-experiment.com/RecordRTC/simple-demos/
+ * https://webrtc.github.io/samples/src/content/peerconnection/pc1/
+ * WebRTC server: https://github.com/meetecho/janus-gateway
+ * Explore HTML5 audio: https://dzone.com/articles/exploring-html5-web-audio
+ */
 speakerAudioMutedDefault = false;
 interpreterAudioMutedDefault = false;
 // supervisorAudioMutedDefault = false;
