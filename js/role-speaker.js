@@ -21,11 +21,6 @@ supervisorAudioMuted   = supervisorAudioMutedDefault;
 var micGraph = null;
 
 
-// const supervisor = new Participant(RoleSupervisor, $("#supervisorVideo").get(0));
-// const interpreter = new Participant(RoleInterpreter, $("#interpreterVideo").get(0));
-// const speaker = new Participant(RoleSpeaker, null);
-
-
 $(document).ready(async function() {
 
     micGraph = $("#vumeter").get(0);
@@ -138,8 +133,6 @@ $(document).ready(async function() {
     }
 
 
-    
-    
     $('#share-screen').on('click', function() {
         if (sharingScreen()) {
             unshareScreen();
@@ -160,7 +153,6 @@ $(document).ready(async function() {
                 });
         }
     });
-
 
 
     function sharingScreen() {
@@ -230,15 +222,10 @@ $(document).ready(async function() {
             // Replace current stream in media connections
             replaceStreamInMediaConnection(supervisorMedia, screenshareMediaStream, false);
             replaceStreamInMediaConnection(interpreterMedia, screenshareMediaStream, false);
-            
-            
 
 
         }
     }
-
-    
-    
 
 
     // ondevicechange event (webcam or headset has been plugged in or out)
@@ -255,7 +242,6 @@ const mergeAudioStreams = (desktopStream, voiceStream) => {
 
   if (desktopStream.getAudioTracks().length == 0 && voiceStream.getAudioTracks().length == 0) return null;
 
-//const context = new AudioContext();
   const destination = audioContext.createMediaStreamDestination();
 
 console.log('MERGEAUDIOSTREAMS');
@@ -290,7 +276,6 @@ console.log('MERGEAUDIOSTREAMS');
       // Connect source2
       source2.connect(voiceGain).connect(destination);
   }
-    
-  // return destination.stream.getAudioTracks();
+
   return destination.stream;
 };

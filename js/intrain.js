@@ -106,7 +106,6 @@ function verifyDataConnection(c, role) {
 }    
 
 
-
 function setupDataConnection(c, role) {
     
 //  async function sendErrorMessage(c, o) {
@@ -230,7 +229,6 @@ function loadCommonHandlers() {
     //#debugging
     $('.debug-checkbox').on('change', function() {
 
-        //$('#debugging2').prop('checked', this.checked);
         $('.debug-checkbox').prop('checked', this.checked);
         
         
@@ -369,9 +367,8 @@ function loadCommonHandlers() {
         sendFilesToDataChannel(supervisorData,  e.target.files);
         $(this).val();
     });
-    
 
-    
+
     $('#speaker-audio-toggle').on('click', function(){
         if (speakerMedia && speakerMedia.open) {
 
@@ -417,16 +414,8 @@ function loadCommonHandlers() {
     $('#supervisor-fullscreen').on("click", function() {
         openFullscreen($("#supervisorVideo")[0]);
     });    
-       
-    
-/*    
-    // Avoid form submit on ENTER key
-    $(document).on("keypress", ":input:not(textarea)", function(event) {
-        if (event.keyCode == 13) {
-            event.preventDefault();
-        }
-    });
-*/
+
+
     // Map login form submit action to to "join" button
     $("#login-form").on("submit", function(event) {
         event.preventDefault();
@@ -644,7 +633,6 @@ function peerErrors(err) {
 }
 
 
-
 function dialPeer(calleeID, callerRole, calleeRole) {
 
     var c, m, s, v, p, color;
@@ -812,9 +800,8 @@ function muteMicrophone(role, muted = true) {
         c = supervisorVideo;
         break;
     }
-    
-    
-    
+
+
     if (c) {
         // Supervisor toggles audio using Web Audio API because of crossfading
         if (myRole == RoleSupervisor) {
@@ -825,9 +812,9 @@ function muteMicrophone(role, muted = true) {
     }
     
     if (e) {
-        //$(e + ' > i').removeClass('fa-volume-up fa-volume-mute').addClass(muted ? 'fa-volume-up' : 'fa-volume-mute');
+
         $(e + ' > i').removeClass('fa-volume-up fa-volume-mute').addClass(muted ? 'fa-volume-mute' : 'fa-volume-up');
-        //$(e).html('<i class="fas ' + (muted ? 'fa-volume-up' : 'fa-volume-mute') + ' fa-lg"></i>');
+
     }
     
 }
@@ -856,29 +843,9 @@ function updateClock() {
 } 
 
 
-function playStream(stream, sinkId = null) {
-    if (!(stream instanceof MediaStream)) return;
-    
-    const player = new Audio();
-    player.srcObject = stream;
-    
-    if (sinkId) {
-        player.setSinkId(sinkId).then(() => {
-            console.log("Playing stream on device: " + player.sinkId)
-            player.play();
-        }).catch(e => {
-           console.log(e) ;
-        });        
-    } else {
-        player.play();
-    }
-            
-}
-
-
 // Audio can be attached to an existing player and played
 // on the preferred device
-function loadAndPlay(tunePath, /*loop = false, */ sinkId = null) {
+function loadAndPlay(tunePath,  sinkId = null) {
 
     var req = new XMLHttpRequest(),
         //ctx = new AudioContext(),
@@ -916,9 +883,8 @@ console.log('LOADANDPLAY');
                console.log(e) ;
                 
             });
-            
-            
-            
+
+
         } else {
             console.log("Play in default context: " + tunePath);    
             node.connect(audioContext.destination);
@@ -930,7 +896,6 @@ console.log('LOADANDPLAY');
     
     req.send();
 };
-
 
 
 async function setUserMediaConstraints() {
@@ -975,7 +940,6 @@ async function setUserMediaConstraints() {
 }
 
 
-
 /* When the openFullscreen() function is executed, open the video in fullscreen.
 Note that we must include prefixes for different browsers, as they don't support the requestFullscreen method yet */
 function openFullscreen(elem) {
@@ -990,9 +954,6 @@ function openFullscreen(elem) {
   }
   elem.controls = false;
 }
-
-
-
 
 
 // Il a different video or audio device has been selected we need
@@ -1040,8 +1001,6 @@ function setVuMeter(stream, elem, options = {} ) {
     
     var canvasCtx = elem.getContext("2d", {alpha: false});
 
-    
-    // var audioContext = new AudioContext();
 console.log('VUMETER');    
 
     var srcNode = audioContext.createMediaStreamSource(stream); // create an audioContext source node from stream
@@ -1099,9 +1058,8 @@ console.log('VUMETER');
     const minD = analyser.minDecibels;
     const maxD = analyser.maxDecibels;
     const rangeD = maxD - minD;
-    
-    
-    
+
+
     // Clear canvas
     canvasCtx.clearRect(0, 0, w, h);
     
@@ -1174,8 +1132,7 @@ console.log('VUMETER');
             var value = dataArray[0];
             var percent =  value / 255;
             var dB = minD + rangeD * percent; // If needed
-            
-            //var x = (dB - minD) * step;
+
             
             var x = percent * w;
             var n = Math.round(percent * options.bars);
@@ -1232,7 +1189,6 @@ console.log('VUMETER');
         canvasCtx.clearRect(0, 0, w, h);
     };
 }
-
 
 
 function setSessionMode(mode, animate = true) {
@@ -1362,13 +1318,5 @@ async function gotLocalMediaStream(mediaStream) {
 function handleLocalMediaStreamError(error) {
   console.error(`navigator.getUserMedia error: ${error.toString()}.`);
 }
-
-
-
-
-
-
-
-
 
 

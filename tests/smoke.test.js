@@ -228,3 +228,49 @@ test('supervisor resends an active screen only to the incoming interpreter', () 
     assert.match(html, /role === RoleInterpreter && sharingScreen\(\)/);
     assert.match(html, /c\.peer, screenshareMediaStream/);
 });
+
+
+test('role pages load Bootstrap 5 and external, unminified application scripts', () => {
+    const root = path.resolve(__dirname, '..');
+    for (const page of ['index.html', 'supervisor.html', 'speaker.html', 'interpreter.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.match(html, /bootstrap@5\.3\.9\/dist\/css\/bootstrap\.min\.css/);
+        assert.match(html, /bootstrap@5\.3\.9\/dist\/js\/bootstrap\.bundle\.min\.js/);
+        assert.doesNotMatch(html, /bootstrap@4|data-toggle=|data-target=|data-dismiss=/);
+        assert.doesNotMatch(html, /<script(?:\s[^>]*)?>(?:\s*[^<\s][\s\S]*?)<\/script>/i);
+        const role = page.replace('.html', '');
+        assert.ok(html.includes('src="js/bootstrap-ui.js"'));
+        assert.ok(html.includes('src="js/storage.js"'));
+        assert.ok(html.includes(`src="js/role-${role}.js"`));
+        assert.ok(html.indexOf('src="js/bootstrap-ui.js"') < html.indexOf(`src="js/role-${role}.js"`));
+    }
+});
+
+test('browser storage migrates legacy cookie and persists device choice', () => {
+    const code = fs.readFileSync(path.resolve(__dirname, '../js/storage.js'), 'utf8');
+    const memory = new Map();
+    const settings = {
+        getItem(key) {return memory.has(key) ? memory.get(key) : null;},
+        setItem(key, value) {memory.set(key, value);},
+        removeItem(key) {memory.delete(key);}
+    };
+    const cookies = [];
+    const document = {
+        get cookie() {return cookies.length ? cookies[cookies.length - 1] : 'speaker-video-source=old-camera';},
+        set cookie(v) {cookies.push(v);}
+    };
+    const context = vm.createContext({document, localStorage: settings, console, Map, Object});
+    vm.runInContext(code, context);
+    assert.equal(vm.runInContext("InTrainStorage.get('speaker-video-source')", context), 'old-camera');
+    assert.equal(settings.getItem('intrain.speaker-video-source'), 'old-camera');
+    vm.runInContext("InTrainStorage.set('speaker-video-source', 'new-camera')", context);
+    assert.equal(vm.runInContext("InTrainStorage.get('speaker-video-source')", context), 'new-camera');
+});
+
+test('a session starts with briefing mode; browser preferences cannot restore training', () => {
+    const root = path.resolve(__dirname, '..');
+    const common = fs.readFileSync(path.join(root, 'js/common.js'), 'utf8');
+    assert.match(common, /var sessionMode\s*=\s*['"]briefing['"]/);
+    const storage = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
+    assert.doesNotMatch(storage, /sessionStorage\.setItem\([^)]*sessionMode/);
+});

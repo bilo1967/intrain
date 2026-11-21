@@ -42,47 +42,7 @@ var audioContext = null;
 
 
 
-/*
-const SupervisorAudioMutedDefault = false;
-const InterpreterAudioMutedDefault = false;
-const SpeakerAudioMutedDefault = false;
 
-class Participant {
-   role                   = null;
-   peer                   = null;
-   data                   = null;
-   media                  = null;
-   mediaStream            = null;
-   audioMuted             = false;
-   peerOptions            = null;
-   video                  = null;
-   mediaStreamConstraints = null;
-   constructor(role, videoElement) {
-       this.role = role;
-       this.video = videoElement;
-       this.peerOptions = { metadata: {role: role } };
-       switch (role) {
-           case RoleSupervisor:
-               this.audioMuted = SupervisorAudioMutedDefault;
-               this.mediaStreamConstraints = SupervisorMediaStreamConstraints;
-           break;
-           case RoleInterpreter:
-               this.audioMuted = InterpreterAudioMutedDefault ;
-               this.mediaStreamConstraints = InterpreterMediaStreamConstraints;
-           break;
-           case RoleSpeaker:
-               this.audioMuted = SpeakerAudioMutedDefault ;
-               this.mediaStreamConstraints = SpeakerMediaStreamConstraints;
-           break;
-           case RoleScreenShare:
-               this.audioMuted = false;
-           break;
-           default:
-           break;
-       }
-   }
-}
-*/
 
 
 // This code is common

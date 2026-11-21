@@ -8,7 +8,7 @@
 
   <meta name="description" content="Web based interpreter training tool">
   <meta name="keywords" content="interpreter,interpreting,training,remote,web based,webrtc">
-  
+
   <!-- favicon for all devices -->
   <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32x32.png">
@@ -24,16 +24,16 @@
 
   <!-- FontAwesome icons -->
   <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
-  
+
   <!-- Material Icons -->
-  
+
 
   <!-- Bootstrap 5: css -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/css/bootstrap.min.css" integrity="sha384-yEPZ7jP9S0QKiUQ0m3jjsO4ProIW7wvR9gXkI7JOGa2XVsw53Yke2bsdkBbjmmiX" crossorigin="anonymous">
 
   <!-- InTrain: css -->
   <link rel="stylesheet" href="css/intrain-responsive.css?0.2">
-  
+
   <!-- JQuery, JQueryUI, Migrate: js -->
   <script
   src="https://code.jquery.com/jquery-3.4.1.min.js"
@@ -44,25 +44,20 @@
   integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
   crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
-  
-  
+
+
 
   <!-- Bootstrap 5 JavaScript (with Popper) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/js/bootstrap.bundle.min.js" integrity="sha384-WyOxWvTyr1QaMPfiPJSv76iReVthorl5uWlFtZPyK0IEB0hGzo9y5Bp9mYanr8Bu" crossorigin="anonymous"></script>
-  <script src="js/bootstrap-ui.js"></script>  
+  <script src="js/bootstrap-ui.js"></script>
 
 
-  
+
   <!-- Javascript locale -->
   <script src="js/jquery.swapelements.js"></script>
   <script src="js/peerjs.min.js"></script>
 
-  
-  
 
-
-
-  
   <script src="js/utils.js?0.01"></script>
   <script src="js/common.js?0.02"></script>
   <script src="js/peercommon.js?0.01"></script>
@@ -75,10 +70,8 @@
   <!-- https://github.com/daneden/animate.css -->
   <link rel="stylesheet" href="css/animate.min.css">
   <script src="js/animatecss.js"></script>
-  
 
 
-  
 <script src="js/storage.js"></script>
 <script src="js/role-speaker.js"></script>
 
@@ -95,7 +88,7 @@
     <div class="btn btn-sm btn-success">
       <i id="config-button" class="fas fa-cog" aria-hidden="true" data-bs-toggle="modal" data-bs-target="#config-panel"></i>
     </div>
-  
+
     <div class="btn btn-sm btn-danger">
       <i id="logout-button" class="fas fa-power-off" aria-hidden="true"></i>
     </div>
@@ -113,27 +106,27 @@
     <div class="d-flex align-items-middle me-auto ms-auto p-2 text-danger bg-white  border rounded-1 border-danger   hidden" id="session-mode"></div>
     <div class="me-1 hide-on-narrow-devices"><div class="clock"><span id="date" class="hide-on-narrow-devices"></span><span class="hide-on-narrow-devices"> - </span><span id="hours"></span>:<span id="minutes"></span>:<span id="seconds"></span></div></div>
   </div>
-  
+
 
   <!-- external frame: begin -->
   <div class="flex-column">
-  
+
     <!-- video and chat blocks: begin -->
     <div class="d-flex justify-content-start flex-wrap">
 
 
       <!-- left column (videos): begin -->
       <div class="d-inline-flex flex-wrap justify-content-center p-1 mb-1 align-items-stretch border rounded" id="left-column">
-      
-        <!-- stacked mini videos: begin --> 
+
+        <!-- stacked mini videos: begin -->
         <div class="flex-column  p-0 mr-minivideo first" >
-        
-          <!-- stacked mini video 1 --> 
+
+          <!-- stacked mini video 1 -->
           <div class="video-container mini-video-height" id="video1">
             <video id="interpreterVideo" class="rounded mini-video" data-source="" data-video-url="" autoplay playsinline poster="images/buono.jpg"   muted></video>
             <div id="interpreter-video-caption" class="video-caption video-position-bc">[ interpreter ]</div>
             <div class="video-button video-position-bl" >
-              <div data-bs-toggle="tooltip" title="Send a file to the interpreter"> 
+              <div data-bs-toggle="tooltip" title="Send a file to the interpreter">
                 <input type="file" name="file" id="send-file-to-interpreter" class="input-file" />
                 <label for="send-file-to-interpreter" class="p-0 m-0" data-bs-toggle="tooltip" title="Send a file to the interpreter"><i class="fas fa-file-upload fa-lg"></i></label>
               </div>
@@ -145,13 +138,13 @@
                 <i class="fas fa-volume-up fa-lg" data-bs-toggle="tooltip" title="mute/un&shy;mute the in&shy;ter&shy;preter's au&shy;dio"></i>
             </div>
           </div>
-          
+
           <!-- stacked mini video 2 (you) -->
           <div class="mt-2 flex-column" id="video2">
 
             <div class="video-container mini-video-height">
               <video id="localVideo" class="rounded mini-video mirrored"
-                     data-source="" data-video-url="" autoplay playsinline 
+                     data-source="" data-video-url="" autoplay playsinline
                      poster="images/buono.jpg" muted></video>
               <div class="video-caption video-position-bc">[ you ]</div>
               <div class="video-button video-position-tr">
@@ -166,9 +159,9 @@
                 <i class="fas fa-microphone" aria-hidden="true" data-bs-toggle="tooltip" title="Turn on/off your microphone"></i>
               </button>
             </div>
-            
+
           </div>
-          
+
         </div>
         <!-- stacked mini videos: end -->
 
@@ -177,41 +170,37 @@
           <div class="video-button video-position-tr">
             <i class="fas fa-exchange-alt fa-lg" id="swap-button"></i>
           </div>
-          
+
           <!-- video player -->
           <div class="player-container stack-bottom hidden p-0 m-0" id="player-container">
             <video id="myplayer" height="100%" class="border rounded normal-video-width normal-video-height" control="controls" src="" preload="none"></video>
-          </div>            
+          </div>
 
           <div class="video-container normal-video-height" id="video3">
             <video class="normal-video border rounded" data-source="" data-video-url="" autoplay playsinline poster="images/cattivo.jpg" id="supervisorVideo" muted></video>
             <div id="supervisor-video-caption" class="video-caption video-position-bc">[ supervisor ]</div>
             <div class="video-button video-position-bl">
-              <div data-bs-toggle="tooltip" title="Send a file to the supervisor"> 
+              <div data-bs-toggle="tooltip" title="Send a file to the supervisor">
                 <input type="file" name="file" id="send-file-to-supervisor" class="input-file" />
                 <label for="send-file-to-supervisor" class="p-0 m-0"><i class="fas fa-file-upload fa-lg"></i></label>
               </div>
             </div>
             <div class="video-button video-position-tl" id="supervisor-audio-toggle">
                 <i class="fas fa-volume-up fa-lg" data-bs-toggle="tooltip" title="mute/un&shy;mute the su&shy;per&shy;vi&shy;sor's au&shy;dio"></i>
-            </div>            
+            </div>
             <div class="video-button video-position-br" id="supervisor-fullscreen">
                 <i class="fas fa-expand-arrows-alt fa-lg" data-bs-toggle="tooltip" title="full screen"></i>
             </div>
             <div class="video-label video-position-center text-clear" id="recording-icon"></div>
-<!--            
-            <div class="video-label video-position-tc text-clear">A</div>
-            <div class="video-label video-position-cl text-clear">B</div>
-            <div class="video-label video-position-cr text-clear">C</div>
--->
+
           </div>
 
-          <!-- audio controls: begin -->  
+          <!-- audio controls: begin -->
           <div class="audio-controls d-flex justify-content-center align-items-start  fixed-flex mt-1" style="height: var(--normal-button-height)">
               <div id ='recording-indicator' class="text-danger"></div>
           </div>
           <!-- audio controls: end -->
-          
+
         </div>
         <!-- main video: end -->
 
@@ -243,17 +232,17 @@
         </div>
         <!-- send file to all: end -->
 
-        &nbsp;    
+        &nbsp;
 
         <!-- share screen: begin -->
         <button id="share-screen" class="btn btn-sm btn-info btn-w-2">
-        <i class="fas fa-desktop fs-large" style="color: white" data-tooltip="tooltip" title="Share your screen, application or browser tab"></i> 
+        <i class="fas fa-desktop fs-large" style="color: white" data-tooltip="tooltip" title="Share your screen, application or browser tab"></i>
         </button>
         <!-- share screen: end -->
-        
+
     </div>
     <!-- toolbar: end -->
-    
+
   </div>
   <!-- external frame: end -->
 
@@ -268,24 +257,18 @@
       <span id="appname"></span>
     </div>
   </div>
-  
+
 </div>
 <!-- Main panel: end -->
 
 
-
-
-
 <!-- Message panel:begin -->
-<div id="log-panel" 
+<div id="log-panel"
      class="opacity-90 container border rounded mt-2 mb-2 p-2 alert-warning alert alert-dismissible fade show app-width" role="alert">
-  <!--i class="close p-2" aria-hidden="true" data-bs-dismiss="alert" aria-label="Close" >&times;</i-->
+
     <span id="log-text">Ready to start&hellip;</span>
 </div>
 <!-- Message panel:end -->
-
-
-
 
 
 <!-- Logon dialog: begin -->
@@ -313,19 +296,19 @@
         <hr/>
 
         <div class="form-check  float-end">
-          <input type="checkbox" class="form-check-input debug-checkbox" 
-                 id="debugging2" name="debugging2" 
+          <input type="checkbox" class="form-check-input debug-checkbox"
+                 id="debugging2" name="debugging2"
                  data-bs-toggle='collapse' data-bs-target='.download-log-link-container'>
           <label class="form-check-label" for="debugging2">Collect logs for developers</label>
           <div class="w-100 collapse download-log-link-container" id="debugging-options-2">
             <a href="#" id="download-log-2" class="download-log-link">download logs</a>
           </div>
         </div>
-        
+
       </div>
-      
+
       <div class="modal-footer">
-        <button type="button" class="btn btn-warning me-auto" id="home-button">Exit</button> 
+        <button type="button" class="btn btn-warning me-auto" id="home-button">Exit</button>
         <button type="button" class="w-7em btn btn-secondary" id="cancel-button" disabled="true">Cancel</button>
         <button type="button" class="w-7em btn btn-success" id="join-button" >Call</button>
       </div>
@@ -345,9 +328,9 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-      
+
     <form class="form">
-    
+
       <div class="form-group">
         <label for="select-video-source">Select camera:</label>
         <div class="input-group">
@@ -357,8 +340,8 @@
           <select class="form-control" id="select-video-source"></select>
         </div>
       </div>
-      
-  
+
+
       <div class="form-group">
         <label for="select-audio-source">Select microphone:</label>
         <div class="input-group">
@@ -368,8 +351,8 @@
           <select class="form-control" id="select-audio-source"></select>
         </div>
       </div>
-      
-      
+
+
       <div class="form-group">
         <label for="select-audio-output">Select audio output:</label>
         <div class="input-group">
@@ -377,9 +360,9 @@
             <div class="input-group-text"><i style="width:1em"   class="fas fa-headphones-alt"></i></div>
           </div>
           <select class="form-control" id="select-audio-output"></select>
-        </div>      
+        </div>
       </div>
-      
+
       <hr/>
 
       <div class="form-group">
@@ -393,20 +376,17 @@
         </div>
       </div>
 
-      
 
-      
-      
     </form>
-    
+
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
-</div> 
-<!-- Config dialog: end -->  
+</div>
+<!-- Config dialog: end -->
 
 
 </body>

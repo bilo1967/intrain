@@ -24,3 +24,32 @@ This branch starts from the deployed InTrain files supplied in November 2026, no
 Run the dependency-free regression tests with `node --test tests/smoke.test.js`. Check JavaScript syntax with `node --check js/intrain.js` and `node --check js/peercommon.js`. Tests exercise JavaScript with mocked browser APIs; they **do not** replace testing with real devices, multiple browsers, TURN/ICE, stereo monitoring, recording, or screen sharing.
 
 Suggested manual acceptance test: connect supervisor, speaker and interpreter; verify briefing/training audio routing, stereo balance, recorder output with separate L/R channels, role switching, late joining, reconnection, camera/microphone device changes, and screen sharing (with and without desktop audio, including stopping from the browser UI). In particular, test speaker joining while supervisor screen sharing is active, interpreter reconnecting to an active share, and restoration of speaker video when sharing ends.
+
+## Code maintenance
+
+The application still uses its existing PeerJS mesh topology and separate role pages.
+This maintenance work does not change signaling, routing or role semantics.
+
+- Bootstrap 5.3.9 replaces Bootstrap 4.6.1. The Bootstrap bundle provides Popper;
+  `js/bootstrap-ui.js` exposes explicit native APIs for modals, tooltips and popovers.
+  Bootstrap 5 markup and RTL-aware spacing classes replace Bootstrap 4 attributes.
+- Inline application JavaScript was moved into readable, unminified scripts:
+  `js/role-index.js`, `js/role-supervisor.js`, `js/role-speaker.js`,
+  and `js/role-interpreter.js`. Shared logic stays in its existing files.
+- `js/storage.js` saves persistent browser preferences under `intrain.*` in
+  `localStorage`. The first read migrates the corresponding old cookie and expires
+  it; no new preference cookies are written. The live session mode remains
+  supervisor-controlled and is deliberately **not** restored from browser storage.
+- The obsolete Bootstrap 4 input clearer is replaced by the readable
+  `js/input-clearer.js`. Existing third-party prebuilt libraries, such as the
+  bundled PeerJS client, are not rewritten or minified as part of this change.
+- Removed abandoned commented-out implementation blocks. Explanatory comments,
+  including the stereo audio graph and the original language of comments, remain.
+
+## Manual UI validation after Bootstrap 5 migration
+
+Check all four pages: splash screen, popovers, tooltips, device selectors,
+login and configuration dialogs, briefing/training buttons, debug-log collapse,
+role-switch dialog, screen-share controls and responsive sizing. Then repeat a
+three-peer exercise with recording and device switching. Automated unit tests
+cannot verify visual layout or browser-specific WebRTC behavior.

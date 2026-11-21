@@ -8,7 +8,7 @@
 
   <meta name="description" content="Web based interpreter training tool">
   <meta name="keywords" content="interpreter,interpreting,training,remote,web based,webrtc">
-  
+
   <!-- favicon for all devices -->
   <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32x32.png">
@@ -21,19 +21,19 @@
   <meta name="theme-color" content="#ffffff">
 
   <title>intrain:interpreter</title>
-  
+
   <!-- FontAwesome icons -->
   <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
-  
+
   <!-- Material Icons -->
-  
+
 
   <!-- Bootstrap 5: css -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/css/bootstrap.min.css" integrity="sha384-yEPZ7jP9S0QKiUQ0m3jjsO4ProIW7wvR9gXkI7JOGa2XVsw53Yke2bsdkBbjmmiX" crossorigin="anonymous">
 
   <!-- InTrain: css -->
   <link rel="stylesheet" href="css/intrain-responsive.css?0.3">
-  
+
   <!-- JQuery, JQueryUI, Migrate: js -->
   <script
   src="https://code.jquery.com/jquery-3.4.1.min.js"
@@ -44,25 +44,23 @@
   integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
   crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
-  
-  
+
+
 
   <!-- Bootstrap 5 JavaScript (with Popper) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/js/bootstrap.bundle.min.js" integrity="sha384-WyOxWvTyr1QaMPfiPJSv76iReVthorl5uWlFtZPyK0IEB0hGzo9y5Bp9mYanr8Bu" crossorigin="anonymous"></script>
-  <script src="js/bootstrap-ui.js"></script>  
+  <script src="js/bootstrap-ui.js"></script>
 
 
-  
+
   <!-- Javascript locale -->
   <script src="js/jquery.swapelements.js"></script>
   <script src="js/peerjs.min.js"></script>
-  
-  
-  
-  
+
+
   <!-- Audio recorder from AudioContext -->
-  <script src="js/recorderjs/recorder.js"></script>  
-  
+  <script src="js/recorderjs/recorder.js"></script>
+
   <script src="js/utils.js?0.01"></script>
   <script src="js/common.js?0.02"></script>
   <script src="js/peercommon.js?0.01"></script>
@@ -85,10 +83,10 @@
   <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/soundcloud.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/twitch.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/vimeo.min.js"></script>
-  
+
 <style>
     .mejs__overlay-button {display:none;}
-</style> 
+</style>
 
 
 <script src="js/storage.js"></script>
@@ -107,7 +105,7 @@
     <div class="btn btn-sm btn-success">
       <i id="config-button" class="fas fa-cog" aria-hidden="true" data-bs-toggle="modal" data-bs-target="#config-panel"></i>
     </div>
-  
+
     <div class="btn btn-sm btn-danger">
       <i id="logout-button" class="fas fa-power-off" aria-hidden="true"></i>
     </div>
@@ -125,7 +123,7 @@
     <div class="d-flex align-items-middle me-auto ms-auto p-2 text-danger bg-white  border rounded-1 border-danger   hidden" id="session-mode"></div>
     <div class="me-1 hide-on-narrow-devices"><div class="clock"><span id="date" class="hide-on-narrow-devices"></span><span class="hide-on-narrow-devices"> - </span><span id="hours"></span>:<span id="minutes"></span>:<span id="seconds"></span></div></div>
   </div>
-  
+
 
   <!-- external frame: begin -->
   <div class="flex-column">
@@ -137,15 +135,15 @@
       <!-- left column (videos): begin -->
       <div class="d-inline-flex flex-wrap justify-content-center p-1 mb-1 align-items-stretch border rounded" id="left-column">
 
-        <!-- stacked mini videos: begin --> 
+        <!-- stacked mini videos: begin -->
         <div class="flex-column  p-0 mr-minivideo first" >
 
-          <!-- stacked mini video 1 --> 
+          <!-- stacked mini video 1 -->
           <div class="video-container mini-video-height" id="video1">
             <video id="supervisorVideo" class="rounded mini-video" data-source="" data-video-url="" autoplay playsinline poster="images/cattivo.jpg" muted></video>
             <div id="supervisor-video-caption" class="video-caption video-position-bc">[ supervisor ]</div>
             <div class="video-button video-position-bl" >
-              <div data-bs-toggle="tooltip" title="Send a file to the supervisor"> 
+              <div data-bs-toggle="tooltip" title="Send a file to the supervisor">
                 <input type="file" name="file" id="send-file-to-supervisor" class="input-file" />
                 <label for="send-file-to-supervisor"  class="p-0 m-0" data-bs-toggle="tooltip" title="Send a file to the supervisor"><i  class="fas fa-file-upload fa-lg"></i></label>
               </div>
@@ -158,16 +156,16 @@
             <div class="video-button video-position-tl" id="supervisor-audio-toggle">
                 <i class="fas fa-volume-up fa-lg" data-bs-toggle="tooltip" title="mute/un&shy;mute the su&shy;per&shy;vi&shy;sor's au&shy;dio"></i>
             </div>
-            
+
             <div class="video-label video-position-center text-clear" id="recording-icon"></div>
           </div>
 
-          <!-- stacked mini video 2 (you) --> 
+          <!-- stacked mini video 2 (you) -->
           <div class="mt-2 flex-column" id="video2">
 
             <div class="video-container mini-video-height">
               <video id="localVideo" class="rounded mini-video mirrored"
-                     data-source="" data-video-url="" autoplay playsinline 
+                     data-source="" data-video-url="" autoplay playsinline
                      poster="images/buono.jpg" muted></video>
               <div class="video-caption video-position-bc">[ you ]</div>
               <div class="video-button video-position-tr">
@@ -184,7 +182,7 @@
             </div>
 
           </div>
-          
+
         </div>
         <!-- stacked mini videos: end -->
 
@@ -197,8 +195,8 @@
           <!-- video player -->
           <div class="player-container stack-bottom hidden p-0 m-0" id="player-container">
             <video id="myplayer" height="100%" class="border rounded normal-video-width normal-video-height" control="controls" src="" preload="none"></video>
-          </div>          
-        
+          </div>
+
           <div class="video-container normal-video-height" id="video3">
             <video  id="speakerVideo" class="normal-video rounded" data-source="" data-video-url="" autoplay playsinline poster="images/brutto.jpg" muted></video>
             <div id="speaker-video-caption" class="video-caption video-position-bc">[ speaker ]</div>
@@ -216,7 +214,7 @@
             </div>
           </div>
 
-          <!-- audio controls: begin -->  
+          <!-- audio controls: begin -->
           <div class="audio-controls d-flex justify-content-center align-items-start  fixed-flex mt-1" style="height: var(--normal-button-height)">
               <div id ='recording-indicator' class="text-danger"></div>
           </div>
@@ -224,7 +222,7 @@
 
         </div>
         <!-- main video: end -->
-      
+
       </div>
       <!-- left column (videos): end -->
 
@@ -254,11 +252,11 @@
         <!-- send file to all: end -->
 
     </div>
-    <!-- toolbar: end -->    
+    <!-- toolbar: end -->
 
   </div>
   <!-- external frame: end -->
-  
+
   <div class="pt-2 row">
     <div lass="col-sm">
        <span class="hide-on-narrow-devices">
@@ -271,23 +269,17 @@
     </div>
   </div>
 
-</div>  
+</div>
 <!-- Main panel: end -->
 
 
-
-
-
 <!-- Message panel:begin -->
-<div id="log-panel" 
+<div id="log-panel"
      class="opacity-90 container border rounded mt-2 mb-2 p-2 alert-warning alert alert-dismissible fade show app-width" role="alert">
-  <!--i class="close p-2" aria-hidden="true" data-bs-dismiss="alert" aria-label="Close" >&times;</i-->
+
     <span id="log-text">Ready to start&hellip;</span>
 </div>
 <!-- Message panel:end -->
-
-
-
 
 
 <!-- Logon dialog: begin -->
@@ -311,23 +303,23 @@
         </form>
 
         <div id="login-status"></div>
-        
+
         <hr/>
 
         <div class="form-check  float-end">
-          <input type="checkbox" class="form-check-input debug-checkbox" 
-                 id="debugging2" name="debugging2" 
+          <input type="checkbox" class="form-check-input debug-checkbox"
+                 id="debugging2" name="debugging2"
                  data-bs-toggle='collapse' data-bs-target='.download-log-link-container'>
           <label class="form-check-label" for="debugging2">Collect logs for developers</label>
           <div class="w-100 collapse download-log-link-container" id="debugging-options-2">
             <a href="#" id="download-log-2" class="download-log-link">download logs</a>
           </div>
         </div>
-        
+
       </div>
-      
+
       <div class="modal-footer">
-        <button type="button" class="btn btn-warning me-auto" id="home-button">Exit</button> 
+        <button type="button" class="btn btn-warning me-auto" id="home-button">Exit</button>
         <button type="button" class="w-7em btn btn-secondary" id="cancel-button" disabled="true">Cancel</button>
         <button type="button" class="w-7em btn btn-success" id="join-button" >Call</button>
       </div>
@@ -346,7 +338,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-      
+
     <form class="form">
 
       <div class="form-group">
@@ -358,8 +350,8 @@
           <select class="form-control" id="select-video-source"></select>
         </div>
       </div>
-      
-  
+
+
       <div class="form-group">
         <label for="select-audio-source">Select microphone:</label>
         <div class="input-group">
@@ -369,9 +361,9 @@
           <select class="form-control" id="select-audio-source"></select>
         </div>
       </div>
-      
-      
-      
+
+
+
       <div class="form-group">
         <label for="select-audio-output">Select audio output:</label>
         <div class="input-group">
@@ -379,9 +371,9 @@
             <div class="input-group-text"><i style="width:1em"   class="fas fa-headphones-alt"></i></div>
           </div>
           <select class="form-control" id="select-audio-output"></select>
-        </div>      
+        </div>
       </div>
-      
+
 
       <hr/>
 
@@ -396,15 +388,15 @@
         </div>
       </div>
     </form>
-    
+
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
-</div> 
-<!-- Config dialog: end -->  
+</div>
+<!-- Config dialog: end -->
 
 </body>
 </html>

@@ -11,7 +11,7 @@ myColor = ColorSupervisor;
 
 
 // NB: speaker → 1 (L), interpreter → 2 (R)
-//var audioContext  = null;
+
 var split1    = null; // Splitter di canali
 var split2    = null; // Splitter di canali
 var gain1     = null; // Volume canale 1
@@ -38,21 +38,14 @@ var recIndex      = 1;
 var micGraph = null;
 
 
-
-
 // Various toggles
 var swapChannels = false; // swap channels toggle variable
 var boostVolume = false;  // boost volume
 var showPlayer = false;   // show player and load controls
 
 
-
-
-
-
 // When the page has been loaded
 $(document).ready(async function() {
-
 
 
     setDeviceSelector($('#select-video-source').get(0), 'videoinput');  // select box for video source devices
@@ -72,21 +65,7 @@ $(document).ready(async function() {
     audioOutputElement.loop = false;
     //audioOutputElement.play();
 
-/*
-    getDevices().then(() => {
-        
-        $('#select-video-source').val(InTrainStorage.get('supervisor-video-source') || 'default');
-        $('#select-audio-source').val(InTrainStorage.get('supervisor-audio-source') || 'default');
-        $('#select-audio-output').val(InTrainStorage.get('supervisor-audio-output') || 'default');
-        
-        changeAudioDestination(audioOutputElement);
-        
-        setUserMediaConstraints();
-            
-    }).catch(handleLocalMediaStreamError);    
-*/
 
-   
     try {
 
         // Get infos on available device and update device lists
@@ -175,58 +154,6 @@ $(document).ready(async function() {
         console.error('Audio setup failed:', error);
     }
 
-/*        
-    var waitAudioCtxAvailable = new Promise( (res, rej) => {
-        
-        var ctx = initAudioCtx();
-
-        if (ctx.state === 'suspended') {
-            $('body').one("click", () => {
-                ctx.resume();
-                res(ctx);
-            });
-        } else if (ctx.state === 'running') {
-            console.log(ctx.state);
-            res(ctx);
-        } else {
-            rej();
-        }
-    });
-
-    waitAudioCtxAvailable.then((ctx) => {
-        
-        initCrossFader(); // Crossfade implementation
-        initRecorder();  
-        
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().then(() => {
-                console.log("Audio context resumed");
-            });
-            console.log("Audio context resumed");
-        }
-        
-        if (audioOutputElement.paused) {
-            console.log("audioOutputElement is paused because audioContext was unavailable. Start it.");
-            audioOutputElement.play();
-            
-        }
-        
-        $('#select-video-source').on('change', () => {
-            InTrainStorage.set('supervisor-video-source', $('#select-video-source').val());
-            setUserMediaConstraints();
-        });
-        $('#select-audio-source').on('change', () => {
-            InTrainStorage.set('supervisor-audio-source', $('#select-audio-source').val());
-            setUserMediaConstraints();
-        });
-        $('#select-audio-output').on('change', () => {
-            InTrainStorage.set('supervisor-audio-output', $('#select-audio-output').val());
-            changeAudioDestination(audioOutputElement);
-        });
-
-
-    });        
-*/
 
     // Init tooltips
     $(function () {
@@ -240,9 +167,8 @@ $(document).ready(async function() {
     
     initMuted(); // Mute/unmute partners (set defaults)
     loadClock(); // Start clock
-    
 
-    
+
     // check for notifications support
     // you can omit the 'window' keyword
     if (window.Notification) {
@@ -252,7 +178,6 @@ $(document).ready(async function() {
         console.warn("Notifications are not supported for this Browser/OS version yet.");
     }
 
-        
 
     // init player
 	$('#myplayer').mediaelementplayer({
@@ -265,27 +190,7 @@ $(document).ready(async function() {
         
             myVideoPlayer = instance; 
             myVideoMediaElement = mediaElement;
-/*
-            mediaElement.addEventListener('loadstart',      function() { console.log('loadstart'); }, false);
-            mediaElement.addEventListener('durationchange', function() { console.log('durationchange'); }, false);
-            mediaElement.addEventListener('loadedmetadata', function() { console.log('loadedmetadata'); }, false);
-            mediaElement.addEventListener('loadeddata',     function() { console.log('loadeddata'); }, false);
-            mediaElement.addEventListener('canplay',        function() { console.log('canplay'); }, false);
-            mediaElement.addEventListener('canplaythrough', function() { console.log('canplaythrough'); }, false);
-            mediaElement.addEventListener('suspend',        function() { console.log('suspend'); }, false);
-            mediaElement.addEventListener('abort',          function() { console.log('abort'); }, false);
-            mediaElement.addEventListener('error',          function() { console.log('error'); }, false);
-            mediaElement.addEventListener('emptied',        function() { console.log('emptied'); }, false);
-            mediaElement.addEventListener('stalled',        function() { console.log('stalled'); }, false);
-            mediaElement.addEventListener('playing',        function() { console.log('playing'); }, false);
-            mediaElement.addEventListener('waiting',        function() { console.log('waiting'); }, false);
-            mediaElement.addEventListener('seeking',        function() { console.log('seeking'); }, false);
-            mediaElement.addEventListener('seeked',         function() { console.log('seeked'); }, false);
-            //mediaElement.addEventListener('timeupdate',     function() { console.log('timeupdate'); }, false);
-            mediaElement.addEventListener('ended',          function() { console.log('ended'); }, false);
-            mediaElement.addEventListener('ratechange',     function() { console.log('ratechange'); }, false);
-            mediaElement.addEventListener('volumechange',   function() { console.log('volumechange'  ); }, false);
-*/
+
             mediaElement.addEventListener('progress', function() { 
                 console.log('progress', myVideoPlayer.currentTime);  
             }, false);
@@ -311,15 +216,13 @@ $(document).ready(async function() {
                 myVideoPlayer.pause();
             };
 
-            
-            
+
             // These hacks are to get events (play, seek) before they're
             // actually handled on the supervisor side, and run them on
             // to the interpreter side so that they can be handled almost
             // in parallel, reducing the delay.
             var pfx = '.' + this.classPrefix;
-            
-//          $(pfx + 'playpause-button, ' + pfx + '__overlay-play').on('click', function() {    
+
             $(pfx + 'playpause-button').on('click', function() {    
                 if (! myVideoPlayer.paused) {
                     if (interpreterData && interpreterData.open)
@@ -327,13 +230,8 @@ $(document).ready(async function() {
                 }
                 console.log("CLICK playpause button ( paused:", myVideoPlayer.paused, ")");
             });
-            
-            /*
-            $(pfx + 'overlay-button').on('click', function(e) {
-                console.log("CLICK overlay button ( paused:", myVideoPlayer.paused, ")");
-            });            
-            */
-            
+
+
             $(pfx + 'time-slider').on('click', function() {
                 var w = myVideoPlayer.total.offsetWidth;
                 var p = $(pfx + 'time-slider ' + pfx + 'time-hovered').attr("pos");
@@ -357,7 +255,6 @@ $(document).ready(async function() {
     InTrainUI.showModal('#login-dialog', {keyboard: false, backdrop: 'static'});
     $('#cancel-button').attr("disabled", true);
 
-    
 
     /* Connect/disconnect button clicked */
     $('#join-button').on("click", function(e){
@@ -481,15 +378,13 @@ $(document).ready(async function() {
                     logToChat("<b>" + role + "</b> media connection closed");
                     console.log(role + " media connection closed");
                     initCrossFader();
-                    
-                    //if (role === RoleInterpreter && sharingScreen() ) unshareScreen();
+
                 });
             }
 
         });
-        
-        
-        
+
+
         // Handle incoming data
         myPeer.on('connection', function(c) { 
         
@@ -512,9 +407,8 @@ $(document).ready(async function() {
                     // Bring a late joiner up to date with session mode and recording.
                     c.send({action: 'setaudiomode', mode: sessionMode});
                     c.send({action: 'recording', mode: recording ? 'on' : 'off'});
-                    
-                    
-                    
+
+
                     // Push a notification if permission is granted and 
                     // only if the browser window is not focused
                     if (Notification.permission === "granted" && !document.hasFocus()) {
@@ -679,8 +573,7 @@ $(document).ready(async function() {
         
         var b = parseInt(val) / (parseInt(max) - parseInt(min));
         var v = boostVolume ? 8 : 2 ; //1.5*parseInt(volume.value) / (parseInt(volume.max) - parseInt(volume.min));
-        
-        //console.log("Crossfade value:", b);
+
         
         var vol1 = m1 * v * Math.cos((1.0 - b) * 0.5 * Math.PI);
         var vol2 = m2 * v * Math.cos(b * 0.5 * Math.PI)
@@ -714,11 +607,10 @@ $(document).ready(async function() {
             interpreterData.send({
                 action: "loadvideo",
                 url: videoURL,
-                time: /*myVideoPlayer.getCurrentTime() +*/ 0.01,
+                time:  0.01,
                 pause: true
             });
-            
-            //interpreterData.send({action: "seekvideo", time: 0.0, pause: true});
+
             myVideoPlayer.setSrc(videoURL);
             myVideoPlayer.setCurrentTime(0.0);
             myVideoPlayer.pause();
@@ -738,7 +630,7 @@ $(document).ready(async function() {
         
             $('#load-player i').removeClass('fab fa-youtube').addClass('fas fa-times-circle');
             $('#player-container').removeClass('stack-bottom').addClass('stack-top');
-            //$('#player-panel').fadeTo(1000, 1);
+
             $('#player-panel').fadeTo(0, 1);
             $('#player-panel').animate({ width: $('#player-panel').css('max-width')}, 400);
             
@@ -748,13 +640,12 @@ $(document).ready(async function() {
         
             $('#load-player i').removeClass('fas fa-times-circle').addClass('fab fa-youtube');
             $('#player-container').removeClass('stack-top').addClass('stack-bottom');
-            //$('#player-panel').fadeTo(500, 0);
+
             $('#player-panel').animate({ width: '0' }, 400);
             $('#player-panel').fadeTo(0, 0);
             
         }
     });
-    
 
 
     $('#briefing-mode').on('click', function() {
@@ -780,7 +671,6 @@ $(document).ready(async function() {
         
         setSessionMode('training');
     });
-    
 
 
     $('#switch-roles-confirm').on('click', function() {
@@ -803,14 +693,9 @@ $(document).ready(async function() {
     });
 
 
-
-
-
-    
     $("input[data-bs-toggle='tooltip']").mouseout(function(){
       InTrainUI.hideTooltip(this);
     });
-
 
 
     var recording = false;
@@ -820,7 +705,7 @@ $(document).ready(async function() {
         
         console.log("Record clicked");
         
-        if (/*$("#record-audio > i").hasClass("fa-square")*/ recording) {
+        if ( recording) {
         
             console.log("Stop recording");
 
@@ -880,22 +765,8 @@ $(document).ready(async function() {
         if (sharingScreen()) {
         
             unshareScreen();
-            
-/*            
-            screenshareMediaStream.getTracks().forEach(track => track.stop())
-            screenshareMediaStream = null;
 
-            sharingScreenActive = false;
-            screenshareMediaStream = null;
-            speakerVideo.srcObject = speakerMediaStream;
-        
-            console.log('Sharing screen ended');  
-            //me.unshareScreen();
-            $('#share-screen > i').removeClass('fa-blink');
-            
-            speakerVideo.load();
-*/
-            
+
         } else {
             navigator.mediaDevices
                 
@@ -908,12 +779,7 @@ $(document).ready(async function() {
                     
                 }).catch(err => {
                 
-                    /*
-                    sharingScreenActive = false;
-                    screenshareMediaStream = null;
-                    // me.unshareScreen();
-                    $('#share-screen > i').removeClass('fa-blink');
-                    */
+                    
                     unshareScreen();
                     console.error("Error sharing screen: " + err);
                     return null; 
@@ -992,10 +858,6 @@ $(document).keypress(function(e) {
     e.preventDefault();
   }
 });
-
-
-
-
 
 
 function brownianNoise(g) {
@@ -1116,8 +978,6 @@ function initAudioCtx() {
     
     gain1.connect(mix, 0, 1);
     gain2.connect(mix, 0, 0);
-     
-
 
 
     // Since the Web Audio API does not allow to set a specific audio device
@@ -1184,7 +1044,6 @@ function initCrossFader() {
 }
 
 
-
 function initRecorder() {
     
     mixrec        = audioContext.createChannelMerger(2, 2); // Channel mixer for the recorder
@@ -1202,7 +1061,6 @@ function initRecorder() {
     zeroGain.connect( audioContext.destination );
     
 }
-
 
 
 // the ONLY time saveAudio is called is right after a 

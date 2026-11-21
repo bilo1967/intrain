@@ -36,13 +36,7 @@ async function joinSupervisor(e, peerOptions, setAudioMode = () => {}) {
 
         InTrainUI.showModal('#login-dialog');        
 
-        /*
-        setTimeout(function() { 
-            //myPeer.destroy();
-            closeAllConnections();
-        }, 0);
-        */
-        
+
         return true;
     }
     
@@ -61,7 +55,6 @@ async function joinSupervisor(e, peerOptions, setAudioMode = () => {}) {
 
     loadPeerHandlers(setAudioMode);
 } 
-
 
 
 /* 
@@ -352,10 +345,10 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                     break;                            
                 case 'recording':
                     if (data.mode === "on") {
-                        //$('#recording-indicator').html('supervisor is recording this session').addClass('fa-blink');
+
                         $('#recording-icon').html('Recording').addClass('fa-blink');
                     } else {
-                        //$('#recording-indicator').html('').removeClass('fa-blink');
+
                         $('#recording-icon').html('').removeClass('fa-blink');
                     }
                     
@@ -431,7 +424,6 @@ function loadPeerHandlers(setAudioMode = () => {}) {
 }
 
 
-
 /**
  * Gestisce il redirect per switch ruoli
  */
@@ -445,11 +437,11 @@ async function handleRoleSwitch(data) {
 
    
     // Redirect alla nuova pagina ruolo
-    //setTimeout(() => {
+
         const newRolePage = data.newRole + '.html';
         const supervisorParam = encodeURIComponent(data.supervisor);
         window.location.href = `${newRolePage}?supervisor=${supervisorParam}&action=switching`;
-    //}, 1500);
+
 }
 
 function resetIndicators() {
