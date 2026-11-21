@@ -857,9 +857,7 @@ function updateClock() {
 
 
 function playStream(stream, sinkId = null) {
-    
-    return;
-    if (!stream instanceof MediaStream) return;
+    if (!(stream instanceof MediaStream)) return;
     
     const player = new Audio();
     player.srcObject = stream;

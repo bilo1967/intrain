@@ -148,25 +148,25 @@ async function updateDeviceList(deviceList = null, deviceSelector, kind = 'video
 
 // Attach audio output device to video element using device/sink ID.
 async function attachSinkId(element, sinkId) {
-
-    if (typeof element.sinkId !== 'undefined') {
-        
-        element.setSinkId(sinkId).then(() => {
-            console.log(`Success, audio output device attached: ${sinkId}`);
-            return sinkId;
-        }).catch(error => {
-            let errorMessage = error;
-            if (error.name === 'SecurityError') {
-                errorMessage = `You need to use HTTPS for selecting audio output device: ${error}`;
-            }
-            console.error(errorMessage);
-            // Jump back to first output device in the list as it's the default.
-            audioOutputSelect.selectedIndex = 0;
-        });
-    } else {
+    if (!element || typeof element.setSinkId !== 'function') {
         console.warn('Browser does not support output device selection.');
+        return null;
     }
 
+    try {
+        await element.setSinkId(sinkId);
+        console.log(`Success, audio output device attached: ${sinkId}`);
+        return sinkId;
+    } catch (error) {
+        let errorMessage = error;
+        if (error.name === 'SecurityError') {
+            errorMessage = `You need to use HTTPS for selecting audio output device: ${error}`;
+        }
+        console.error(errorMessage);
+        // Jump back to the default output selection on an unsuccessful change.
+        if (audioOutputSelect) audioOutputSelect.selectedIndex = 0;
+        return null;
+    }
 }
 
 // Change audio destination of selected <video> or <audio> element
