@@ -1,7 +1,7 @@
 /* Load before config.js */
 
 const appName           = "inTrain";
-const appVersion        = "0.9.9";
+const appVersion        = "1.0.2";
 const appAuthor         = "Gabriele Carioli";
 const appCompany        = "Dipartimento di Interpretazione e Traduzione &ndash; Universit&agrave; di Bologna &ndash; Campus di Forl&igrave;";
 const appLicense        = 'Available under <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL v3</a> license (see <a href="credits" target="_blank">credits</a>)';
@@ -17,6 +17,7 @@ const appCopyright      = null;
 const RoleInterpreter = "interpreter";
 const RoleSpeaker     = "speaker";
 const RoleSupervisor  = "supervisor";
+const RoleScreenShare = "screenshare"; // supervisor second stream...
 
 const ColorInterpreter = "Gold";
 const ColorSpeaker     = "PaleGreen";
@@ -30,6 +31,58 @@ var userID;
 
 var peerConnected = false;
 var peerError     = false;
+
+
+var sessionMode = 'briefing';  // Session mode indicator (briefing / training)
+
+var roleSwitching = false;
+
+var audioContext = null;
+
+
+
+
+/*
+const SupervisorAudioMutedDefault = false;
+const InterpreterAudioMutedDefault = false;
+const SpeakerAudioMutedDefault = false;
+
+class Participant {
+   role                   = null;
+   peer                   = null;
+   data                   = null;
+   media                  = null;
+   mediaStream            = null;
+   audioMuted             = false;
+   peerOptions            = null;
+   video                  = null;
+   mediaStreamConstraints = null;
+   constructor(role, videoElement) {
+       this.role = role;
+       this.video = videoElement;
+       this.peerOptions = { metadata: {role: role } };
+       switch (role) {
+           case RoleSupervisor:
+               this.audioMuted = SupervisorAudioMutedDefault;
+               this.mediaStreamConstraints = SupervisorMediaStreamConstraints;
+           break;
+           case RoleInterpreter:
+               this.audioMuted = InterpreterAudioMutedDefault ;
+               this.mediaStreamConstraints = InterpreterMediaStreamConstraints;
+           break;
+           case RoleSpeaker:
+               this.audioMuted = SpeakerAudioMutedDefault ;
+               this.mediaStreamConstraints = SpeakerMediaStreamConstraints;
+           break;
+           case RoleScreenShare:
+               this.audioMuted = false;
+           break;
+           default:
+           break;
+       }
+   }
+}
+*/
 
 
 // This code is common
@@ -47,6 +100,12 @@ var supervisorPeer         = null; // Supervisor peer id
 var supervisorData         = null; // Supervisor data connection handle
 var supervisorMedia        = null; // Supervisor media connection handle
 var supervisorMediaStream  = null; // Supervisor media stream
+
+// Screen share controls
+var screenshareConnection  = null; // Supervisor media connection handle
+var screenshareMediaStream = null; // Supervisor screen share media stream
+var sharingScreenActive    = false; 
+
 
 // Default settings for role peers audio
 // Settings are different for each role and any module should
@@ -66,10 +125,15 @@ var interpreterVideo;
 var supervisorVideo;
 var localVideo;
 var localStream;
+var micStream; // Usually an alias of localStream, except for speaker when sharing screen
 
 // Player
 var myVideoPlayer = null;
 var myVideoMediaElement = null;
+
+
+// Dynamic audio element used to actually play audio
+var audioOutputElement = null; 
 
 
 const SpeakerPeerOptions = {
@@ -132,10 +196,16 @@ const InterpreterMediaStreamConstraints = {
 };
 
 
-// Set up to exchange only video.
-const SpeakerOfferOptions = {
-  offerToReceiveVideo: 0,
-  offerToReceiveAudio: 1,
-};
 
-
+// Sistema il warning per gli elementi aria-hidden che hanno
+// un discendente attivo (bootbox e modal)
+$(document).on('hide.bs.modal', '.bootbox', function() {
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur(); // Forces focus removal
+    }
+});
+$(document).on('hide.bs.modal', '.modal', function() {
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur(); // Forces focus removal
+    }
+});

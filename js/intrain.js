@@ -19,27 +19,28 @@ function logToChat(m, w = "", color = "white") {
 }
 
 
-var hideLogPanelInterval = 1;
+let hideLogPanelTimeout = null;
 
-setInterval(function(){
-   if(hideLogPanelInterval == 10){
-       $('#log-panel').fadeOut(1000); 
-       hideLogPanelInterval = 1;
-   }
-   hideLogPanelInterval++;
-},1000);
-    
 function logToPanel(m, c = "info", l = false) {
-    
+    // Cancel previous timeout, if it exists
+    if (hideLogPanelTimeout) {
+        clearTimeout(hideLogPanelTimeout);
+    }
+
     if (l) $('#login-status').html(m);
 
-    $('#log-panel').fadeOut(150, function() {
+    $('#log-panel').fadeOut(250, function() {
         $('#log-text').html(m);
-        $('#log-panel').removeClass("alert-warning alert-success alert-danger alert-info alert-primary alert-secondary alert-success alert-clear alert-dark");
-        $('#log-panel').addClass("alert-" + c);
-    }).fadeIn(150).delay(300);
+        $('#log-panel')
+            .removeClass("alert-warning alert-success alert-danger alert-info alert-primary alert-secondary alert-success alert-clear alert-dark")
+            .addClass("alert-" + c);
+    }).fadeIn(150);
 
-    hideLogPanelInterval = 1;  
+    // Hide panel after 5 seconds
+    hideLogPanelTimeout = setTimeout(() => {
+        $('#log-panel').fadeOut(1000);
+        hideLogPanelTimeout = null;
+    }, 5000);
 }
 
 function verifyMediaConnection(c, role) {
@@ -133,9 +134,9 @@ function setupDataConnection(c, role) {
 
 
 function enableMic(v) {
-    if (typeof localStream !== 'object') return null;
+    if (typeof micStream !== 'object') return null;
     
-    const tracks = localStream.getAudioTracks();
+    const tracks = micStream.getAudioTracks();
     // if MediaStream has reference to track
     if (tracks[0]) {
         tracks[0].enabled = v;
@@ -145,9 +146,9 @@ function enableMic(v) {
 }
 
 function enableCam(v) {
-    if (typeof localStream !== 'object') return null;
+    if (typeof micStream !== 'object') return null;
     
-    const tracks = localStream.getVideoTracks();
+    const tracks = micStream.getVideoTracks();
     // if MediaStream has reference to track
     if (tracks[0]) {
         tracks[0].enabled = v;
@@ -157,9 +158,9 @@ function enableCam(v) {
 }
 
 function toggleMic() {
-    if (typeof localStream !== 'object') return null;
+    if (typeof micStream !== 'object') return null;
     
-    const tracks = localStream.getAudioTracks();
+    const tracks = micStream.getAudioTracks();
     // if MediaStream has reference to track
     if (tracks[0]) {
         tracks[0].enabled = !tracks[0].enabled;
@@ -186,43 +187,9 @@ function isCamEnabled() {
 }
 
 function isMicEnabled() {
-    if (typeof localStream !== 'object') return null;
-    return localStream.getAudioTracks()[0].enabled;
+    if (typeof micStream !== 'object') return null;
+    return micStream.getAudioTracks()[0].enabled;
 }
-
-/*
-function vuMeter(analyser, qvumeter, qled) {
-      
-    var w = $(qvumeter).width();
-    var h = $(qvumeter).height();
-    
-    var data = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(data);
-    
-    var values = 0;
-    
-    var length = data.length;
-    for (var i = 0; i < length; i++) {
-      values += (data[i]);
-    }
-    
-    var average = values / (length);
-    
-    (function (vol) {
-      let all_pids = $(qled);
-    
-      let amout_of_pids = Math.round(vol/10);
-      let elem_range = all_pids.slice(0, amout_of_pids)
-      for (var i = 0; i < all_pids.length; i++) {
-        all_pids[i].style.backgroundColor="#e6e7e8";
-      }
-      for (var i = 0; i < elem_range.length; i++) {
-        // console.log(elem_range[i]);
-        elem_range[i].style.backgroundColor="#69ce2b";
-      }
-    })(average * 2.5);
-}
-*/
 
 function addCopyright() {
     $('#appname').html(appName + " v" + appVersion);
@@ -324,6 +291,8 @@ function loadCommonHandlers() {
         $("#video3").fadeOut(250, function() {
           $("#video1 video").toggleClass("mini-video normal-video");
           $("#video3 video").toggleClass("mini-video normal-video");
+          $("#video1").toggleClass("mini-video-height normal-video-height");
+          $("#video3").toggleClass("mini-video-height normal-video-height");
           $("#video1").swap("#video3");
           $("#video1").fadeIn(250);
           $("#video3").fadeIn(250);          
@@ -455,9 +424,9 @@ function loadCommonHandlers() {
     
     
     // Handle page close or reload
-    window.addEventListener('beforeunload', function (e) {
+    window.addEventListener('beforeunload', async function (e) {
         
-        e.preventDefault(); // Cancel the event
+        if (!roleSwitching) e.preventDefault(); // Cancel the event
         
         console.warn("Page has been closed or reloaded");
         
@@ -473,10 +442,14 @@ function loadCommonHandlers() {
             console.log("Bye interpreter");
             interpreterData.send({action: "leaving", message: "bye"});
         }  
+        /*
         setTimeout(function() {
             closeAllConnections();
             e.returnValue = true; // Chrome requires returnValue to be set
         }, 1000);
+        */
+        await closeAllConnections();
+        e.returnValue = true;
     });
 
     addCopyright();
@@ -514,8 +487,49 @@ function getFileDownloadLinkFromData(data) {
     return html;
 }
 
+// Reset connection with a specific participant
+async function resetConnection(role, t = 0) {
+    
+    console.log(role + " is leaving, resetting connection.");
 
-function resetConnection(role, t = 0) {
+    const closeConnection = async (obj) => {
+        if (obj && obj.hasOwnProperty('open') && obj.open ) {
+            await new Promise(resolve => {
+                obj.on('close', resolve);
+                obj.close();
+            });
+            return null;
+        }        
+    };
+
+    switch (role) {
+    case RoleInterpreter:
+        interpreterData  = await closeConnection(interpreterData);
+        interpreterMedia = await closeConnection(interpreterMedia);
+        interpreterMediaStream = null;
+        if (interpreterVideo) interpreterVideo.srcObject = null;    
+        interpreterPeer = null;
+        muteMicrophone(role, interpreterAudioMutedDefault);
+        break;
+    case RoleSpeaker:
+        speakerData  = await closeConnection(speakerData);
+        speakerMedia = await closeConnection(speakerMedia);
+        speakerMediaStream = null;
+        if (speakerVideo) speakerVideo.srcObject = null;
+        speakerPeer = null;
+        muteMicrophone(role, speakerAudioMutedDefault);
+        break;    
+    case RoleSupervisor:
+        supervisorData  = await closeConnection(supervisorData);
+        supervisorMedia = await closeConnection(supervisorMedia);
+        supervisorMediaStream = null;
+        if (supervisorVideo) supervisorVideo.srcObject = null;    
+        supervisorPeer = null;
+        muteMicrophone(role, supervisorAudioMutedDefault);
+        break;    
+    }
+
+/*    
     setTimeout(function() {
         switch (role) {
         case RoleInterpreter:
@@ -550,33 +564,95 @@ function resetConnection(role, t = 0) {
             break;    
         }
     }, t);
+*/    
 }
 
-// Close all data/media connections, streams and reset handlers
-function closeAllConnections(t = 0) {
+
+async function closeAllConnections(t = 0) {
     
+    
+    console.log("Closing all connections");
+    
+    const closeConnection = async (obj) => {
+        if (obj && obj.hasOwnProperty('open') && obj.open ) {
+            await new Promise(resolve => {
+                obj.on('close', resolve);
+                obj.close();
+            });
+        }        
+    };
+    
+    if (myRole != RoleSpeaker) {
+        console.log('Closing connections to speaker');
+        await closeConnection(speakerData);
+        await closeConnection(speakerMedia);
+        speakerData = null;
+        speakerMedia = null;
+        console.log('Connections to speaker closed');
+    }
+    if (myRole != RoleInterpreter) {
+        console.log('Closing connections to interpreter');
+        await closeConnection(interpreterData);
+        await closeConnection(interpreterMedia);
+        interpreterData = null;
+        interpreterMedia = null;
+        console.log('Connections to interpreter closed');
+    }
+    if (myRole != RoleSupervisor) {
+        console.log('Closing connections to supervisor');
+        await closeConnection(supervisorData);
+        await closeConnection(supervisorMedia);
+        supervisorData = null;
+        supervisorMedia = null;
+        console.log('Connections to supervisor closed');
+    }
+    
+    if (myPeer) {
+        console.log('Disconnectiong peer from PeerJS server');
+        await new Promise(resolve => {
+            myPeer.on('close', resolve);
+            myPeer.destroy(); // ==> fires myPeer.close
+        });
+        console.log('Peer disconnected and destroyed');
+    }
+    
+    initMuted();
+
+
+/*
+
     if (myPeer)
         console.log("peer disconnected:", myPeer.disconnected);
     else
         console.log("peer was not connected");
+
     
     setTimeout(function() {  
-        if (speakerData && speakerData.open) speakerData.close();
-        speakerData = null;
-        speakerMedia = null;
-        if (speakerMedia && speakerMedia.open) speakerMedia.close();
-        if (interpreterData && interpreterData.open) interpreterData.close();
-        if (interpreterMedia && interpreterMedia.open) interpreterMedia.close();
-        interpreterData = null;
-        interpreterMedia = null;
-        if (supervisorData && supervisorData.open) supervisorData.close();
-        if (supervisorMedia && supervisorMedia.open) supervisorMedia.close();
-        supervisorData = null;
-        supervisorMedia = null;
+//      if (myRole != RoleSpeaker) {
+            if (speakerData && speakerData.open) speakerData.close();
+            if (speakerMedia && speakerMedia.open) speakerMedia.close();
+            speakerData = null;
+            speakerMedia = null;
+//      }
+        
+//      if (myRole != RoleInterpreter) {
+            if (interpreterData && interpreterData.open) interpreterData.close();
+            if (interpreterMedia && interpreterMedia.open) interpreterMedia.close();
+            interpreterData = null;
+            interpreterMedia = null;
+//      }
+        
+//      if (myRole != RoleSupervisor) {
+            if (supervisorData && supervisorData.open) supervisorData.close();
+            if (supervisorMedia && supervisorMedia.open) supervisorMedia.close();
+            supervisorData = null;
+            supervisorMedia = null;
+//      }
         
         if (myPeer) myPeer.destroy(); // ==> fires myPeer.close
         initMuted();
     }, t);
+*/
 }
 
 
@@ -781,6 +857,7 @@ function handleChat(data, callerRole, callerColor) {
         logToChat("<b>" + callerRole + "</b> has logged out");
         console.log(callerRole + " has logged out");
         break;
+
     }
         
 }
@@ -835,7 +912,8 @@ function muteMicrophone(role, muted = true) {
     }
     
     if (e) {
-        $(e + ' > i').removeClass('fa-volume-up fa-volume-mute').addClass(muted ? 'fa-volume-up' : 'fa-volume-mute');
+        //$(e + ' > i').removeClass('fa-volume-up fa-volume-mute').addClass(muted ? 'fa-volume-up' : 'fa-volume-mute');
+        $(e + ' > i').removeClass('fa-volume-up fa-volume-mute').addClass(muted ? 'fa-volume-mute' : 'fa-volume-up');
         //$(e).html('<i class="fas ' + (muted ? 'fa-volume-up' : 'fa-volume-mute') + ' fa-lg"></i>');
     }
     
@@ -847,22 +925,6 @@ function initMuted() {
     muteMicrophone(RoleSupervisor, supervisorAudioMutedDefault);
 }
 
-function _setMuted(role, value) {
-    var h = '<i class="fas ' + (value ? 'fa-volume-up' : 'fa-volume-mute') + ' fa-lg"></i></label>';
-    
-    switch (role) {
-    case RoleInterpreter:
-        $('#interpreter-audio-toggle').html(h);
-        break;
-    case RoleSpeaker:
-        $('#speaker-audio-toggle').html(h);
-        break;
-    case RoleSupervisor:
-        $('#supervisor-audio-toggle').html(h);
-        break;
-    }
-}
-
 
 function loadClock() {
     updateClock();
@@ -870,9 +932,7 @@ function loadClock() {
 }
 
 
-
-
-function updateClock(){
+function updateClock() {
     
     var dt = getDateTime();
     
@@ -882,26 +942,143 @@ function updateClock(){
     $('#seconds').text(dt.seconds);
 } 
 
-function loadAndPlay(tunePath, loop = false) {
-    var ctx = new AudioContext(),
-        req = new XMLHttpRequest();
+
+function playStream(stream, sinkId = null) {
     
+    return;
+    if (!stream instanceof MediaStream) return;
+    
+    const player = new Audio();
+    player.srcObject = stream;
+    
+    if (sinkId) {
+        player.setSinkId(sinkId).then(() => {
+            console.log("Playing stream on device: " + player.sinkId)
+            player.play();
+        }).catch(e => {
+           console.log(e) ;
+        });        
+    } else {
+        player.play();
+    }
+            
+}
+
+
+// Audio can be attached to an existing player and played
+// on the preferred device
+function loadAndPlay(tunePath, /*loop = false, */ sinkId = null) {
+
+    var req = new XMLHttpRequest(),
+        //ctx = new AudioContext(),
+        dest = null;
+
+console.log('LOADANDPLAY');
+
+    // Load file
     req.open("GET", tunePath, true);
     req.responseType = "arraybuffer";
     req.onload = function() {
-        ctx.decodeAudioData(req.response, onDecoded);
+        audioContext.decodeAudioData(req.response, onDecoded);
     }
-    
+
     function onDecoded(buffer) {
-        var node = ctx.createBufferSource();
+
+        var node = audioContext.createBufferSource();
         node.buffer = buffer;
-        node.connect(ctx.destination);
-        node.loop = loop;
+        
+        if (sinkId) {
+            
+            console.log("Play in media element: " + tunePath);    
+            
+            const dest = audioContext.createMediaStreamDestination();
+            node.connect(dest); 
+            
+            const player = new Audio();
+            player.srcObject = dest.stream;
+            
+            player.setSinkId(sinkId).then(() => {
+                console.log("Hardware id: " + player.sinkId)
+                player.play();
+                
+            }).catch(e => {
+               console.log(e) ;
+                
+            });
+            
+            
+            
+        } else {
+            console.log("Play in default context: " + tunePath);    
+            node.connect(audioContext.destination);
+        }
+        
+        node.loop = false; //loop;
         node.start();
     }
-    console.log("Play", tunePath);
+    
     req.send();
 };
+
+
+
+async function setUserMediaConstraints() {
+  try {
+    if (window.stream) {
+      window.stream.getTracks().forEach(track => {
+        track.stop();
+      });
+    }
+    
+    const videoSource = $('#select-video-source').val();
+    const audioSource = $('#select-audio-source').val();
+    
+    var constraints = {};
+    switch (myRole) {
+      case RoleInterpreter:
+        constraints = InterpreterMediaStreamConstraints;
+        break;
+      case RoleSpeaker:
+        constraints = SpeakerMediaStreamConstraints;
+        break;
+      case RoleSupervisor:
+        constraints = SupervisorMediaStreamConstraints;
+        break;
+    }
+    
+    constraints.audio.deviceId = audioSource ? {exact: audioSource} : undefined;
+    constraints.video.deviceId = videoSource ? {exact: videoSource} : undefined;
+    
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    await gotLocalMediaStream(stream);
+    await getDevices();
+    
+  } catch (error) {
+    handleLocalMediaStreamError(error);
+  }
+}
+
+
+
+
+
+/* When the openFullscreen() function is executed, open the video in fullscreen.
+Note that we must include prefixes for different browsers, as they don't support the requestFullscreen method yet */
+function openFullscreen(elem) {
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.mozRequestFullScreen) { /* Firefox */
+    elem.mozRequestFullScreen();
+  } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) { /* IE/Edge */
+    elem.msRequestFullscreen();
+  }
+  elem.controls = false;
+}
+
+
+
 
 
 // Il a different video or audio device has been selected we need
@@ -912,17 +1089,21 @@ function loadAndPlay(tunePath, loop = false) {
 
 function replaceStreamInMediaConnection(conn, stream) {
     
+    
+    console.log("CONNECTION:" + conn);
+    
     if (!conn || typeof conn !== 'object' || !conn.open) return false;
     if (!stream || typeof stream !== 'object') return false;
 
-    console.log("Replacing stream in media conection to [peer:" + conn.peer +  "]  (" + conn.options.metadata.role + ")");
-   
+    console.log("Replacing stream in media conection to [peer:" + conn.peer +  "]");
+
     let pc = conn.peerConnection;
     let tracks = [ stream.getVideoTracks()[0], stream.getAudioTracks()[0] ];
     
     (function() { 
-        tracks.forEach(function(track) {
-            var sender = pc.getSenders().find(function(s) {
+        tracks.forEach((track) => {
+            
+            var sender = pc.getSenders().find((s) => {
                 return s.track.kind == track.kind;
             });
                
@@ -942,49 +1123,339 @@ function replaceStreamInMediaConnection(conn, stream) {
 
 
 
-function setUserMediaConstraints() {
+// Setup the VU-Meter
 
-  if (window.stream) {
-    window.stream.getTracks().forEach(track => {
-      track.stop();
-    });
-  }
-  const videoSource = $('#select-video-source').val();
-  const audioSource = $('#select-audio-source').val();
-  
-  var constraints = {};
-  switch (myRole) {
-  case RoleInterpreter:
-    constraints = InterpreterMediaStreamConstraints;
-    break;
-  case RoleSpeaker:
-    constraints = SpeakerMediaStreamConstraints;
-    break;
-  case RoleSupervisor:
-    constraints = SupervisorMediaStreamConstraints;
-    break;
-  }
-  
-  constraints.audio.deviceId = audioSource ? {exact: audioSource} : undefined;
-  constraints.video.deviceId = videoSource ? {exact: videoSource} : undefined;
-  
-  navigator.mediaDevices.getUserMedia(constraints)
-           .then(gotLocalMediaStream)
-           .then(gotDevices)
-           .catch(handleLocalMediaStreamError);
+// This functions draws a bar vumeter for MediaStream stream on a canvas element elem
+// options.bars: maximum bars on canvas
+// options.barSepWidth: pixels separating each bar
+
+function setVuMeter(stream, elem, options = {} ) {
+    
+    options = Object.assign ({type: 'dbmeter', bars: 20, barSepWidth: 1, minDecibels: -110, maxDecibels: -60 }, options);
+
+    if (stream == null) return;
+
+    if (! stream instanceof MediaStream) throw Error("stream is not a MediaStream");
+    if (! elem instanceof HTMLCanvasElement) throw Error("elem parameter is not a canvas");
+    
+    if (typeof close === 'function') 
+
+    // Check options consistency
+    if (options.bars == 0) options.bars = 1
+    
+    var canvasCtx = elem.getContext("2d", {alpha: false});
+
+    
+    // var audioContext = new AudioContext();
+console.log('VUMETER');    
+
+    var srcNode = audioContext.createMediaStreamSource(stream); // create an audioContext source node from stream
+    
+    // Create an analyser to draw a waveform for audio input
+    var analyser = audioContext.createAnalyser();
+    
+    var bufferLength = 0;
+    var dataArray = [];
+    
+    if (options.type == 'waveform') {
+        analyser.fftSize = 64;
+        analyser.minDecibels = options.minDecibels; 
+        analyser.maxDecibels = options.maxDecibels;
+        bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+    } else if (options.type == 'dbmeter') {
+        //analyser.smoothingTimeConstant = .5;
+        analyser.minDecibels = options.minDecibels;
+        analyser.maxDecibels = options.maxDecibels;
+        //analyser.frequencyBinCount = 16;
+        dataArray = new Uint8Array(1);
+    } else {
+        //analyser.smoothingTimeConstant = .5;
+        analyser.minDecibels = options.minDecibels;
+        analyser.maxDecibels = options.maxDecibels;
+        //analyser.frequencyBinCount = 16;
+        dataArray = new Uint8Array(1);        
+    }
+
+    // Create a zero gain node to avoid audio feedback to headphones
+    var zeroGain = audioContext.createGain();
+    zeroGain.gain.value = 0.0;
+    
+    // Create node chain 
+    srcNode.connect(analyser);
+    analyser.connect(zeroGain);
+    zeroGain.connect(audioContext.destination);
+
+
+    // Common canvas and analyser values
+    
+    
+    // Get canvas width and height
+    const w = elem.width * window.devicePixelRatio;
+    const h = elem.height * window.devicePixelRatio;
+    
+    elem.width = w;
+    elem.height = h;
+    
+    // Compute vertical bar width
+    const barWidth = Math.ceil( (w - (options.bars-1) * options.barSepWidth) / options.bars );
+    
+    // Shortcuts to decibel range
+    const minD = analyser.minDecibels;
+    const maxD = analyser.maxDecibels;
+    const rangeD = maxD - minD;
+    
+    
+    
+    // Clear canvas
+    canvasCtx.clearRect(0, 0, w, h);
+    
+    
+    // Define draw function
+    var draw = null;
+    
+    if (options.type == 'waveform') {
+
+        //
+        // waveform meter
+        //
+        
+        const dx = 1.0 * w / bufferLength;
+
+        draw = () => {
+
+            var drawVisual = requestAnimationFrame(draw);
+
+            analyser.getByteTimeDomainData(dataArray);
+
+            canvasCtx.fillStyle = 'rgb(255, 255, 255)';
+            canvasCtx.fillRect(0, 0, w, h);
+
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+            canvasCtx.beginPath();
+            
+            var x = 0;
+            
+            for(var i = 0; i < bufferLength; i++) {
+                var v = dataArray[i] / 128.0;
+                var y = v * h/2;
+        
+                if(i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+        
+                x += dx;
+            }
+            
+            canvasCtx.lineTo(w, h/2);
+            canvasCtx.stroke();
+        };
+        
+
+    } else if (options.type == 'dbmeter') {
+        //
+        // dB meter
+        //
+
+        const step = w / rangeD;
+        
+        
+        draw = () => {
+            var drawVisual = requestAnimationFrame(draw);
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // clear canvas
+            canvasCtx.fillStyle = 'rgb(240, 240, 240)'; 
+            canvasCtx.fillRect(0, 0, w, h);
+            
+
+            var value = dataArray[0];
+            var percent =  value / 255;
+            var dB = minD + rangeD * percent; // If needed
+            
+            //var x = (dB - minD) * step;
+            
+            var x = percent * w;
+            var n = Math.round(percent * options.bars);
+            
+
+            if (percent >= 0.9)
+                canvasCtx.fillStyle = 'rgb(200,40,40)'; // draw in red when audio is loud
+            else
+                canvasCtx.fillStyle = 'rgb(40,40,150)'; // else draw in blude            
+            
+            for (var c = 0, i = 0; i < n; i++) {
+                canvasCtx.fillRect(c, 0, barWidth - options.barSepWidth, h);
+                c += barWidth + options.barSepWidth;
+            }            
+            
+            canvasCtx.stroke();
+
+        }
+    } else {
+        
+        // Just display dBs
+        
+        draw = () => {
+            var drawVisual = requestAnimationFrame(draw);
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // clear canvas
+            canvasCtx.fillStyle = 'rgb(250, 250, 250)';
+            canvasCtx.fillRect(0, 0, w, h);
+            // canvasCtx.clearRect(0, 0, w, h);
+            
+
+            var value = dataArray[0];
+            var percent =  value / 255;
+            var dB = minD + rangeD * percent; // If needed
+            
+            canvasCtx.font = "16px sans-serif"; 
+            canvasCtx.textAlign = "center";
+            canvasCtx.fillStyle = 'black';
+            canvasCtx.fillText(parseFloat(dB).toFixed(1) + ' dB', w/2, h/2 + 6  );
+
+            canvasCtx.stroke();
+        }
+    }
+    draw();
+    
+    return () => {
+        canvasCtx.clearRect(0, 0, w, h);
+        audioContext.close();
+    };
 }
 
-/* When the openFullscreen() function is executed, open the video in fullscreen.
-Note that we must include prefixes for different browsers, as they don't support the requestFullscreen method yet */
-function openFullscreen(elem) {
-  if (elem.requestFullscreen) {
-    elem.requestFullscreen();
-  } else if (elem.mozRequestFullScreen) { /* Firefox */
-    elem.mozRequestFullScreen();
-  } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
-    elem.webkitRequestFullscreen();
-  } else if (elem.msRequestFullscreen) { /* IE/Edge */
-    elem.msRequestFullscreen();
-  }
-  elem.controls = false;
+
+
+function setSessionMode(mode, animate = true) {
+    
+    mode = mode.toLowerCase();
+    var icon = null;
+    var color = 'white';
+
+    switch (mode) {
+    case 'briefing':
+        icon = '<div class="mr-2"><i class="fas fa-bullhorn"></i></div>';
+        break;
+    case 'training':
+        color = 'yellow';
+        icon = '<i class="material-icons mr-2">record_voice_over</i>';
+        break;
+    default:
+        mode = '';
+        break;
+    }
+    
+    if (mode) {
+        
+        $('#session-mode').html( icon + `${mode} mode`.toUpperCase() + '</div>' ).removeClass('hidden');
+    
+        if (animate) animateCSS('#session-mode', 'heartBeat');
+        
+        sessionMode = mode;
+
+        logToChat(`We are in <b style="color:${color}">${sessionMode}</b> mode.`);
+
+        // Only supervisor 
+        if (myRole == RoleSupervisor) {
+            if (interpreterData && interpreterData.open) {
+                interpreterData.send({action: "setaudiomode", mode: mode});
+                console.log('sending audiomode to interpreter');
+            } else {
+                console.log('data connection with interpreter has not been set yet');
+            }
+            if (speakerData && speakerData.open) {
+                speakerData.send({action: "setaudiomode", mode:  mode});
+                console.log('sending audiomode to speaker');
+            } else {
+                console.log('data connection with speaker has not been set yet');
+            }
+            if (mode === 'briefing') {
+                $('#switch-roles').prop('disabled', false);
+            } else {
+                $('#switch-roles').prop('disabled', true);
+            }            
+        }
+        
+    } else {
+    
+        $('#session-mode').html( '' ).addClass('hidden');
+        
+    }
 }
+
+// Sets the MediaStream as the video element src.
+function gotLocalMediaStream(mediaStream) {
+
+    // Save local microphone and camera status
+    micEnabled = isMicEnabled();
+    if (micEnabled === null) {
+        switch(myRole) {
+        case RoleSpeaker:
+            micEnabled = !speakerAudioMutedDefault;
+            break;
+        case RoleSupervisor:
+            micEnabled = !supervisorAudioMutedDefault;
+            break;
+        case RoleInterpreter:
+            micEnabled = !interpreterAudioMutedDefault;
+            break;
+        }
+    }
+    camEnabled = isCamEnabled() !== false;
+    
+    window.stream = mediaStream; // make stream available to console0 
+    
+    localVideo.srcObject = mediaStream;
+    localStream = mediaStream;
+    micStream = mediaStream;
+    
+    localVideo.play();
+    localVideo.muted = true;
+    
+    localVideo.onloadedmetadata = function(e) {
+        localVideo.play();
+        localVideo.muted = true;
+    }
+    
+    // Display vumeter
+    setVuMeter(mediaStream, micGraph, {bars: 16});
+
+    
+    console.log('Received local stream.');
+    
+    // Il a different video or audio device has been 
+    // selected we need to replace these tracks in 
+    // streams to to connected peers, also;    
+    if (myRole != RoleSpeaker)     replaceStreamInMediaConnection(speakerMedia, mediaStream);
+    if (myRole != RoleInterpreter) replaceStreamInMediaConnection(interpreterMedia, mediaStream);
+    if (myRole != RoleSupervisor)  replaceStreamInMediaConnection(supervisorMedia, mediaStream);
+
+    // Restore local microphone and camera status
+    enableMic(micEnabled);
+    enableCam(camEnabled);        
+    
+    // Pass argument to next element in promise chain
+    return navigator.mediaDevices.enumerateDevices();  
+}
+
+// Handles error by logging a message to the console.
+function handleLocalMediaStreamError(error) {
+  console.error(`navigator.getUserMedia error: ${error.toString()}.`);
+}
+
+
+
+
+
+
+
+
+
+

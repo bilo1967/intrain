@@ -4,20 +4,40 @@
 
 // PeerJS client config
 
-// DITLab server
+// PeerJS server configuration, with ICE servers
 const PeerJSConfig = {
     debug: 2,
     secure: true,
 
     path: '/',
-    host: 'own-peerjs-server.herokuapp.com',
+    host: 'peerjs2.ditlab.it',
     port: 443, // <= TCP
 
+    //path: '/',
+    //host: 'own-peerjs-server.herokuapp.com',
+    //port: 443, // <= TCP
+
+    /*
+     * You can test if yout TURN relays are working using Firefox.
+     *
+     * Open link:  about:config
+     * Search for: media.peerconnection.ice.relay_only
+     * Set it to:  true
+     */
     config: {
         'iceServers': [
-            { urls: 'stun:intrain.ditlab.it:3478'   }, // <= UDP
-            { urls: 'stun:stun.l.google.com:19302'  }, // <= UDP
-//          { urls: 'turn:numb.viagenie.ca', username: 'webrtc@live.com', credential: 'muazkh'},
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }, // <= UDP
+            {
+                urls: 'turns:ice.ditlab.it:443',
+                username: 'SET_AT_DEPLOYMENT',
+                credential: 'SET_AT_DEPLOYMENT',
+            },
+            {
+                urls: 'turns:ice2.ditlab.it:5349',
+                username: 'SET_AT_DEPLOYMENT',
+                credential: 'SET_AT_DEPLOYMENT',
+            },
         ]
     }
 };
