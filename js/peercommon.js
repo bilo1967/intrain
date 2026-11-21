@@ -137,43 +137,40 @@ function loadPeerHandlers(setAudioMode = () => {}) {
         switch (role) {
         case RoleScreenShare:
             screenshareConnection = c;
-            screenshareConnection.answer();
-            screenshareConnection.on('stream', function(stream) {
+            c.answer();
+            c.on('stream', function(stream) {
+                if (screenshareConnection !== c) return;
                 screenshareMediaStream = stream;
-                speakerVideo.srcObject = stream;
-                speakerVideo.muted = false;
-                
-                stream.getTracks().forEach( (track) => {
+                refreshSpeakerVideoSource();
+
+                // Speaker media arriving later must not replace the current screen.
+                stream.getTracks().forEach(track => {
                     track.onended = () => {
-                        console.log('Handle stop sharing screen once');
-                        speakerVideo.srcObject = speakerMediaStream;
-                        speakerVideo.muted = speakerAudioMuted;
-                        speakerVideo.load();
-                    }
-                });                    
+                        if (screenshareConnection !== c || screenshareMediaStream !== stream) return;
+                        screenshareMediaStream = null;
+                        refreshSpeakerVideoSource();
+                    };
+                });
                 console.log('Receiving a screen share');
             });
-            screenshareConnection.on('close', function() {
+            c.on('close', function() {
+                // Ignore an old connection closing after a replacement arrived.
+                if (screenshareConnection !== c) return;
+                screenshareConnection = null;
                 screenshareMediaStream = null;
-                speakerVideo.srcObject = speakerMediaStream;
-                speakerVideo.muted = speakerAudioMuted;
+                refreshSpeakerVideoSource();
             });
             break;                
         case RoleSpeaker:
             speakerMedia = c;
             speakerMedia.answer(localStream);
             speakerMedia.on('stream', function(mediaStream) {
-              
-              speakerVideo.srcObject = mediaStream;
-              speakerMediaStream = mediaStream;
-             
-              //speakerVideo.play();
-              //speakerVideo.muted = speakerAudioMuted;
-
-              speakerVideo.onloadedmetadata = function(e) {
-                  speakerVideo.play();
-                  speakerVideo.muted = speakerAudioMuted;
-              }
+                speakerMediaStream = mediaStream;
+                refreshSpeakerVideoSource();
+                speakerVideo.onloadedmetadata = function(e) {
+                    speakerVideo.play();
+                    refreshSpeakerVideoSource();
+                };
             });  
             speakerMedia.on('close', function() {
                 resetConnection(RoleSpeaker);

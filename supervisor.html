@@ -564,12 +564,11 @@ $(document).ready(async function() {
                 c.on('stream', function(mediaStream) {
                 
                     if (role == "speaker") {
-                        speakerVideo.srcObject = mediaStream;
                         speakerMediaStream = mediaStream;
-                        
+                        refreshSpeakerVideoSource();
                         speakerVideo.onloadedmetadata = function(e) {
                             speakerVideo.play();
-                            speakerVideo.muted = true;
+                            refreshSpeakerVideoSource();
                         }
                     } else {
                         interpreterVideo.srcObject = mediaStream;
@@ -582,17 +581,23 @@ $(document).ready(async function() {
 
                     }
                     
-                    if (screenshareMediaStream) {
-                        console.log("Screen share is active, sending stream");
-                        screenshareConnection = myPeer.call(
-                            interpreterPeer, screenshareMediaStream, { metadata: {role: RoleScreenShare}  } 
-                        );
+                    if (role === RoleInterpreter && sharingScreen()) {
+                        console.log("Screen share is active, sending it to interpreter");
+                        if (!screenshareConnection || screenshareConnection.peer !== c.peer) {
+                            closePeerConnection(screenshareConnection);
+                            screenshareConnection = myPeer.call(
+                                c.peer, screenshareMediaStream, { metadata: {role: RoleScreenShare} }
+                            );
+                        }
                     }
 
                   
                     initCrossFader();
                 });
                 c.on('close', function() {
+                    // Ignore stale calls closing after a participant reconnects.
+                    if (role === RoleInterpreter && interpreterMedia !== c) return;
+                    if (role === RoleSpeaker && speakerMedia !== c) return;
                     if (role === RoleInterpreter && screenshareConnection) {
                         closePeerConnection(screenshareConnection);
                         screenshareConnection = null;
@@ -1060,8 +1065,7 @@ $(document).ready(async function() {
         });
         closePeerConnection(screenshareConnection);
         screenshareConnection = null;
-        speakerVideo.srcObject = speakerMediaStream;
-        speakerVideo.muted = true; // supervisor monitors through the stereo mixer
+        refreshSpeakerVideoSource();
         $('#share-screen > i').removeClass('fa-blink');
         initCrossFader();
     }
@@ -1078,7 +1082,7 @@ $(document).ready(async function() {
 
             sharingScreenActive = true;
             screenshareMediaStream = stream;
-            speakerVideo.srcObject = stream;
+            refreshSpeakerVideoSource();
             $('#share-screen > i').addClass('fa-blink');
             
             const videoTrack = stream.getVideoTracks()[0];

@@ -16,10 +16,11 @@ This branch starts from the deployed InTrain files supplied in November 2026, no
 - Correct desktop-only audio capture for the speaker; clean up screen-sharing video and media connections when stopped from the browser or the application.
 - Avoid inheriting a disabled camera's video mute state when sharing a screen.
 - Send the current training/briefing mode and recording indicator when a late participant connects.
+- Keep an ongoing supervisor screen share visible while speaker media joins, disconnects or reconnects; resend the current share when the interpreter reconnects, without replacing it with the speaker camera.
 - Escape incoming chat messages and file names before inserting them into HTML.
 
 ## Verification
 
 Run the dependency-free regression tests with `node --test tests/smoke.test.js`. Check JavaScript syntax with `node --check js/intrain.js` and `node --check js/peercommon.js`. Tests exercise JavaScript with mocked browser APIs; they **do not** replace testing with real devices, multiple browsers, TURN/ICE, stereo monitoring, recording, or screen sharing.
 
-Suggested manual acceptance test: connect supervisor, speaker and interpreter; verify briefing/training audio routing, stereo balance, recorder output with separate L/R channels, role switching, late joining, reconnection, camera/microphone device changes, and screen sharing (with and without desktop audio, including stopping from the browser UI).
+Suggested manual acceptance test: connect supervisor, speaker and interpreter; verify briefing/training audio routing, stereo balance, recorder output with separate L/R channels, role switching, late joining, reconnection, camera/microphone device changes, and screen sharing (with and without desktop audio, including stopping from the browser UI). In particular, test speaker joining while supervisor screen sharing is active, interpreter reconnecting to an active share, and restoration of speaker video when sharing ends.

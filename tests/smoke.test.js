@@ -20,7 +20,7 @@ function loadApp() {
         Blob, ArrayBuffer,
         window: {},
     });
-    for (const file of ['js/common.js', 'js/intrain.js']) {
+    for (const file of ['js/common.js', 'js/intrain.js', 'js/peercommon.js']) {
         vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, {filename: file});
     }
     return context;
@@ -109,4 +109,122 @@ test('sharing the screen does not inherit a disabled camera track', async () => 
     const conn = {open: true, peerConnection: {getSenders: () => [sender]}};
     await c.replaceStreamInMediaConnection(conn, {getTracks: () => [video]}, false);
     assert.equal(video.enabled, true);
+});
+
+function fakeIncomingCall(role, peer) {
+    const callbacks = {};
+    return {
+        peer, options: {metadata: {role}}, open: true,
+        on(event, fn) { callbacks[event] = fn; },
+        answer() {},
+        emit(event, payload) { callbacks[event]?.(payload); },
+        close() { this.open = false; this.emit('close'); }
+    };
+}
+
+test('supervisor keeps screen sharing visible when a speaker disconnects', async () => {
+    const c = loadApp();
+    const share = {id: 'screen'}, speaker = {id: 'camera'};
+    c.myRole = 'supervisor';
+    c.screenshareMediaStream = share;
+    c.sharingScreenActive = true;
+    c.speakerMediaStream = speaker;
+    c.speakerVideo = {srcObject: share, muted: false};
+    c.refreshSpeakerVideoSource();
+    assert.equal(c.speakerVideo.srcObject, share);
+    assert.equal(c.speakerVideo.muted, true);
+
+    c.speakerMedia = fakeConnection();
+    await c.resetConnection('speaker');
+    assert.equal(c.speakerVideo.srcObject, share);
+
+    c.sharingScreenActive = false;
+    c.screenshareMediaStream = null;
+    c.speakerMediaStream = speaker;
+    c.refreshSpeakerVideoSource();
+    assert.equal(c.speakerVideo.srcObject, speaker);
+});
+
+test('late speaker media cannot replace an active screen share on the interpreter', () => {
+    const c = loadApp(), handlers = {};
+    c.myRole = 'interpreter';
+    c.userID = 'supervisor-id';
+    c.speakerVideo = {srcObject: null, muted: true, play() {return Promise.resolve();}};
+    c.myPeer = {on(event, fn) {handlers[event] = fn;}};
+    c.loadPeerHandlers();
+
+    const share = fakeIncomingCall('screenshare', 'supervisor-id');
+    const sharedStream = {id: 'shared', getTracks: () => [{onended: null}]};
+    handlers.call(share);
+    share.emit('stream', sharedStream);
+    assert.equal(c.speakerVideo.srcObject, sharedStream);
+
+    const speaker = fakeIncomingCall('speaker', 'speaker-id');
+    const camera1 = {id: 'camera1'}, camera2 = {id: 'camera2'};
+    handlers.call(speaker);
+    speaker.emit('stream', camera1);
+    assert.equal(c.speakerVideo.srcObject, sharedStream);
+
+    speaker.emit('stream', camera2);
+    assert.equal(c.speakerVideo.srcObject, sharedStream);
+
+    share.close();
+    assert.equal(c.speakerVideo.srcObject, camera2);
+    assert.equal(c.speakerVideo.muted, c.speakerAudioMuted);
+});
+
+test('speaker-first arrival and stale screen share closure retain current screen', () => {
+    const c = loadApp(), handlers = {};
+    c.myRole = 'interpreter';
+    c.userID = 'supervisor-id';
+    c.speakerVideo = {srcObject: null, muted: true, play() {return Promise.resolve();}};
+    c.myPeer = {on(event, fn) {handlers[event] = fn;}};
+    c.loadPeerHandlers();
+
+    const speaker = fakeIncomingCall('speaker', 'speaker-id');
+    const camera = {id: 'camera'};
+    handlers.call(speaker);
+    speaker.emit('stream', camera);
+    assert.equal(c.speakerVideo.srcObject, camera);
+
+    const oldShare = fakeIncomingCall('screenshare', 'supervisor-id');
+    const firstStream = {id: 'share1', getTracks: () => [{onended: null}]};
+    handlers.call(oldShare);
+    oldShare.emit('stream', firstStream);
+    assert.equal(c.speakerVideo.srcObject, firstStream);
+
+    const newShare = fakeIncomingCall('screenshare', 'supervisor-id');
+    const secondStream = {id: 'share2', getTracks: () => [{onended: null}]};
+    handlers.call(newShare);
+    newShare.emit('stream', secondStream);
+
+    oldShare.close();
+    assert.equal(c.speakerVideo.srcObject, secondStream);
+    newShare.close();
+    assert.equal(c.speakerVideo.srcObject, camera);
+});
+
+test('interpreter outgoing dial to a rejoining speaker preserves the active screen', () => {
+    const c = loadApp();
+    const share = {id: 'share'}, camera = {id: 'camera'};
+    c.myRole = 'interpreter';
+    c.screenshareMediaStream = share;
+    c.speakerVideo = {srcObject: share, muted: false, play() {return Promise.resolve();}};
+    const media = fakeIncomingCall('speaker', 'speaker-id');
+    c.myPeer = {
+        connect() {return fakeIncomingCall('interpreter', 'speaker-id');},
+        call() {return media;}
+    };
+    c.dialPeer('speaker-id', 'interpreter', 'speaker');
+    media.emit('stream', camera);
+    assert.equal(c.speakerVideo.srcObject, share);
+    c.screenshareMediaStream = null;
+    c.refreshSpeakerVideoSource();
+    assert.equal(c.speakerVideo.srcObject, camera);
+});
+
+test('supervisor resends an active screen only to the incoming interpreter', () => {
+    const html = fs.readFileSync(path.resolve(__dirname, '../supervisor.html'), 'utf8');
+    assert.match(html, /role === RoleInterpreter && sharingScreen\(\)/);
+    assert.match(html, /c\.peer, screenshareMediaStream/);
 });

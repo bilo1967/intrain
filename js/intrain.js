@@ -482,6 +482,16 @@ function getFileDownloadLinkFromData(data) {
     return html;
 }
 
+// Keep an active screen share visible while speaker media connects or disconnects.
+function refreshSpeakerVideoSource() {
+    if (!speakerVideo) return;
+    const screenIsActive = !!screenshareMediaStream &&
+        (myRole === RoleSupervisor ? sharingScreenActive : myRole === RoleInterpreter);
+    const stream = (screenIsActive ? screenshareMediaStream : speakerMediaStream) || null;
+    if (speakerVideo.srcObject !== stream) speakerVideo.srcObject = stream;
+    speakerVideo.muted = myRole === RoleSupervisor || (!screenIsActive && speakerAudioMuted);
+}
+
 // PeerJS exposes `open` as an inherited getter. Never use hasOwnProperty('open').
 // close() is synchronous; awaiting a `close` event can hang for already closed calls.
 function closePeerConnection(connection) {
@@ -511,7 +521,7 @@ async function resetConnection(role, t = 0) {
         const data = speakerData, media = speakerMedia;
         speakerData = speakerMedia = speakerMediaStream = null;
         speakerPeer = null;
-        if (speakerVideo) speakerVideo.srcObject = null;
+        refreshSpeakerVideoSource();
         closePeerConnection(data);
         closePeerConnection(media);
         break;
@@ -688,18 +698,23 @@ function dialPeer(calleeID, callerRole, calleeRole) {
         // `stream` is the mediaStream of the remote peer.
         // Here you'd add it to an HTML video/canvas element.
         
-        v.srcObject = mediaStream;
         s = mediaStream;
-        if (calleeRole === RoleSpeaker) speakerMediaStream = mediaStream;
-        else if (calleeRole === RoleInterpreter) interpreterMediaStream = mediaStream;
-        else if (calleeRole === RoleSupervisor) supervisorMediaStream = mediaStream;
+        if (calleeRole === RoleSpeaker) {
+            speakerMediaStream = mediaStream;
+            refreshSpeakerVideoSource();
+        } else {
+            v.srcObject = mediaStream;
+            if (calleeRole === RoleInterpreter) interpreterMediaStream = mediaStream;
+            else if (calleeRole === RoleSupervisor) supervisorMediaStream = mediaStream;
+        }
 
         //v.play();
         //v.muted = (callerRole == RoleSpeaker && calleeRole == RoleInterpreter);
         
         v.onloadedmetadata = function(e) {
             v.play();
-            v.muted = false;
+            if (calleeRole === RoleSpeaker) refreshSpeakerVideoSource();
+            else v.muted = false;
         }
     });
     m.on('close', function() {
