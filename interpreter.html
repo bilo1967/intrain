@@ -22,14 +22,14 @@
 
   <title>intrain:interpreter</title>
   
-  <!-- FontAwesome 4: js -->
+  <!-- FontAwesome icons -->
   <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
   
   <!-- Material Icons -->
-  <!-- link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" -->
+  
 
-  <!-- Bootstrap 4.6: css -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css" integrity="sha384-zCbKRCUGaJDkqS1kPbPd7TveP5iyJE0EjAuZQTgFLD2ylzuqKfdKlfG/eSrtxUkn" crossorigin="anonymous">
+  <!-- Bootstrap 5: css -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/css/bootstrap.min.css" integrity="sha384-yEPZ7jP9S0QKiUQ0m3jjsO4ProIW7wvR9gXkI7JOGa2XVsw53Yke2bsdkBbjmmiX" crossorigin="anonymous">
 
   <!-- InTrain: css -->
   <link rel="stylesheet" href="css/intrain-responsive.css?0.3">
@@ -45,11 +45,11 @@
   crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
   
-  <!-- Popper: JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
   
-  <!-- Bootstrap 4.6: JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/js/bootstrap.min.js" integrity="sha384-VHvPCCyXqtD5DqJeNxl2dtTyhF78xXNXdkwX1CZeRusQfRKp+tA7hAShOK/B/fQ2" crossorigin="anonymous"></script>  
+
+  <!-- Bootstrap 5 JavaScript (with Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/js/bootstrap.bundle.min.js" integrity="sha384-WyOxWvTyr1QaMPfiPJSv76iReVthorl5uWlFtZPyK0IEB0hGzo9y5Bp9mYanr8Bu" crossorigin="anonymous"></script>
+  <script src="js/bootstrap-ui.js"></script>  
 
 
   
@@ -102,10 +102,10 @@
 
 <!-- Header: begin -->
 <div class="undroppable unselectable container clearfix bg-light border rounded mt-2 mb-2 p-2 opacity-75 opacity-hover-100 app-width" id="top-panel">
-  <div class="float-left" id="login-info">You're not logged in</div>
-  <div class="float-right">
+  <div class="float-start" id="login-info">You're not logged in</div>
+  <div class="float-end">
     <div class="btn btn-sm btn-success">
-      <i id="config-button" class="fas fa-cog" aria-hidden="true" data-toggle="modal" data-target="#config-panel"></i>
+      <i id="config-button" class="fas fa-cog" aria-hidden="true" data-bs-toggle="modal" data-bs-target="#config-panel"></i>
     </div>
   
     <div class="btn btn-sm btn-danger">
@@ -121,9 +121,9 @@
 <div class="undroppable unselectable container bg-light border rounded pb-1 app-width" id="main-panel">
 
   <div class="d-flex w-100 justify-content-between align-items-middle align-items-center p-1" style="height: 4rem">
-    <div class="display-5 ml-1 role-description">intrain:interpreter</div>
-    <div class="d-flex align-items-middle mr-auto ml-auto p-2 text-danger bg-white  border rounded-sm border-danger   hidden" id="session-mode"></div>
-    <div class="mr-1 hide-on-narrow-devices"><div class="clock"><span id="date" class="hide-on-narrow-devices"></span><span class="hide-on-narrow-devices"> - </span><span id="hours"></span>:<span id="minutes"></span>:<span id="seconds"></span></div></div>
+    <div class="display-5 ms-1 role-description">intrain:interpreter</div>
+    <div class="d-flex align-items-middle me-auto ms-auto p-2 text-danger bg-white  border rounded-1 border-danger   hidden" id="session-mode"></div>
+    <div class="me-1 hide-on-narrow-devices"><div class="clock"><span id="date" class="hide-on-narrow-devices"></span><span class="hide-on-narrow-devices"> - </span><span id="hours"></span>:<span id="minutes"></span>:<span id="seconds"></span></div></div>
   </div>
   
 
@@ -145,18 +145,18 @@
             <video id="supervisorVideo" class="rounded mini-video" data-source="" data-video-url="" autoplay playsinline poster="images/cattivo.jpg" muted></video>
             <div id="supervisor-video-caption" class="video-caption video-position-bc">[ supervisor ]</div>
             <div class="video-button video-position-bl" >
-              <div data-toggle="tooltip" title="Send a file to the supervisor"> 
+              <div data-bs-toggle="tooltip" title="Send a file to the supervisor"> 
                 <input type="file" name="file" id="send-file-to-supervisor" class="input-file" />
-                <label for="send-file-to-supervisor"  class="p-0 m-0" data-toggle="tooltip" title="Send a file to the supervisor"><i  class="fas fa-file-upload fa-lg"></i></label>
+                <label for="send-file-to-supervisor"  class="p-0 m-0" data-bs-toggle="tooltip" title="Send a file to the supervisor"><i  class="fas fa-file-upload fa-lg"></i></label>
               </div>
             </div>
 
             <div class="video-button video-position-br" id="supervisor-fullscreen">
-                <i class="fas fa-expand-arrows-alt fa-lg" data-toggle="tooltip" title="full screen"></i>
+                <i class="fas fa-expand-arrows-alt fa-lg" data-bs-toggle="tooltip" title="full screen"></i>
             </div>
 
             <div class="video-button video-position-tl" id="supervisor-audio-toggle">
-                <i class="fas fa-volume-up fa-lg" data-toggle="tooltip" title="mute/un&shy;mute the su&shy;per&shy;vi&shy;sor's au&shy;dio"></i>
+                <i class="fas fa-volume-up fa-lg" data-bs-toggle="tooltip" title="mute/un&shy;mute the su&shy;per&shy;vi&shy;sor's au&shy;dio"></i>
             </div>
             
             <div class="video-label video-position-center text-clear" id="recording-icon"></div>
@@ -171,7 +171,7 @@
                      poster="images/buono.jpg" muted></video>
               <div class="video-caption video-position-bc">[ you ]</div>
               <div class="video-button video-position-tr">
-                <i id="toggle-camera" class="fas fa-lg fa-video"  data-toggle="tooltip" title="Turn on/off your webcam"></i>
+                <i id="toggle-camera" class="fas fa-lg fa-video"  data-bs-toggle="tooltip" title="Turn on/off your webcam"></i>
               </div>
             </div>
 
@@ -179,7 +179,7 @@
               <canvas class="d-inline-flex border rounded" id="vumeter"></canvas>
               &nbsp;
               <button id="toggle-microphone" class="btn btn-sm btn-danger w-3em">
-                <i class="fas fa-microphone" aria-hidden="true" data-toggle="tooltip" title="Turn on/off your microphone"></i>
+                <i class="fas fa-microphone" aria-hidden="true" data-bs-toggle="tooltip" title="Turn on/off your microphone"></i>
               </button>
             </div>
 
@@ -203,16 +203,16 @@
             <video  id="speakerVideo" class="normal-video rounded" data-source="" data-video-url="" autoplay playsinline poster="images/brutto.jpg" muted></video>
             <div id="speaker-video-caption" class="video-caption video-position-bc">[ speaker ]</div>
             <div class="video-button video-position-bl">
-              <div data-toggle="tooltip" title="Send a file to the speaker">
+              <div data-bs-toggle="tooltip" title="Send a file to the speaker">
                 <input type="file" name="file" id="send-file-to-speaker" class="input-file" />
                 <label for="send-file-to-speaker" class="p-0 m-0"><i class="fas fa-file-upload fa-lg"></i></label>
               </div>
             </div>
             <div class="video-button video-position-tl" id="speaker-audio-toggle">
-                <i class="fas fa-volume-up fa-lg" data-toggle="tooltip" title="mute/un&shy;mute the speak&shy;er's au&shy;dio"></i>
+                <i class="fas fa-volume-up fa-lg" data-bs-toggle="tooltip" title="mute/un&shy;mute the speak&shy;er's au&shy;dio"></i>
             </div>
             <div class="video-button video-position-br" id="speaker-fullscreen">
-                <i class="fas fa-expand-arrows-alt fa-lg" data-toggle="tooltip" title="full screen"></i>
+                <i class="fas fa-expand-arrows-alt fa-lg" data-bs-toggle="tooltip" title="full screen"></i>
             </div>
           </div>
 
@@ -230,7 +230,7 @@
 
 
       <!-- right column (chat): begin -->
-      <div id="chatpanel" class="d-inline-flex mt-1 ml-1 mr-0 mb-1 flex-column flex-grow-100">
+      <div id="chatpanel" class="d-inline-flex mt-1 ms-1 me-0 mb-1 flex-column flex-grow-100">
         <div id="chatboard" class="selectable-text align-self-stretch bg-chat text-light border rounded p-1 mb-1 h-100"></div>
         <input id="chattext" class="bg-chat align-self-stretch border rounded mt-auto p-1 w-100">
       </div>
@@ -247,7 +247,7 @@
         <!-- send file to all: begin -->
         <div class="btn btn-sm btn-success btn-w-1">
           <label for="send-file-to-all" class="p-0 m-0">
-            <i style="padding-top: 2px" class="fas fs-large fa-file-upload" title="Send a file to everyone" data-toggle="tooltip"></i>
+            <i style="padding-top: 2px" class="fas fs-large fa-file-upload" title="Send a file to everyone" data-bs-toggle="tooltip"></i>
           </label>
           <input type="file" name="file" id="send-file-to-all" class="input-file" />
         </div>
@@ -265,7 +265,7 @@
            &nbsp;&nbsp;&nbsp;&nbsp;<span id="company"></span> &ndash; <span id="license-compact"></span>
        </span>
     </div>
-    <div class="col-sm text-right">
+    <div class="col-sm text-end">
       <img class="pb-1" style="width: 1em" src="images/train.svg" >
       <span id="appname"></span>
     </div>
@@ -281,7 +281,7 @@
 <!-- Message panel:begin -->
 <div id="log-panel" 
      class="opacity-90 container border rounded mt-2 mb-2 p-2 alert-warning alert alert-dismissible fade show app-width" role="alert">
-  <!--i class="close p-2" aria-hidden="true" data-dismiss="alert" aria-label="Close" >&times;</i-->
+  <!--i class="close p-2" aria-hidden="true" data-bs-dismiss="alert" aria-label="Close" >&times;</i-->
     <span id="log-text">Ready to start&hellip;</span>
 </div>
 <!-- Message panel:end -->
@@ -307,18 +307,18 @@
             </div>
             <input type="text" class="form-control" id="username" placeholder="Enter a username">
           </div>
-          <small id="usernameHelp" class="form-text text-muted small font-weight-light">Insert the username of the supervisor of the training session and then click the <em>call</em> button.</small>
+          <small id="usernameHelp" class="form-text text-muted small fw-light">Insert the username of the supervisor of the training session and then click the <em>call</em> button.</small>
         </form>
 
         <div id="login-status"></div>
         
         <hr/>
 
-        <div class="custom-control custom-checkbox pull-right">
-          <input type="checkbox" class="custom-control-input debug-checkbox" 
+        <div class="form-check  float-end">
+          <input type="checkbox" class="form-check-input debug-checkbox" 
                  id="debugging2" name="debugging2" 
-                 data-toggle='collapse' data-target='.download-log-link-container'>
-          <label class="custom-control-label" for="debugging2">Collect logs for developers</label>
+                 data-bs-toggle='collapse' data-bs-target='.download-log-link-container'>
+          <label class="form-check-label" for="debugging2">Collect logs for developers</label>
           <div class="w-100 collapse download-log-link-container" id="debugging-options-2">
             <a href="#" id="download-log-2" class="download-log-link">download logs</a>
           </div>
@@ -327,7 +327,7 @@
       </div>
       
       <div class="modal-footer">
-        <button type="button" class="btn btn-warning mr-auto" id="home-button">Exit</button> 
+        <button type="button" class="btn btn-warning me-auto" id="home-button">Exit</button> 
         <button type="button" class="w-7em btn btn-secondary" id="cancel-button" disabled="true">Cancel</button>
         <button type="button" class="w-7em btn btn-success" id="join-button" >Call</button>
       </div>
@@ -343,9 +343,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="exampleModalLongTitle">Configuration</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
       
@@ -388,10 +386,10 @@
       <hr/>
 
       <div class="form-group">
-        <div class="custom-control custom-checkbox">
-          <input type="checkbox" class="custom-control-input debug-checkbox" id="debugging"
-          data-toggle='collapse' data-target='.download-log-link-container' >
-          <label class="custom-control-label" for="debugging">Collect logs for developers</label>
+        <div class="form-check ">
+          <input type="checkbox" class="form-check-input debug-checkbox" id="debugging"
+          data-bs-toggle='collapse' data-bs-target='.download-log-link-container' >
+          <label class="form-check-label" for="debugging">Collect logs for developers</label>
           <div class="w-100 collapse download-log-link-container" id="debugging-options">
             <a href="#" id="download-log" class="download-log-link">download logs</a>
           </div>
@@ -401,7 +399,7 @@
     
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 $('document').ready(function() {
 
     $(function () {
-        $('[data-toggle="tooltip"]').tooltip()
+        InTrainUI.initTooltips()
     })
 
 

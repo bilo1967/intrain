@@ -230,7 +230,7 @@ $(document).ready(async function() {
 
     // Init tooltips
     $(function () {
-        $('[data-toggle="tooltip"]').tooltip()
+        InTrainUI.initTooltips()
     })
     
     // clear button in inputs
@@ -354,7 +354,7 @@ $(document).ready(async function() {
 	});
        
     
-    $('#login-dialog').modal({keyboard: false, backdrop: 'static'});
+    InTrainUI.showModal('#login-dialog', {keyboard: false, backdrop: 'static'});
     $('#cancel-button').attr("disabled", true);
 
     
@@ -370,7 +370,7 @@ $(document).ready(async function() {
             console.log("Closing...");
 
             $("#login-info").html("You're disconnected");
-            $('#login-dialog').modal('show');
+            InTrainUI.showModal('#login-dialog');
             $('#cancel-button').attr("disabled", true);
 
             if (speakerData && speakerData.open) {
@@ -622,7 +622,7 @@ $(document).ready(async function() {
             $("#join-button").text("Disconnect");
             $("#join-button").removeClass("btn-primary").addClass("btn-warning");
             $('#login-status').html('');
-            $('#login-dialog').modal('hide');
+            InTrainUI.hideModal('#login-dialog');
 
             $("#login-info").html("You've started the training session as <strong>" + escapeHTML(userName) + "</strong>. You are the <strong>" + myRole + "</strong>.");
 
@@ -785,7 +785,7 @@ $(document).ready(async function() {
 
     $('#switch-roles-confirm').on('click', function() {
         performRoleSwitch();
-        $('#switch-roles-dialog').modal('hide');
+        InTrainUI.hideModal('#switch-roles-dialog');
     });
 
 
@@ -799,7 +799,7 @@ $(document).ready(async function() {
             logToPanel("Both speaker and interpreter must be connected for role switching", "warning");
             return;
         }
-        $('#switch-roles-dialog').modal({keyboard: false, backdrop: 'static'});
+        InTrainUI.showModal('#switch-roles-dialog', {keyboard: false, backdrop: 'static'});
     });
 
 
@@ -807,8 +807,8 @@ $(document).ready(async function() {
 
 
     
-    $("input[data-toggle='tooltip']").mouseout(function(){
-      $(this).tooltip('hide');
+    $("input[data-bs-toggle='tooltip']").mouseout(function(){
+      InTrainUI.hideTooltip(this);
     });
 
 

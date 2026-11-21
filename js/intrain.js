@@ -1262,6 +1262,15 @@ function setSessionMode(mode, animate = true) {
         
         sessionMode = mode;
 
+        // Bootstrap 5 no longer manages the former nested radio-button group.
+        // Keep its two existing activity buttons synchronized with session mode.
+        if (myRole === RoleSupervisor) {
+            $('#briefing-mode').toggleClass('active', mode === 'briefing')
+                .attr('aria-pressed', String(mode === 'briefing'));
+            $('#training-mode').toggleClass('active', mode === 'training')
+                .attr('aria-pressed', String(mode === 'training'));
+        }
+
         logToChat(`We are in <b style="color:${color}">${sessionMode}</b> mode.`);
 
         // Only supervisor 

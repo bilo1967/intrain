@@ -31,7 +31,7 @@ $(document).ready(async function() {
     micGraph = $("#vumeter").get(0);
 
     $(function () {
-        $('[data-toggle="tooltip"]').tooltip()
+        InTrainUI.initTooltips()
     })
     
     initMuted();
@@ -106,7 +106,7 @@ $(document).ready(async function() {
             joinSupervisor(null, SpeakerPeerOptions, setAudioMode);
         }, 500);
     } else {
-        $('#login-dialog').modal({keyboard: false, backdrop: 'static'});    
+        InTrainUI.showModal('#login-dialog', {keyboard: false, backdrop: 'static'});    
     }
     loadCommonHandlers();    
     

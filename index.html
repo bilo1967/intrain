@@ -21,11 +21,11 @@
   <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
 
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css" integrity="sha384-zCbKRCUGaJDkqS1kPbPd7TveP5iyJE0EjAuZQTgFLD2ylzuqKfdKlfG/eSrtxUkn" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/css/bootstrap.min.css" integrity="sha384-yEPZ7jP9S0QKiUQ0m3jjsO4ProIW7wvR9gXkI7JOGa2XVsw53Yke2bsdkBbjmmiX" crossorigin="anonymous">
   
-  <!--link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous"-->
+  
 
-  <!-- link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet"-->
+  
   <link rel="stylesheet" href="css/intrain-responsive.css?0.0">
   
    
@@ -34,18 +34,15 @@
   integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
   crossorigin="anonymous"></script>
 
-  <!-- script
-  src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"
-  integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
-  crossorigin="anonymous"></script -->
   
-  <!--script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script-->
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
   
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/js/bootstrap.min.js" integrity="sha384-VHvPCCyXqtD5DqJeNxl2dtTyhF78xXNXdkwX1CZeRusQfRKp+tA7hAShOK/B/fQ2" crossorigin="anonymous"></script>
   
-  <!--script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script-->  
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/js/bootstrap.bundle.min.js" integrity="sha384-WyOxWvTyr1QaMPfiPJSv76iReVthorl5uWlFtZPyK0IEB0hGzo9y5Bp9mYanr8Bu" crossorigin="anonymous"></script>
+  <script src="js/bootstrap-ui.js"></script>
+  
+    
   
   
   <script src="js/peerjs.min.js"></script>
@@ -111,26 +108,26 @@
                 <li><a href="supervisor"
                     class="pop-on-hover"
                     title="The supervisor opens the training session"
-                    data-toggle="popover"
-                    data-trigger="hover"
-                    data-content="The supervisor (assessor/teacher/tutor) opens the training session. He/she logs in by providing any username, as long as it is unique (your email address is fine and will not be logged, recorded or used in any way outside of the intended uses of this application).<br>After logging in, the supervidor waits for the interpreter and the speaker to join the session.<br>Permissions to access webcam and microphone will be asked and <b>must</b> be granted. Notifications can be optionally authorized. They will be only used to notify when someone joins the session.<br><br>
+                    data-bs-toggle="popover"
+                    data-bs-trigger="hover"
+                    data-bs-content="The supervisor (assessor/teacher/tutor) opens the training session. He/she logs in by providing any username, as long as it is unique (your email address is fine and will not be logged, recorded or used in any way outside of the intended uses of this application).<br>After logging in, the supervidor waits for the interpreter and the speaker to join the session.<br>Permissions to access webcam and microphone will be asked and <b>must</b> be granted. Notifications can be optionally authorized. They will be only used to notify when someone joins the session.<br><br>
                     <b>We do not provide supervisors or any training services</b>." 
                     >Supervisor</a></li>
             
                 <li><a href="interpreter"
                     class="pop-on-hover"
                     title="The interpreter joins the supervisor"
-                    data-toggle="popover"
-                    data-trigger="hover"
-                    data-content="The interpreter joins the training session by entering the supervisor's username. The supervisor must be already logged in.
+                    data-bs-toggle="popover"
+                    data-bs-trigger="hover"
+                    data-bs-content="The interpreter joins the training session by entering the supervisor's username. The supervisor must be already logged in.
                     Permissions to use webcam and microphone will be asked and <b>must</b> be granted."     
                     >Interpreter</a></li>
             
                 <li><a href="speaker"
                     title="The speaker joins the supervisor"
-                    data-toggle="popover"
-                    data-trigger="hover"
-                    data-content="The speaker joins the training session by entering the supervisor's username. The supervisor must be already logged in.
+                    data-bs-toggle="popover"
+                    data-bs-trigger="hover"
+                    data-bs-content="The speaker joins the training session by entering the supervisor's username. The supervisor must be already logged in.
                     Permissions to use webcam and microphone will be asked and <b>must</b> be granted."
                     class="pop-on-hover"
                     >Speaker</a></li>
@@ -172,18 +169,14 @@
           <i id="headset-icon" class="fas fa-headset fa-stack-1x fa-inverse"> </i>
         </span>Please, <div style="display: inline-block" id="headset-disclaimer">plug in</div> your headset and your webcam <b>before</b> clicking any of the links above.
 
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
 	  
 	  
       <div class="mb-2 alert alert-danger alert-dismissible fade show" role="alert" id="setsinkid-disclaimer" style="display: none">
-Your browser doesn't allow audio output device selection. This is not a problem unless you want to use a specific one with InTrain. If you're using firefox <a tabindex="0" class="unselectable pointer pop-on-click text-nowrap" data-trigger="focus" data-toggle="popover" title="Select audio output device in Firefox" data-content="<p>If you are using Firefox, you can enable audio output device selection by following this procedure.</p><ol><li>Open a new tab</li><li>Type <span style='font-family:courier'><b>about:config</b></span> in firefox. This will open Firefox registry which allows you to change its internal settings. Firefox will warn you to proceed with caution. Accept the risk and continue.</li><li>Type <span style='font-family:courier'><b>media.setsinkid.enabled</b></span> in the search box. The setting will appear below.<li>Set the value to true (using the double arrow button).</li></ol><p>You will be then allowed to select an audio output device in Firefox and this reminder won't be shown the next time you load this page.</p></div>">click here</a> for a possible solution.
+Your browser doesn't allow audio output device selection. This is not a problem unless you want to use a specific one with InTrain. If you're using firefox <a tabindex="0" class="unselectable pointer pop-on-click text-nowrap" data-bs-trigger="focus" data-bs-toggle="popover" title="Select audio output device in Firefox" data-bs-content="<p>If you are using Firefox, you can enable audio output device selection by following this procedure.</p><ol><li>Open a new tab</li><li>Type <span style='font-family:courier'><b>about:config</b></span> in firefox. This will open Firefox registry which allows you to change its internal settings. Firefox will warn you to proceed with caution. Accept the risk and continue.</li><li>Type <span style='font-family:courier'><b>media.setsinkid.enabled</b></span> in the search box. The setting will appear below.<li>Set the value to true (using the double arrow button).</li></ol><p>You will be then allowed to select an audio output device in Firefox and this reminder won't be shown the next time you load this page.</p></div>">click here</a> for a possible solution.
 
-<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-    <span aria-hidden="true">&times;</span>
-</button>
+<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   
       </div>	  
 
@@ -191,7 +184,7 @@ Your browser doesn't allow audio output device selection. This is not a problem 
       
       
   <div class="pt-2 row">
-    <div class="col-sm-8 text-left">
+    <div class="col-sm-8 text-start">
       <span id="company"></span>
       <span style="font-size: 0.85em">
         <span id="license"></span>
@@ -199,7 +192,7 @@ Your browser doesn't allow audio output device selection. This is not a problem 
       </span>
     </div>
     
-    <div class="col-sm text-right">
+    <div class="col-sm text-end">
       <img class="pb-1" style="width: 1em" src="images/train.svg" >
       <span id="appname" class="unselectable pointer"></span>
     </div>
@@ -226,7 +219,7 @@ Your browser doesn't allow audio output device selection. This is not a problem 
         <p style="font-size: 0.85em">This web application is distributed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.html">GNU Affero General Public License v3</a> (see <a href="credits" target="_blank">credits</a>)</p>
       </div>
       <div class="modal-footer">
-        <button id="splash-close" type="button" class="btn btn-success mr-auto ml-auto">Let's start!</button>
+        <button id="splash-close" type="button" class="btn btn-success me-auto ms-auto">Let's start!</button>
       </div>
     </div>
   </div>

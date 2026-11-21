@@ -31,7 +31,7 @@ $(document).ready(async function() {
     audioOutputElement.play();
 
     $(function () {
-        $('[data-toggle="tooltip"]').tooltip()
+        InTrainUI.initTooltips()
     })
 
     initMuted();
@@ -126,7 +126,7 @@ $(document).ready(async function() {
             joinSupervisor(null, InterpreterPeerOptions, setAudioMode);
         }, 500);
     } else {
-        $('#login-dialog').modal({keyboard: false, backdrop: 'static'});    
+        InTrainUI.showModal('#login-dialog', {keyboard: false, backdrop: 'static'});    
     }
     
     loadCommonHandlers();

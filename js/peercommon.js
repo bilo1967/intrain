@@ -34,7 +34,7 @@ async function joinSupervisor(e, peerOptions, setAudioMode = () => {}) {
         $("#login-info").html("You're disconnected");
         logToChat("You are not connected");
 
-        $('#login-dialog').modal('show');        
+        InTrainUI.showModal('#login-dialog');        
 
         /*
         setTimeout(function() { 
@@ -226,7 +226,7 @@ function loadPeerHandlers(setAudioMode = () => {}) {
         $("#join-button").text("Disconnect");
         $("#join-button").removeClass("btn-success").addClass("btn-warning");
         $('#login-status').html('');
-        $('#login-dialog').modal('hide');
+        InTrainUI.hideModal('#login-dialog');
 
         logToPanel("Trying to join the training session");
 

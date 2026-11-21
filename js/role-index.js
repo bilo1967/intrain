@@ -1,17 +1,9 @@
 $(document).ready(function() {
     
-        $('.pop-on-hover').popover({
-            trigger: 'hover',
-            html: true,
-        });
+        // Bootstrap 5 popovers preserve the existing hover/focus behavior.
+        InTrainUI.initPopovers('.pop-on-hover', {trigger: 'hover', html: true});
+        InTrainUI.initPopovers('.pop-on-click', {trigger: 'focus', html: true});
 
-        $('.pop-on-click').popover({
-            trigger: 'focus',
-			width: 300,
-            html: true,
-        });  		
-		
-        
         addCopyright();
 
 
@@ -49,10 +41,7 @@ $(document).ready(function() {
         
         // Display splash screen only if coming from another location
         if (!splash) {
-            $('#splash').modal({
-                keyboard: false,
-                focus: true,
-            });
+            InTrainUI.showModal('#splash', {keyboard: false, focus: true});
             $(".transparent").fadeTo(100, 1);
             InTrainStorage.set('splash' + appVersion, true);
         } else {
@@ -63,7 +52,7 @@ $(document).ready(function() {
             $('#splash').fadeOut(1500);
             setTimeout(function() {
                 
-                $("#splash").modal('hide');
+                InTrainUI.hideModal('#splash');
                 
                 loadAndPlay("sounds/heartbeat.mp3");
                 animateCSS('#headset-icon', 'heartBeat', 8);
@@ -73,7 +62,7 @@ $(document).ready(function() {
         $('#headset-icon').on("click", function() {
             $('#splash').fadeOut(500);
             setTimeout(function() {
-                $("#splash").modal('hide');
+                InTrainUI.hideModal('#splash');
                 loadAndPlay("sounds/heartbeat.mp3");
                 animateCSS('#headset-icon', 'heartBeat', 8);
             }, 500)        
