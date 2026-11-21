@@ -21,10 +21,12 @@
   <script src="https://kit.fontawesome.com/ea65ac0a48.js"></script>
 
 
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css" integrity="sha384-zCbKRCUGaJDkqS1kPbPd7TveP5iyJE0EjAuZQTgFLD2ylzuqKfdKlfG/eSrtxUkn" crossorigin="anonymous">
+  
+  <!--link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous"-->
 
   <!-- link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet"-->
-  <link rel="stylesheet" href="css/intrain.css?0.08">
+  <link rel="stylesheet" href="css/intrain-responsive.css?0.0">
   
    
   <script
@@ -32,22 +34,25 @@
   integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
   crossorigin="anonymous"></script>
 
-  <script
+  <!-- script
   src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"
   integrity="sha256-eGE6blurk5sHj+rmkfsGYeKyZx3M4bG+ZlFyA7Kns7E="
-  crossorigin="anonymous"></script>
+  crossorigin="anonymous"></script -->
   
-  <script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script>
+  <!--script src="https://code.jquery.com/jquery-migrate-3.0.0.min.js"></script-->
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>  
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/js/bootstrap.min.js" integrity="sha384-VHvPCCyXqtD5DqJeNxl2dtTyhF78xXNXdkwX1CZeRusQfRKp+tA7hAShOK/B/fQ2" crossorigin="anonymous"></script>
+  
+  <!--script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script-->  
   
   
   <script src="js/peerjs.min.js"></script>
   
   <script src="js/utils.js"></script>
-  <script src="js/common.js?v=0.7"></script>
-  <script src="js/config.js?v=0.1"></script>
+  <script src="js/common.js?v=0.8"></script>
+  <script src="js/config.js?v=0.4"></script>
   <script src="js/intrain.js?v=0.3"></script>  
   <script src="js/js.cookie.js"></script>  
   
@@ -73,7 +78,11 @@
 #headset-icon {
     cursor: pointer;
 }
-  
+
+
+.popover{
+    max-width: 400px; /* Max Width of the popover (depending on the container!) */
+}
 
   </style>
   
@@ -81,16 +90,49 @@
 <script>
     $(document).ready(function() {
     
-        $('.pop').popover({
+        $('.pop-on-hover').popover({
             trigger: 'hover',
             html: true,
         });
+
+        $('.pop-on-click').popover({
+            trigger: 'focus',
+			width: 300,
+            html: true,
+        });  		
+		
         
         addCopyright();
+
+
+		// Check if browser allows audio output device selection
+		const audioOutputElement = new Audio();
+		
+		if (typeof audioOutputElement.sinkId === 'undefined') {
+		
+			$('#setsinkid-disclaimer').show();
+		}
+		
+        
+        var hideWhatsnew = Cookies.get('whatsnew-dismissed' + appVersion);
+        
+        if (!hideWhatsnew) {
+            $("#whatsnew").css('display', 'block');
+        }
+        $("#dismiss-whatsnew").on('click', function() {
+            Cookies.set('whatsnew-dismissed' + appVersion, true);
+            $("#whatsnew").fadeOut(200);
+        });
+        
+        
     
         // Set title and version
         $("#app-name").html("Welcome to " + appName);
         $("#app-version").html("(version " + appVersion + ")");
+        
+        $('#appname').on('click', function() {
+            $("#whatsnew").fadeIn(200);
+        });
     
         // Cookie to check if splash screen has already been displayed
         var splash = Cookies.get('splash' + appVersion);
@@ -132,54 +174,103 @@
 
 </head>
 <body class="background-index">
+<div id="logo"><img src="./images/logo_uniBO_white_UpperLeft.png" /></div>
 
 <div class="transparent">
-<div id="logo"><img src="./images/logo_uniBO_white_UpperLeft.png" /></div>
+
 
     <div class="container bg-light opacity-90 opacity-hover-100 border rounded app-width mt-4 pb-2">
     
       <h1 class="display-4">inTrain</h1>  
-      <h4 class="display-5">web based interpreter training</h4>
       
-      <p>Choose your role</p>
-      <ul>
-        <li><a href="supervisor"
-            class="pop"
-            title="The supervisor opens the training session"
-            data-toggle="popover"
-            data-trigger="hover"
-            data-content="The supervisor (assessor/teacher/tutor) opens the training session. He/she logs in by providing any username, as long as it is unique (your email address is fine and will not be logged, recorded or used in any way outside of the intended uses of this application).<br>After logging in, the supervidor waits for the interpreter and the speaker to join the session.<br>Permissions to access webcam and microphone will be asked and <b>must</b> be granted. Notifications can be optionally authorized. They will be only used to notify when someone joins the session." 
-            >Supervisor</a></li>
+      
+      <div class="row mb-2">
+          <div class="col-sm-6">
+            <div class="alert alert-light h-100" role="alert">
+              <h4 class="alert-heading">Web based interpreter training</h4>  
+              <p>Choose your role</p>
+              <ul>
+                <li><a href="supervisor"
+                    class="pop-on-hover"
+                    title="The supervisor opens the training session"
+                    data-toggle="popover"
+                    data-trigger="hover"
+                    data-content="The supervisor (assessor/teacher/tutor) opens the training session. He/she logs in by providing any username, as long as it is unique (your email address is fine and will not be logged, recorded or used in any way outside of the intended uses of this application).<br>After logging in, the supervidor waits for the interpreter and the speaker to join the session.<br>Permissions to access webcam and microphone will be asked and <b>must</b> be granted. Notifications can be optionally authorized. They will be only used to notify when someone joins the session.<br><br>
+                    <b>We do not provide supervisors or any training services</b>." 
+                    >Supervisor</a></li>
+            
+                <li><a href="interpreter"
+                    class="pop-on-hover"
+                    title="The interpreter joins the supervisor"
+                    data-toggle="popover"
+                    data-trigger="hover"
+                    data-content="The interpreter joins the training session by entering the supervisor's username. The supervisor must be already logged in.
+                    Permissions to use webcam and microphone will be asked and <b>must</b> be granted."     
+                    >Interpreter</a></li>
+            
+                <li><a href="speaker"
+                    title="The speaker joins the supervisor"
+                    data-toggle="popover"
+                    data-trigger="hover"
+                    data-content="The speaker joins the training session by entering the supervisor's username. The supervisor must be already logged in.
+                    Permissions to use webcam and microphone will be asked and <b>must</b> be granted."
+                    class="pop-on-hover"
+                    >Speaker</a></li>
+            
+              </ul>
+			  
+			  <p>You can download the user manual <a href="/files/intrain-user-manual.pdf" target="_blank">here</a>.</p>
+            </div>    
+          </div>
+          
+          <div class="col-sm-6 ">
+            <div id="whatsnew" class="alert alert-info h-100" style="display:none" role="alert">
+
+              <h4 class="alert-heading">Version 1.0.2 is out!</h4>
+              <ul>              
+                <li>The supervisor and the speaker can now share their screen, an application, or a browser tab with the interpreter, including audio. Unlike the video player whose audio is not recorded, the audio shared via screen share is included in the recording as a separate track.</li>
+                <li>It is possible to select headphones or speakers other than the default ones.</li>
+                <li>The control panel settings are now saved.</li>
+                <li>New audio or video devices are automatically detected.</li>
+                <li>Switch role feature for interpreter and speaker.</li>
+              </ul>
+              <hr>
+              <p class="mb-0 text-center unselectable pointer" id="dismiss-whatsnew">Click here to dismiss</p>
+            </div>
+            
+            
+            
+          </div>
+
+
+
+
+          
+      </div>
     
-        <li><a href="interpreter"
-            class="pop"
-            title="The interpreter joins the supervisor"
-            data-toggle="popover"
-            data-trigger="hover"
-            data-content="The interpreter joins the training session by entering the supervisor's username. The supervisor must be already logged in.
-            Permissions to use webcam and microphone will be asked and <b>must</b> be granted."     
-            class="pop"
-            >Interpreter</a></li>
-    
-        <li><a href="speaker"
-            title="The speaker joins the supervisor"
-            data-toggle="popover"
-            data-trigger="hover"
-            data-content="The speaker joins the training session by entering the supervisor's username. The supervisor must be already logged in.
-            Permissions to use webcam and microphone will be asked and <b>must</b> be granted."
-            class="pop"
-            >Speaker</a></li>
-    
-      </ul>
-    
-      <div class="alert alert-warning">
-        <span class="fa-stack fa-2x">
+      <div class="mb-2 alert alert-warning alert-dismissible fade show" role="alert">
+        <span class="fa-stack fa-1.5x">
           <i class="fas fa-square fa-stack-2x"></i>
           <i id="headset-icon" class="fas fa-headset fa-stack-1x fa-inverse"> </i>
         </span>Please, <div style="display: inline-block" id="headset-disclaimer">plug in</div> your headset and your webcam <b>before</b> clicking any of the links above.
+
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
+	  
+	  
+      <div class="mb-2 alert alert-danger alert-dismissible fade show" role="alert" id="setsinkid-disclaimer" style="display: none">
+Your browser doesn't allow audio output device selection. This is not a problem unless you want to use a specific one with InTrain. If you're using firefox <a tabindex="0" class="unselectable pointer pop-on-click text-nowrap" data-trigger="focus" data-toggle="popover" title="Select audio output device in Firefox" data-content="<p>If you are using Firefox, you can enable audio output device selection by following this procedure.</p><ol><li>Open a new tab</li><li>Type <span style='font-family:courier'><b>about:config</b></span> in firefox. This will open Firefox registry which allows you to change its internal settings. Firefox will warn you to proceed with caution. Accept the risk and continue.</li><li>Type <span style='font-family:courier'><b>media.setsinkid.enabled</b></span> in the search box. The setting will appear below.<li>Set the value to true (using the double arrow button).</li></ol><p>You will be then allowed to select an audio output device in Firefox and this reminder won't be shown the next time you load this page.</p></div>">click here</a> for a possible solution.
+
+<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+</button>
+  
+      </div>	  
+
       
-      <p>You can download the user manual <a href="intrain-user-manual.pdf" target="_blank">here</a>.</p>
+      
       
   <div class="pt-2 row">
     <div class="col-sm-8 text-left">
@@ -192,7 +283,7 @@
     
     <div class="col-sm text-right">
       <img class="pb-1" style="width: 1em" src="images/train.svg" >
-      <span id="appname"></span>
+      <span id="appname" class="unselectable pointer"></span>
     </div>
   </div>      
         
@@ -228,4 +319,4 @@
 
 
 </body>
-</html>  
+</html>
