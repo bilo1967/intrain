@@ -1,0 +1,34 @@
+name: InTrain 1.0 smoke tests
+
+on:
+  push:
+    branches:
+      - '1.0'
+  pull_request:
+    branches:
+      - '1.0'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check application JavaScript syntax
+        shell: bash
+        run: |
+          for script in js/*.js; do
+            case "$script" in
+              *.min.js) continue ;;
+            esac
+            node --check "$script"
+          done
+      - name: Run regression tests
+        run: node --test tests/smoke.test.js
