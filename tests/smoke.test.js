@@ -224,7 +224,7 @@ test('interpreter outgoing dial to a rejoining speaker preserves the active scre
 });
 
 test('supervisor resends an active screen only to the incoming interpreter', () => {
-    const html = fs.readFileSync(path.resolve(__dirname, '../supervisor.html'), 'utf8');
+    const html = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
     assert.match(html, /role === RoleInterpreter && sharingScreen\(\)/);
     assert.match(html, /c\.peer, screenshareMediaStream/);
 });
