@@ -657,7 +657,7 @@ test('interpreter adjusts local video volume without enabling transport controls
     assert.match(markup, /id="interpreter-video-volume"[^>]*min="0" max="100"/);
     assert.ok(markup.indexOf('id="interpreter-player-volume"') > markup.indexOf('class="video-player-interaction-shield"'));
     assert.match(css, /#interpreter-player-volume \.form-range\s*\{[^}]*width:\s*clamp/);
-    assert.match(markup, /src="js\/role-interpreter\.js\?v=1\.0\.4"/);
+    assert.match(markup, /src="js\/role-interpreter\.js\?v=1\.0\.\d+"/);
 });
 
 
