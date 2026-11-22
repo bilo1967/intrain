@@ -1,20 +1,5 @@
 @import 'https://fonts.googleapis.com/css?family=Open+Sans';
 @import 'https://fonts.googleapis.com/css?family=Roboto';
-@import 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap';
-
-/*
- * Material Symbols are used by the session mode indicator and role controls.
- * The stylesheet is shared by supervisor, speaker and interpreter.
- */
-.material-font {
-    font-family: 'Material Symbols Outlined';
-    font-style: normal;
-    font-weight: 200;
-    font-size: 26px; /* default font size */
-    white-space: nowrap;
-    font-feature-settings: 'liga';
-}
-
 #session-mode {
     align-items: center;
     white-space: nowrap;

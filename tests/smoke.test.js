@@ -323,18 +323,20 @@ test('supervisor video player is shown above the speaker and hidden again', () =
     assert.match(css, /\.player-container\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*left:\s*0;/);
 });
 
-test('URL panel collapses without wrapping and mode icon font is shared', () => {
+test('URL panel and supervisor original Material Symbols styling', () => {
     const root = path.resolve(__dirname, '..');
     const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
     const supervisor = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
 
-    assert.match(css, /Material\+Symbols\+Outlined/);
+    assert.ok(!css.includes('Material+Symbols+Outlined'));
+    assert.ok(supervisor.includes('fonts.googleapis.com/css2?family=Material+Symbols+Outlined'));
+    assert.ok(supervisor.includes("font-family: 'Material Symbols Outlined'"));
     assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
     assert.match(supervisor, /id="player-panel"/);
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
     for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
-        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.1/);
+        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.2/);
     }
 });
 
