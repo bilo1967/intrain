@@ -918,6 +918,9 @@ test('recording routes speaker, shared audio, or silence without contaminating i
     const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
     const c = loadApp();
     vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    // The audio graph is declared after DOM startup; evaluate it separately.
+    vm.runInContext(role.slice(role.indexOf('function initCrossFader()'),
+        role.indexOf('function initRecorder()')), c);
 
     const connected = [];
     function audioSource(label) {
