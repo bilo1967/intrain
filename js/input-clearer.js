@@ -1,6 +1,8 @@
 /*
- * Simple jQuery input clear control compatible with Bootstrap 5 input groups.
- * Replaces the old Bootstrap 4 input-group-append plugin.
+ * Clear control for URL/text inputs.
+ * The clear button overlays the input, so its appearance cannot change the
+ * input width or the height of its parent toolbar. No Bootstrap input group
+ * is created, avoiding wrapping during the player panel animation.
  */
 (function($) {
     'use strict';
@@ -10,12 +12,15 @@
             const input = $(this);
             if (input.data('intrain-clearer')) return;
 
-            const wrapper = input.closest('.input-group');
-            if (!wrapper.length) input.wrap('<div class="input-group"></div>');
+            // The wrapper is positioned, not an extra flex item beside the input.
+            const wrapper = input.closest('.input-clearer-wrapper');
+            if (!wrapper.length) {
+                input.wrap('<div class="input-clearer-wrapper"></div>');
+            }
 
             const button = $('<button/>', {
                 type: 'button',
-                class: 'btn btn-outline-secondary input-clearer',
+                class: 'input-clearer',
                 'aria-label': 'Clear input',
                 text: '×'
             });

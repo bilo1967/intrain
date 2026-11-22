@@ -340,7 +340,8 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
     assert.match(supervisor, /id="player-panel"/);
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
-    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
+    assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.5/);
+    for (const page of ['speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
         assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.4/);
     }
@@ -372,4 +373,20 @@ test('Material Symbols are loaded and configured for all three roles', () => {
         assert.ok(html.includes('fonts.googleapis.com/css2?family=Material+Symbols+Outlined'), page);
         assert.match(html, /\.material-font\s*\{[^}]*font-family:\s*'Material Symbols Outlined'/);
     }
+});
+
+test('video URL toolbar has stable height and the clear button cannot cause wrapping', () => {
+    const root = path.resolve(__dirname, '..');
+    const markup = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const clearer = fs.readFileSync(path.join(root, 'js/input-clearer.js'), 'utf8');
+
+    assert.match(markup, /class="d-inline-flex flex-nowrap align-items-center video-player-controls"/);
+    assert.match(markup, /id="video-url"/);
+    assert.match(markup, /class="form-control form-control-sm clearer"/);
+    assert.match(css, /\.video-player-controls\s*\{[^}]*height:\s*var\(--normal-button-height\)/);
+    assert.match(css, /#player-panel \.input-clearer-wrapper\s*\{[^}]*position:\s*relative/);
+    assert.match(css, /#player-panel \.input-clearer\s*\{[^}]*position:\s*absolute/);
+    assert.match(clearer, /input\.wrap\('<div class="input-clearer-wrapper"><\/div>'\)/);
+    assert.doesNotMatch(clearer, /input\.wrap\('<div class="input-group"><\/div>'\)/);
 });
