@@ -319,6 +319,33 @@
     height: 100% !important;
 }
 
+/*
+ * Apply the same size constraints to the interpreter's read-only player.
+ * The supervisor's CSS remains untouched; both share the same central video
+ * size, while the interpreter overlay continues to block local controls.
+ */
+#player-container.interpreter-video-player {
+    overflow: hidden;
+}
+
+#player-container.interpreter-video-player .mejs__container {
+    box-sizing: border-box;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#player-container.interpreter-video-player .mejs__inner,
+#player-container.interpreter-video-player .mejs__mediaelement {
+    max-height: 100%;
+}
+
+#player-container.interpreter-video-player .mejs__mediaelement iframe {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 /* Preserve MediaElement's native fullscreen behavior. */
 #player-container:has(.mejs__container-fullscreen) {
     overflow: visible;

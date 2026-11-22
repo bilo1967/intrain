@@ -24,6 +24,46 @@ var showPlayer = false;
 var remoteVideoURL = null;
 var pendingRemoteVideoState = null;
 
+/*
+ * MediaElement 4.2.7 uses the native <video> dimensions when it creates a
+ * YouTube or Vimeo iframe. Fit both the wrapper and the underlying renderer
+ * to the central speaker video, not the mini videos in the left column.
+ */
+function getInterpreterVideoSize() {
+    const video = document.getElementById('speakerVideo');
+    if (!video) return null;
+
+    const rect = video.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (width <= 0 || height <= 0) return null;
+
+    return {width, height};
+}
+
+function fitInterpreterPlayerToVideo() {
+    const size = getInterpreterVideoSize();
+    const overlay = document.getElementById('player-container');
+    if (!size || !overlay) return;
+
+    overlay.style.width = size.width + 'px';
+    overlay.style.height = size.height + 'px';
+
+    const source = document.getElementById('myplayer');
+    if (source) {
+        source.width = size.width;
+        source.height = size.height;
+    }
+
+    if (myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
+        myVideoPlayer.setPlayerSize(size.width, size.height);
+    }
+    if (myVideoMediaElement && typeof myVideoMediaElement.setSize === 'function') {
+        // Resize the embedded YouTube/Vimeo iframe, not just its outer box.
+        myVideoMediaElement.setSize(size.width, size.height);
+    }
+}
+
 function setInterpreterPlayerVisible(visible) {
     showPlayer = !!visible;
     $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
@@ -31,13 +71,7 @@ function setInterpreterPlayerVisible(visible) {
     $('#player-container').toggleClass('stack-top', showPlayer)
         .toggleClass('stack-bottom hidden', !showPlayer);
 
-    if (showPlayer && myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
-        requestAnimationFrame(function() {
-            if (showPlayer) myVideoPlayer.setPlayerSize(
-                $('#player-container').width(), $('#player-container').height()
-            );
-        });
-    }
+    if (showPlayer) requestAnimationFrame(fitInterpreterPlayerToVideo);
 }
 
 /* Try to seek/play after the iframe renderer reports loaded metadata. */
@@ -205,10 +239,19 @@ $(document).ready(async function() {
         handleLocalMediaStreamError(error);
     }
 
+    // Give the native <video> real dimensions before the iframe renderer is
+    // created. CSS dimensions alone are not used by YouTube/Vimeo.
+    const initialVideoSize = getInterpreterVideoSize() || {width: 480, height: 300};
+    const originalVideo = document.getElementById('myplayer');
+    originalVideo.width = initialVideoSize.width;
+    originalVideo.height = initialVideoSize.height;
+
     // init player
 	$('#myplayer').mediaelementplayer({
         startVolume: 1,
-        stretching: 'responsive',
+        stretching: 'none',
+        videoWidth: initialVideoSize.width,
+        videoHeight: initialVideoSize.height,
         controls: false,
         clickToPlayPause: false,
         enableKeyboard: false,
@@ -217,6 +260,10 @@ $(document).ready(async function() {
         success: function(mediaElement, originalNode, instance) {
             myVideoPlayer = instance;
             myVideoMediaElement = mediaElement;
+            fitInterpreterPlayerToVideo();
+            // External iframe renderers become available asynchronously.
+            mediaElement.addEventListener('rendererready', fitInterpreterPlayerToVideo, false);
+            mediaElement.addEventListener('loadedmetadata', fitInterpreterPlayerToVideo, false);
             mediaElement.addEventListener('loadedmetadata', applyPendingRemoteVideoState, false);
             mediaElement.addEventListener('canplay', applyPendingRemoteVideoState, false);
             mediaElement.addEventListener('error', function(error) {
@@ -288,6 +335,11 @@ $(document).ready(async function() {
     // Viewing the video is controlled by the supervisor. No local toggle.
     $('#load-player').prop('disabled', true);
 
+
+    // Responsive breakpoints may change the speaker video dimensions.
+    window.addEventListener('resize', function() {
+        if (showPlayer) requestAnimationFrame(fitInterpreterPlayerToVideo);
+    });
 
     // ondevicechange event (webcam or headset has been plugged in or out)
     navigator.mediaDevices.ondevicechange = (e) => {

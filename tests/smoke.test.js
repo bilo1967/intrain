@@ -568,3 +568,53 @@ test('supervisor MediaElement remains within the central speaker video area', ()
     assert.match(markup, /<video id="myplayer" width="480" height="300"/);
     assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.4"/);
 });
+
+test('interpreter video renderer fits the central speaker video, not the mini videos', () => {
+    const root = path.resolve(__dirname, '..');
+    const script = fs.readFileSync(path.join(root, 'js/role-interpreter.js'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const html = fs.readFileSync(path.join(root, 'interpreter.html'), 'utf8');
+    const c = loadApp();
+
+    // Evaluate declarations without the browser-only startup handler.
+    vm.runInContext(script.slice(0, script.indexOf('$(document).ready(')), c);
+
+    const overlay = {style: {}};
+    const video = {width: 0, height: 0};
+    let rect = {width: 480, height: 300};
+    const speaker = {getBoundingClientRect: () => rect};
+    const mini = {getBoundingClientRect: () => ({width: 120, height: 75})};
+    c.document.getElementById = id => ({
+        speakerVideo: speaker,
+        'player-container': overlay,
+        myplayer: video,
+        interpreterVideo: mini
+    })[id] ?? null;
+
+    const playerSizes = [], rendererSizes = [];
+    c.myVideoPlayer = {setPlayerSize(w, h) {playerSizes.push([w, h]);}};
+    c.myVideoMediaElement = {setSize(w, h) {rendererSizes.push([w, h]);}};
+
+    c.fitInterpreterPlayerToVideo();
+    assert.deepEqual(playerSizes[0], [480, 300]);
+    assert.deepEqual(rendererSizes[0], [480, 300]);
+    assert.equal(video.width, 480);
+    assert.equal(video.height, 300);
+    assert.equal(overlay.style.height, '300px');
+
+    rect = {width: 368, height: 230};
+    c.fitInterpreterPlayerToVideo();
+    assert.deepEqual(playerSizes[1], [368, 230]);
+    assert.deepEqual(rendererSizes[1], [368, 230]);
+
+    assert.match(script, /stretching:\s*'none'/);
+    assert.match(script, /videoWidth:\s*initialVideoSize\.width/);
+    assert.match(script, /videoHeight:\s*initialVideoSize\.height/);
+    assert.match(script, /addEventListener\('rendererready', fitInterpreterPlayerToVideo/);
+    assert.match(script, /window\.addEventListener\('resize'/);
+    assert.match(css, /#player-container\.interpreter-video-player\s*\{\s*overflow:\s*hidden;/);
+    assert.match(css, /#player-container\.interpreter-video-player \.mejs__mediaelement iframe\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
+    assert.match(html, /<video id="myplayer" width="480" height="300"/);
+    assert.match(html, /class="video-player-interaction-shield"/);
+    assert.match(html, /src="js\/role-interpreter\.js\?v=1\.0\.3"/);
+});
