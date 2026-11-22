@@ -21,6 +21,17 @@
     font-size: 1.25rem;
 }
 
+/* Optical baseline compensation: these two icon fonts have different glyph metrics. */
+#session-mode .session-mode-icon.fa-bullhorn {
+    position: relative;
+    top: 1px;
+}
+
+#session-mode .session-mode-icon.material-font {
+    position: relative;
+    top: -1px;
+}
+
 /* Values that may get overriden for specific media screen sizes */
 
 /* variables */

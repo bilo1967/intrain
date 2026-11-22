@@ -342,7 +342,7 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
     for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
-        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.3/);
+        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.4/);
     }
 });
 
@@ -350,4 +350,17 @@ test('interpreter synchronizes seeks using the MediaElement player API', () => {
     const peer = fs.readFileSync(path.resolve(__dirname, '../js/peercommon.js'), 'utf8');
     assert.match(peer, /myVideoPlayer\.setCurrentTime\(parseFloat\(data\.time\)\)/);
     assert.doesNotMatch(peer, /myVideoMediaElement\.setCurrentTime/);
+});
+
+
+test('mode icons use correct flex alignment and font-specific optical offsets', () => {
+    const root = path.resolve(__dirname, '..');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    assert.match(css, /#session-mode \.session-mode-icon\.fa-bullhorn\s*\{[^}]*top:\s*1px;/);
+    assert.match(css, /#session-mode \.session-mode-icon\.material-font\s*\{[^}]*top:\s*-1px;/);
+    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.doesNotMatch(html, /align-items-middle/);
+        assert.match(html, /class="[^"]*align-items-center[^"]*" id="session-mode"/);
+    }
 });
