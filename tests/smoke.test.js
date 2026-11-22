@@ -522,31 +522,49 @@ test('supervisor MediaElement remains within the central speaker video area', ()
     vm.runInContext(script.slice(0, script.indexOf('$(document).ready(')), c);
 
     const overlay = {style: {}};
+    const sourceVideo = {width: 0, height: 0};
     let size = {width: 480, height: 300};
     const speaker = {getBoundingClientRect: () => size};
     c.document.getElementById = id =>
         id === 'speakerVideo' ? speaker :
-        id === 'player-container' ? overlay : null;
+        id === 'player-container' ? overlay :
+        id === 'myplayer' ? sourceVideo : null;
 
-    const requests = [];
-    c.myVideoPlayer = {setPlayerSize(width, height) {requests.push([width, height]);}};
+    const playerSizes = [], rendererSizes = [];
+    c.myVideoPlayer = {
+        setPlayerSize(width, height) {playerSizes.push([width, height]);}
+    };
+    c.myVideoMediaElement = {
+        setSize(width, height) {rendererSizes.push([width, height]);}
+    };
 
     c.fitSupervisorPlayerToVideo();
-    assert.deepEqual(requests[0], [480, 300]);
+    assert.deepEqual(playerSizes[0], [480, 300]);
+    assert.deepEqual(rendererSizes[0], [480, 300]);
+    assert.equal(sourceVideo.width, 480);
+    assert.equal(sourceVideo.height, 300);
     assert.equal(overlay.style.width, '480px');
     assert.equal(overlay.style.height, '300px');
 
     size = {width: 368, height: 230};
     c.fitSupervisorPlayerToVideo();
-    assert.deepEqual(requests[1], [368, 230]);
+    assert.deepEqual(playerSizes[1], [368, 230]);
+    assert.deepEqual(rendererSizes[1], [368, 230]);
+    assert.equal(sourceVideo.width, 368);
+    assert.equal(sourceVideo.height, 230);
     assert.equal(overlay.style.width, '368px');
     assert.equal(overlay.style.height, '230px');
 
     assert.match(script, /stretching:\s*'none'/);
-    assert.match(script, /videoWidth:\s*getSupervisorVideoSize\(\)\?\.width/);
-    assert.match(script, /videoHeight:\s*getSupervisorVideoSize\(\)\?\.height/);
+    assert.match(script, /videoWidth:\s*initialVideoSize\.width/);
+    assert.match(script, /videoHeight:\s*initialVideoSize\.height/);
+    assert.match(script, /originalVideo\.width = initialVideoSize\.width;/);
+    assert.match(script, /originalVideo\.height = initialVideoSize\.height;/);
+    assert.match(script, /addEventListener\('rendererready', fitSupervisorPlayerToVideo/);
     assert.match(script, /addEventListener\('resize'/);
     assert.match(css, /#player-container:not\(\.interpreter-video-player\)\s*\{\s*overflow:\s*hidden;/);
     assert.match(css, /\.mejs__container:not\(\.mejs__container-fullscreen\)\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
-    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.3"/);
+    assert.match(css, /\.mejs__mediaelement iframe\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
+    assert.match(markup, /<video id="myplayer" width="480" height="300"/);
+    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.4"/);
 });

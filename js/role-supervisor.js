@@ -106,8 +106,22 @@ function fitSupervisorPlayerToVideo() {
     container.style.width = size.width + 'px';
     container.style.height = size.height + 'px';
 
+    // MediaElement 4.2.7 creates YouTube/Vimeo iframes from the original
+    // <video> width/height attributes. Resizing the outer container alone
+    // does not resize that iframe.
+    const source = document.getElementById('myplayer');
+    if (source) {
+        source.width = size.width;
+        source.height = size.height;
+    }
+
     if (myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
         myVideoPlayer.setPlayerSize(size.width, size.height);
+    }
+    if (myVideoMediaElement && typeof myVideoMediaElement.setSize === 'function') {
+        // Propagate the dimensions to the actual YouTube/Vimeo renderer.
+        // The renderer becomes available asynchronously.
+        myVideoMediaElement.setSize(size.width, size.height);
     }
 }
 
@@ -271,14 +285,21 @@ $(document).ready(async function() {
     }
 
 
+    // Set numeric dimensions before MediaElement creates a YouTube/Vimeo iframe.
+    // The renderer reads the native <video> attributes, not just CSS sizes.
+    const initialVideoSize = getSupervisorVideoSize() || {width: 480, height: 300};
+    const originalVideo = document.getElementById('myplayer');
+    originalVideo.width = initialVideoSize.width;
+    originalVideo.height = initialVideoSize.height;
+
     // init player
 	$('#myplayer').mediaelementplayer({
         startVolume: 1,
         // The video panel has a fixed height (set by responsive CSS variables).
         // Responsive stretching otherwise lets iframe renderers grow past it.
         stretching: 'none',
-        videoWidth: getSupervisorVideoSize()?.width || 480,
-        videoHeight: getSupervisorVideoSize()?.height || 300,
+        videoWidth: initialVideoSize.width,
+        videoHeight: initialVideoSize.height,
         controls: true,
         alwaysShowControls: true,
         features: ["playpause", "progress", "current", "duration", "tracks", "volume", "fullscreen"],
@@ -287,6 +308,8 @@ $(document).ready(async function() {
             myVideoPlayer = instance; 
             myVideoMediaElement = mediaElement;
             fitSupervisorPlayerToVideo();
+            // Async renderers initialize their iframe only after rendererready.
+            mediaElement.addEventListener('rendererready', fitSupervisorPlayerToVideo, false);
             mediaElement.addEventListener('loadedmetadata', fitSupervisorPlayerToVideo, false);
 
             mediaElement.addEventListener('progress', function() { 

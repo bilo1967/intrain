@@ -311,6 +311,14 @@
     max-height: 100%;
 }
 
+/* YouTube/Vimeo embed elements can retain their original tiny width/height
+ * even after MediaElement resizes its outer wrapper. Fill the video area.
+ */
+#player-container:not(.interpreter-video-player) .mejs__mediaelement iframe {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 /* Preserve MediaElement's native fullscreen behavior. */
 #player-container:has(.mejs__container-fullscreen) {
     overflow: visible;
