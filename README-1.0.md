@@ -62,6 +62,25 @@ three-peer exercise with recording and device switching. Automated unit tests
 cannot verify visual layout or browser-specific WebRTC behavior.
 
 
+## Recording audio sources
+
+The supervisor's stereo recorder is connected directly to the audio splitters,
+**before** the listening crossfader's gain controls. The second recorded channel
+must therefore be chosen explicitly; muting the supervisor's monitor does not
+remove sound from a recording.
+
+- Speaker mode: interpreter on one channel, live speaker on the other.
+- Screen share: interpreter on one channel, captured screen audio on the other.
+  If the selected tab/window has no audio track, record digital silence instead
+  of falling back to the speaker.
+- Embedded YouTube/Vimeo player: interpreter on one channel, digital silence
+  on the other. The embedded video audio is not recorded.
+
+The existing swap-channels setting still reverses left and right if requested.
+Changes between player, screen share and speaker modes rebuild the input
+routing without recreating the recorder, so the recording remains stereo even
+if sources are switched during a session.
+
 ## Mutually exclusive video sources
 
 On the supervisor, screen sharing and the external video player cannot be

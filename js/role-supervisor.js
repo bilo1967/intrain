@@ -359,6 +359,9 @@ function setSupervisorPlayerVisible(visible) {
     if (interpreterData && interpreterData.open) {
         interpreterData.send({action: showPlayer ? 'showplayer' : 'hideplayer'});
     }
+    // Switching player visibility also changes what is recorded on channel 1.
+    // Record from silence in player mode, never from the live speaker.
+    if (audioContext && split1 && split2) initCrossFader();
     return true;
 }
 
@@ -1421,21 +1424,34 @@ function initCrossFader() {
     if (typeof channel1 === "object" && channel1 != null) {
         console.log("Disconnecting audio channel 1");
         channel1.disconnect();
+        // End any synthetic silence buffer; WebRTC sources have no stop().
+        if (typeof channel1.stop === 'function') channel1.stop();
     }
     if (typeof channel2 === "object" && channel2 != null) {
         console.log("Disconnecting audio channel 2");
         channel2.disconnect();
+        if (typeof channel2.stop === 'function') channel2.stop();
     }
     
-    if (sharingScreenActive && screenshareMediaStream &&
-        screenshareMediaStream.getAudioTracks().length) {
-        console.log("Adding screen share audio to crossfader...");
-        channel1 = audioContext.createMediaStreamSource(screenshareMediaStream);
+    // The recorder taps the splitters before the listening gain nodes.
+    // Select the recording source explicitly: muting gain1 does not mute
+    // the recording. A shared screen without audio also needs a silent track.
+    if (showPlayer) {
+        console.log("External video player: record interpreter only...");
+        channel1 = silence();
+    } else if (sharingScreenActive && screenshareMediaStream) {
+        if (screenshareMediaStream.getAudioTracks().length) {
+            console.log("Adding screen share audio to crossfader...");
+            channel1 = audioContext.createMediaStreamSource(screenshareMediaStream);
+        } else {
+            console.log("Screen share has no audio track; recording silence...");
+            channel1 = silence();
+        }
     } else if (speakerMedia && speakerMedia.open && speakerMediaStream) {
         console.log("Adding speaker audio to crossfader...");
         channel1 = audioContext.createMediaStreamSource(speakerMediaStream);
     } else {
-        console.log("Replacing speaker audio with brownian noise in the crossfader...");
+        console.log("Replacing missing speaker audio with brownian noise...");
         channel1 = brownianNoise(0.0025);
     }
     

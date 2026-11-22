@@ -816,7 +816,7 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.7'},
+        {role: 'supervisor', version: '1.0.8'},
         {role: 'interpreter', version: '1.0.7'}
     ];
     for (const {role, version} of pages) {
@@ -912,4 +912,80 @@ test('switching from the player pauses both supervisor and interpreter', () => {
     assert.equal(pauseCalls, 1);
     assert.equal(ci.interpreterSyncRequest, null);
     assert.equal(ci.pendingRemoteVideoState, null);
+});
+
+test('recording routes speaker, shared audio, or silence without contaminating interpreter', () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+
+    const connected = [];
+    function audioSource(label) {
+        return {
+            label,
+            connect(target) {connected.push([label, target]);},
+            disconnect() {},
+            stop() {}
+        };
+    }
+    c.audioContext = {createMediaStreamSource(stream) {return audioSource(stream.label);}};
+    c.silence = () => audioSource('silence');
+    c.brownianNoise = () => audioSource('noise');
+    c.split1 = {id: 'split1'};
+    c.split2 = {id: 'split2'};
+    c.speakerMedia = {open: true};
+    c.speakerMediaStream = {label: 'speaker'};
+    c.interpreterMedia = {open: true};
+    c.interpreterMediaStream = {label: 'interpreter'};
+    c.swapChannels = false;
+
+    function expectSources(expectedLeft) {
+        c.initCrossFader();
+        assert.equal(c.channel1.label, expectedLeft);
+        assert.equal(c.channel2.label, 'interpreter');
+        assert.deepEqual(connected.slice(-2).map(([source, target]) => [source, target.id]),
+            [[expectedLeft, 'split1'], ['interpreter', 'split2']]);
+    }
+
+    c.showPlayer = false;
+    c.sharingScreenActive = false;
+    c.screenshareMediaStream = null;
+    expectSources('speaker');
+
+    c.sharingScreenActive = true;
+    c.screenshareMediaStream = {
+        label: 'screen', getAudioTracks: () => [{kind: 'audio'}]
+    };
+    expectSources('screen');
+
+    c.screenshareMediaStream = {
+        label: 'silent-screen', getAudioTracks: () => []
+    };
+    expectSources('silence'); // Never substitute speaker if capture lacks audio.
+
+    c.showPlayer = true;
+    expectSources('silence'); // External video is never recorded.
+    c.showPlayer = false;
+    c.sharingScreenActive = false;
+    c.screenshareMediaStream = null;
+    expectSources('speaker');
+
+    assert.match(role, /split1\.connect\(mixrec, 0, 1\)/);
+    assert.match(role, /split2\.connect\(mixrec, 0, 0\)/);
+});
+
+test('changing supervisor player visibility rebuilds the recording audio source', () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    let rerouted = 0;
+    c.audioContext = {};
+    c.split1 = {};
+    c.split2 = {};
+    c.initCrossFader = () => rerouted++;
+    c.requestAnimationFrame = () => {};
+    c.showPlayer = false;
+    c.setSupervisorPlayerVisible(true);
+    c.setSupervisorPlayerVisible(false);
+    assert.equal(rerouted, 2);
 });
