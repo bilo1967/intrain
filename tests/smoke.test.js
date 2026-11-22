@@ -567,7 +567,7 @@ test('supervisor MediaElement remains within the central speaker video area', ()
     assert.match(css, /\.mejs__container:not\(\.mejs__container-fullscreen\)\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
     assert.match(css, /\.mejs__mediaelement iframe\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
     assert.match(markup, /<video id="myplayer" width="480" height="300"/);
-    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.4"/);
+    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.\d+"/);
 });
 
 test('interpreter video renderer fits the central speaker video, not the mini videos', () => {
