@@ -84,13 +84,12 @@ if sources are switched during a session.
 ## Floor selector (supervisor)
 
 The toolbar now has one compact **Select floor...** dropdown. It offers
-**Speaker** (default), **Screen share...** and **YouTube / Vimeo...**.
+**Speaker** (default), **Screen share...**, **YouTube / Vimeo...** and
+**Multimedia file...**, preceded by the Material Symbol `interpreter_mode`.
 The disabled placeholder displays the active floor and resets after selection
-so YouTube/Vimeo can be chosen again to replace the current URL. The fourth
-option, **Multimedia file**, will be added only after validating local
-playback/capture; it is not implemented in this change.
+so YouTube/Vimeo or Multimedia file can be chosen again to replace the source.
 
-All three existing modes share one `selectSupervisorFloor()` entry point.
+All four modes share one `selectSupervisorFloor()` entry point.
 Speaker restores the normal camera/audio floor and stops any previous screen
 share or embedded video after confirmation. Screen share uses the browser's
 native capture picker and only stops the previous player if capture succeeds.
@@ -99,10 +98,45 @@ does not interrupt an active floor; loading a valid video ends any live screen
 capture. Both switching dialogs can be canceled.
 
 The stereo recorder tracks the selected floor: interpreter plus speaker, screen
-audio, or silence for YouTube/Vimeo, with no need to restart the recording.
+audio, local file audio, or silence for YouTube/Vimeo, with no need to restart
+the recording.
+
+### Local audio/video floor
+
+Multimedia file opens the browser's file picker for a local audio or video file.
+It is decoded locally and sent to the interpreter over the existing secondary
+WebRTC media call, without uploading or sending the original file. The file
+opens paused, with native playback/seek controls in the supervisor's main floor
+area. The interpreter receives the same media there, without playback controls.
+Only the interpreter receives this secondary floor, as with supervisor screen
+sharing; the speaker interface is unchanged.
+
+Canceling the picker, an unsupported file, or a decoding error during loading
+leaves the previous floor running. Only a successfully prepared file takes over.
+The floor menu can be used again to choose another file. A newer selection
+invalidates pending loads. Returning to Speaker requires confirmation; opening
+the screen picker keeps the file active until capture succeeds.
+
+`js/local-floor.js` owns the media element and its resources. Web Audio downmixes
+the file to mono for the single floor channel, including both sides of stereo
+files. This stream feeds both the supervisor's crossfader and the recording
+input; it never plays a second copy directly to the speakers. A canvas sends
+video frames at the source cadence, scaled within 1280x720, and periodically
+refreshes the paused frame for late joiners. Audio-only files have no video
+track. Silent videos send silence on the floor audio channel. Pausing or reaching
+EOF retains live tracks, so seeking/replay does not require a new connection or
+recorder. Leaving the file floor releases tracks, nodes and the object URL.
+
+Browser verification: `node tests/local-floor-browser.cjs` launches headless
+Chrome (set `CHROME_PATH` to override its path). It checks real local decoding,
+right-only stereo audio downmix, silence while paused, EOF/replay, WebRTC video
+including joining while paused, invalid files, resource cleanup, and a WAV
+encoded by InTrain's real recorder with separate interpreter/file tones on the
+two channels. The test has no npm dependencies and runs in GitHub Actions.
+Chrome is verified; other browsers and codecs still require manual checks.
 
 Manual verification: select each floor, reselect YouTube/Vimeo to load another
-video, cancel the URL dialog and browser capture picker, end the system screen
+video or multimedia file, cancel the URL dialog and browser capture/file picker, end the system screen
 share from the browser UI, confirm return to Speaker, and inspect both WAV
 channels when changing floor during a recording.
 

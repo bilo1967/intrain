@@ -628,12 +628,14 @@ input.bg-chat {
 }
 
 /* Keep the floor selector compact and aligned with the other toolbar buttons. */
-#floor-select {
-    width: clamp(12rem, 18vw, 15rem);
-    min-width: 12rem;
+#floor-input-group {
+    width: clamp(16rem, 23vw, 19rem);
     height: var(--normal-button-height);
     flex: 0 0 auto;
 }
+#floor-select { min-width: 0; }
+#floor-input-group .material-symbols-outlined { font-size: 22px; }
+#local-floor-container { background: #000; }
 
 /* The external URL field now lives in a dialog, not the narrow toolbar. */
 #video-floor-dialog .input-clearer-wrapper {

@@ -32,3 +32,6 @@ jobs:
           done
       - name: Run regression tests
         run: node --test tests/smoke.test.js
+      - name: Test local file media and stereo recording in Chrome
+        timeout-minutes: 2
+        run: node tests/local-floor-browser.cjs

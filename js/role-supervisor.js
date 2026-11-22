@@ -57,6 +57,8 @@ var boostVolume = false;  // boost volume
 var showPlayer = false;   // External video player is currently visible
 var pendingMediaModeSwitch = null; // Action awaiting the supervisor's confirmation
 var floorSelectionEpoch = 0; // Ignore obsolete screen capture picker results
+var localFileFloor = null; // Owns decoder, audio nodes, canvas track and object URL
+var sharedFloorKind = 'screen';
 var currentVideoURL = null; // Supervisor-owned video source, for late joiners
 var videoLoadGeneration = 0; // Ignore stale pending loads
 
@@ -317,12 +319,12 @@ function fitSupervisorPlayerToVideo() {
  */
 function getSupervisorFloor() {
     if (showPlayer) return 'external';
-    if (sharingScreenActive && screenshareMediaStream) return 'screen';
+    if (sharingScreenActive && screenshareMediaStream) return sharedFloorKind;
     return 'speaker';
 }
 
 function updateSupervisorFloorSelector() {
-    const labels = {speaker: 'Speaker', screen: 'Screen share', external: 'YouTube / Vimeo'};
+    const labels = {speaker: 'Speaker', screen: 'Screen share', external: 'YouTube / Vimeo', file: 'Multimedia file'};
     const floor = getSupervisorFloor();
     $('#floor-select').val('');
     $('#floor-select option[value=""]').text('Select floor... (' + labels[floor] + ')');
@@ -335,7 +337,7 @@ function updateSupervisorFloorSelector() {
 function confirmMediaModeSwitch(target, action) {
     pendingMediaModeSwitch = action;
     const message = target === 'screen'
-        ? 'Starting screen sharing will stop the video player. Continue?'
+        ? 'Starting screen sharing will stop the current floor. Continue?'
         : 'Switching to the speaker will stop the current video source. Continue?';
     $('#media-mode-dialog-message').text(message);
     InTrainUI.showModal('#media-mode-dialog');
@@ -625,6 +627,8 @@ $(document).ready(async function() {
         // Toggle connect/disconnect
         if (peerConnected) {
             console.log("Closing...");
+            ++floorSelectionEpoch;
+            if (sharingScreen()) unshareScreen();
 
             $("#login-info").html("You're disconnected");
             InTrainUI.showModal('#login-dialog');
@@ -995,6 +999,7 @@ $(document).ready(async function() {
      * only collect input; the active floor changes after a successful action.
      */
     function selectSupervisorFloor(floor, options = {}) {
+        ++floorSelectionEpoch;
         if (floor === 'speaker') {
             if (getSupervisorFloor() === 'speaker') return true;
             const activateSpeaker = function() {
@@ -1008,7 +1013,7 @@ $(document).ready(async function() {
         }
 
         if (floor === 'screen') {
-            if (sharingScreen()) return true;
+            if (getSupervisorFloor() === 'screen') return true;
 
             const startScreenCapture = function() {
                 // This call must happen within a user gesture, including the
@@ -1021,6 +1026,7 @@ $(document).ready(async function() {
                             return;
                         }
                         if (showPlayer) stopSupervisorExternalVideo();
+                        if (sharingScreen()) unshareScreen();
                         shareScreen(stream);
                         updateSupervisorFloorSelector();
                     }).catch(error => {
@@ -1030,8 +1036,17 @@ $(document).ready(async function() {
                         updateSupervisorFloorSelector();
                     });
             };
-            if (showPlayer) confirmMediaModeSwitch('screen', startScreenCapture);
+            if (showPlayer || getSupervisorFloor() === 'file') confirmMediaModeSwitch('screen', startScreenCapture);
             else startScreenCapture();
+            return true;
+        }
+
+        if (floor === 'file') {
+            // Selecting a file is reversible; the current floor runs until decoding succeeds.
+            ++floorSelectionEpoch;
+            const input = document.getElementById('floor-file');
+            input.value = '';
+            input.click();
             return true;
         }
 
@@ -1039,7 +1054,7 @@ $(document).ready(async function() {
             if (!options.url) {
                 $('#video-url').removeClass('is-invalid').val(currentVideoURL || '');
                 $('#video-floor-dialog-note').text(sharingScreen()
-                    ? 'Loading the video will stop screen sharing.'
+                    ? 'Loading the video will stop the current floor.'
                     : 'The supervisor controls playback for the interpreter.');
                 InTrainUI.showModal('#video-floor-dialog');
                 return true;
@@ -1074,8 +1089,43 @@ $(document).ready(async function() {
             return true;
         }
 
-        return false; // 'file' becomes available only after captureStream tests.
+        return false;
     }
+
+    $('#floor-file').on('change', async function() {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        const token = ++floorSelectionEpoch;
+        let candidate;
+        try {
+            candidate = await createLocalFileFloor(file, audioContext);
+            if (token !== floorSelectionEpoch) {
+                candidate.dispose();
+                return;
+            }
+            if (showPlayer) stopSupervisorExternalVideo();
+            if (sharingScreen()) unshareScreen();
+            localFileFloor = candidate;
+            document.getElementById('local-floor-container').replaceChildren(candidate.media);
+            $('#local-floor-container').removeClass('d-none');
+            shareScreen(candidate.stream, 'file');
+            candidate.media.onerror = () => {
+                if (localFileFloor !== candidate) return;
+                logToPanel('The local file could not be played. Returning to Speaker.', 'warning');
+                unshareScreen();
+            };
+        } catch (error) {
+            if (candidate) candidate.dispose();
+            if (token === floorSelectionEpoch)
+                logToPanel('Could not open the local file. ' + escapeHTML(error.message), 'warning');
+        }
+        updateSupervisorFloorSelector();
+    });
+
+    window.addEventListener('pagehide', () => {
+        ++floorSelectionEpoch;
+        if (localFileFloor) localFileFloor.dispose();
+    });
 
     // Reset to the informative placeholder so the same floor can be selected again.
     $('#floor-select').on('change', function() {
@@ -1230,7 +1280,7 @@ $(document).ready(async function() {
     
     function sharingScreen() {
         return sharingScreenActive && screenshareMediaStream &&
-               screenshareMediaStream.getVideoTracks().some(track => track.readyState === 'live');
+               screenshareMediaStream.getTracks().some(track => track.readyState === 'live');
     }
     
     function unshareScreen() {
@@ -1239,6 +1289,12 @@ $(document).ready(async function() {
         sharingScreenActive = false;
         const stream = screenshareMediaStream;
         screenshareMediaStream = null;
+        if (localFileFloor) {
+            localFileFloor.dispose();
+            localFileFloor = null;
+        }
+        sharedFloorKind = 'screen';
+        $('#local-floor-container').addClass('d-none').empty();
         if (stream) stream.getTracks().forEach(track => {
             track.onended = null;
             track.stop();
@@ -1250,7 +1306,7 @@ $(document).ready(async function() {
         initCrossFader();
     }
 
-    function shareScreen(stream) {
+    function shareScreen(stream, kind = 'screen') {
     
         console.log("interpreterPeer: " + interpreterPeer);
         console.log("sharing screen: " + sharingScreen());
@@ -1261,12 +1317,13 @@ $(document).ready(async function() {
 
 
             sharingScreenActive = true;
+            sharedFloorKind = kind;
             screenshareMediaStream = stream;
             refreshSpeakerVideoSource();
             updateSupervisorFloorSelector();
 
             const videoTrack = stream.getVideoTracks()[0];
-            if (videoTrack) videoTrack.onended = () => unshareScreen();
+            if (videoTrack && kind === 'screen') videoTrack.onended = () => unshareScreen();
             
             if (interpreterPeer != null) {
                 
@@ -1301,7 +1358,7 @@ window.addEventListener('resize', function() {
 
 // Start/stop decalage timer when pressing space bar
 $(document).keypress(function(e) {
-  if (e.target.id != 'chattext'  && e.which == 32) {
+  if (!$(e.target).closest('video,audio,input,textarea,select,button,[contenteditable]').length && e.which == 32) {
     $("#timer-startstop").trigger("click");
     e.preventDefault();
   }

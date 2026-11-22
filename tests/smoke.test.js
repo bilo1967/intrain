@@ -20,7 +20,7 @@ function loadApp() {
             static createObjectURL() {return 'blob:test';}
         },
         Blob, ArrayBuffer,
-        window: {},
+        window: {addEventListener() {}},
     });
     for (const file of ['js/common.js', 'js/intrain.js', 'js/peercommon.js']) {
         vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, {filename: file});
@@ -344,7 +344,7 @@ test('supervisor floor selector retains original Material Symbols styling', () =
     assert.match(supervisor, /value="speaker">Speaker/);
     assert.match(supervisor, /value="screen">Screen share/);
     assert.match(supervisor, /value="external">YouTube \/ Vimeo/);
-    assert.match(css, /#floor-select\s*\{[^}]*height:\s*var\(--normal-button-height\)/);
+    assert.match(css, /#floor-input-group\s*\{[^}]*height:\s*var\(--normal-button-height\)/);
     assert.doesNotMatch(supervisor, /id="share-screen"|id="load-player"|id="player-panel"/);
     assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.\d+/);
     for (const page of ['speaker.html', 'interpreter.html']) {
@@ -817,7 +817,7 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.9'},
+        {role: 'supervisor', version: '1.0.10'},
         {role: 'interpreter', version: '1.0.7'}
     ];
     for (const {role, version} of pages) {
@@ -1006,7 +1006,7 @@ test('floor selection is centralized and canceling the video dialog keeps the ol
     c.InTrainUI = {showModal(name) {dialogs.push(name);}};
     c.sharingScreen = () => false;
     c.showPlayer = false;
-    assert.equal(c.selectSupervisorFloor('file'), false);
+    assert.equal(c.selectSupervisorFloor('unknown'), false);
     assert.equal(c.selectSupervisorFloor('external'), true);
     assert.equal(c.getSupervisorFloor(), 'speaker');
     assert.deepEqual(dialogs, ['#video-floor-dialog']);
@@ -1067,4 +1067,83 @@ test('screen capture only takes over the previous floor when the picker succeeds
     assert.equal(c.showPlayer, false);
     assert.equal(switched, 1);
     assert.equal(c.getSupervisorFloor(), 'screen');
+});
+
+function loadSupervisorFloor() {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const c = loadApp(), handlers = {};
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    const chain = new Proxy({}, {get: (_, key) => key === 'on'
+        ? (event, handler) => {handlers[event] = handler; return chain;}
+        : () => chain});
+    c.$ = selector => selector === '#floor-file' ? chain : new Proxy({}, {get: () => () => chain});
+    const elements = {
+        'floor-file': {value: '', clicks: 0, click() {this.clicks++;}},
+        'local-floor-container': {replaceChildren(media) {this.media = media;}}
+    };
+    c.document.getElementById = id => elements[id];
+    c.initCrossFader = () => {};
+    c.logToPanel = () => {};
+    c.escapeHTML = text => text;
+    c.InTrainUI = {showModal() {}};
+    c.myPeer = {call(peer, stream) {return {peer, stream, close() {}};}};
+    const start = role.indexOf('    function selectSupervisorFloor(floor, options = {})');
+    vm.runInContext(role.slice(start, role.indexOf('    // Reset to the informative placeholder', start)), c);
+    const sharing = role.indexOf('    function sharingScreen()');
+    vm.runInContext(role.slice(sharing, role.indexOf('    // Keep the data traffic small', sharing)), c);
+    return {c, handlers, elements};
+}
+
+function floorStream(video = false) {
+    const tracks = [{kind: 'audio', readyState: 'live', stop() {this.readyState = 'ended';}}];
+    if (video) tracks.push({kind: 'video', readyState: 'live', stop() {this.readyState = 'ended';}});
+    return {getTracks: () => tracks, getAudioTracks: () => tracks.filter(t => t.kind === 'audio'),
+        getVideoTracks: () => tracks.filter(t => t.kind === 'video')};
+}
+
+test('file picker cancellation and failed decoding preserve the current floor', async () => {
+    const {c, handlers, elements} = loadSupervisorFloor();
+    const old = floorStream(true);
+    c.sharingScreenActive = true; c.screenshareMediaStream = old;
+    assert.equal(c.selectSupervisorFloor('file'), true);
+    assert.equal(elements['floor-file'].clicks, 1);
+    assert.equal(c.getSupervisorFloor(), 'screen');
+    await handlers.change.call({files: []});
+    c.createLocalFileFloor = async () => {throw new Error('invalid file');};
+    await handlers.change.call({files: [{}]});
+    assert.equal(c.screenshareMediaStream, old);
+    assert.ok(old.getTracks().every(t => t.readyState === 'live'));
+});
+
+test('audio-only file becomes the shared floor and returning to speaker disposes it', async () => {
+    const {c, handlers, elements} = loadSupervisorFloor();
+    const old = floorStream(true), stream = floorStream();
+    c.sharingScreenActive = true; c.screenshareMediaStream = old;
+    c.interpreterPeer = 'interpreter';
+    let disposed = 0;
+    const candidate = {media: {}, stream, dispose() {disposed++; stream.getTracks().forEach(t => t.stop());}};
+    c.createLocalFileFloor = async () => candidate;
+    await handlers.change.call({files: [{}]});
+    assert.equal(c.getSupervisorFloor(), 'file');
+    assert.equal(c.sharingScreen(), true); // Also covers late-join eligibility for audio-only files.
+    assert.equal(c.screenshareConnection.stream, stream);
+    assert.equal(elements['local-floor-container'].media, candidate.media);
+    assert.ok(old.getTracks().every(t => t.readyState === 'ended'));
+    c.confirmMediaModeSwitch = (_, action) => action();
+    c.selectSupervisorFloor('speaker');
+    assert.equal(disposed, 1);
+    assert.equal(c.localFileFloor, null);
+    assert.equal(c.getSupervisorFloor(), 'speaker');
+});
+
+test('a stale file decoder cannot take over a more recent floor selection', async () => {
+    const {c, handlers} = loadSupervisorFloor();
+    let resolve, disposed = 0;
+    c.createLocalFileFloor = () => new Promise(done => {resolve = done;});
+    const pending = handlers.change.call({files: [{}]});
+    c.selectSupervisorFloor('speaker');
+    resolve({dispose() {disposed++;}});
+    await pending;
+    assert.equal(disposed, 1);
+    assert.equal(c.getSupervisorFloor(), 'speaker');
 });
