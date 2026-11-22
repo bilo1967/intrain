@@ -24,6 +24,24 @@ var showPlayer = false;
 var remoteVideoURL = null;
 var pendingRemoteVideoState = null;
 
+// The interpreter controls only local playback loudness, never playback position.
+var interpreterVideoVolume = 100;
+
+function applyInterpreterVideoVolume() {
+    if (myVideoPlayer && typeof myVideoPlayer.setVolume === 'function') {
+        // MediaElement accepts 0..1 and forwards it to YouTube/Vimeo renderers.
+        myVideoPlayer.setVolume(interpreterVideoVolume / 100);
+    }
+}
+
+function setInterpreterVideoVolume(percent) {
+    const value = Number(percent);
+    if (!Number.isFinite(value)) return false;
+    interpreterVideoVolume = Math.max(0, Math.min(100, Math.round(value)));
+    applyInterpreterVideoVolume();
+    return true;
+}
+
 /*
  * MediaElement 4.2.7 uses the native <video> dimensions when it creates a
  * YouTube or Vimeo iframe. Fit both the wrapper and the underlying renderer
@@ -70,6 +88,7 @@ function setInterpreterPlayerVisible(visible) {
         .toggleClass('fas fa-times-circle', showPlayer);
     $('#player-container').toggleClass('stack-top', showPlayer)
         .toggleClass('stack-bottom hidden', !showPlayer);
+    $('#interpreter-player-volume').toggleClass('hidden', !showPlayer);
 
     if (showPlayer) requestAnimationFrame(fitInterpreterPlayerToVideo);
 }
@@ -239,6 +258,16 @@ $(document).ready(async function() {
         handleLocalMediaStreamError(error);
     }
 
+    // Restore this viewer's preferred volume; it is not part of the session
+    // snapshot and is never transmitted to the supervisor.
+    const storedVideoVolume = InTrainStorage.get('interpreter-video-volume');
+    setInterpreterVideoVolume(storedVideoVolume === null ? 100 : storedVideoVolume);
+    $('#interpreter-video-volume').val(interpreterVideoVolume).on('input change', function() {
+        if (setInterpreterVideoVolume(this.value)) {
+            InTrainStorage.set('interpreter-video-volume', interpreterVideoVolume);
+        }
+    });
+
     // Give the native <video> real dimensions before the iframe renderer is
     // created. CSS dimensions alone are not used by YouTube/Vimeo.
     const initialVideoSize = getInterpreterVideoSize() || {width: 480, height: 300};
@@ -248,7 +277,7 @@ $(document).ready(async function() {
 
     // init player
 	$('#myplayer').mediaelementplayer({
-        startVolume: 1,
+        startVolume: interpreterVideoVolume / 100,
         stretching: 'none',
         videoWidth: initialVideoSize.width,
         videoHeight: initialVideoSize.height,
@@ -261,9 +290,12 @@ $(document).ready(async function() {
             myVideoPlayer = instance;
             myVideoMediaElement = mediaElement;
             fitInterpreterPlayerToVideo();
+            applyInterpreterVideoVolume();
             // External iframe renderers become available asynchronously.
             mediaElement.addEventListener('rendererready', fitInterpreterPlayerToVideo, false);
+            mediaElement.addEventListener('rendererready', applyInterpreterVideoVolume, false);
             mediaElement.addEventListener('loadedmetadata', fitInterpreterPlayerToVideo, false);
+            mediaElement.addEventListener('loadedmetadata', applyInterpreterVideoVolume, false);
             mediaElement.addEventListener('loadedmetadata', applyPendingRemoteVideoState, false);
             mediaElement.addEventListener('canplay', applyPendingRemoteVideoState, false);
             mediaElement.addEventListener('error', function(error) {

@@ -726,6 +726,18 @@ input.bg-chat {
     cursor: default;
 }
 
+/* A single local control below the interpreter video, outside the click shield. */
+#interpreter-player-volume {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+#interpreter-player-volume .form-range {
+    width: clamp(6rem, 12vw, 9rem);
+    height: 1.25rem;
+    cursor: pointer;
+}
+
 .undroppable {
     
 }

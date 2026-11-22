@@ -73,8 +73,16 @@ receive the video player, by design.
 The interpreter's MediaElement player has no local playback controls. Mouse
 interactions with the renderer (including YouTube/Vimeo iframes) are blocked by a
 transparent overlay; MediaElement keyboard and click-to-play behavior are off.
+An independent volume slider below the player adjusts only the interpreter's
+local playback volume (0-100%) and is remembered by the browser. It does not
+control the supervisor or send volume commands to other peers.
 Programmatic playback from the supervisor is unaffected, subject to browser
 autoplay policies.
+
+YouTube's `cc_load_policy` can force captions *on* but has no documented setting
+that reliably forces them *off*. The application cannot guarantee that YouTube
+will hide captions, since the default may follow the viewer's account settings.
+Burned-in subtitles are part of the video and cannot be removed.
 
 The video URL field accepts **complete HTTPS URLs only**, with supported YouTube,
 Vimeo and Facebook video paths. Bare video IDs, general webpages and malformed

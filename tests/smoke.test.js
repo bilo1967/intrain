@@ -618,3 +618,43 @@ test('interpreter video renderer fits the central speaker video, not the mini vi
     assert.match(html, /class="video-player-interaction-shield"/);
     assert.match(html, /src="js\/role-interpreter\.js\?v=1\.0\.3"/);
 });
+
+
+test('interpreter adjusts local video volume without enabling transport controls', () => {
+    const root = path.resolve(__dirname, '..');
+    const role = fs.readFileSync(path.join(root, 'js/role-interpreter.js'), 'utf8');
+    const peer = fs.readFileSync(path.join(root, 'js/peercommon.js'), 'utf8');
+    const markup = fs.readFileSync(path.join(root, 'interpreter.html'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+
+    const volumes = [];
+    c.myVideoPlayer = {setVolume: amount => volumes.push(amount)};
+    assert.equal(c.setInterpreterVideoVolume(50), true);
+    assert.equal(volumes.at(-1), 0.5);
+    assert.equal(c.setInterpreterVideoVolume(0), true);
+    assert.equal(volumes.at(-1), 0);
+    assert.equal(c.setInterpreterVideoVolume(110), true);
+    assert.equal(volumes.at(-1), 1);
+    assert.equal(c.setInterpreterVideoVolume(-10), true);
+    assert.equal(volumes.at(-1), 0);
+    assert.equal(c.setInterpreterVideoVolume('invalid'), false);
+    assert.equal(volumes.length, 4);
+
+    assert.match(role, /startVolume:\s*interpreterVideoVolume\s*\/\s*100/);
+    assert.match(role, /InTrainStorage\.get\('interpreter-video-volume'\)/);
+    assert.match(role, /InTrainStorage\.set\('interpreter-video-volume', interpreterVideoVolume\)/);
+    assert.match(role, /addEventListener\('rendererready', applyInterpreterVideoVolume/);
+    assert.match(role, /clickToPlayPause:\s*false/);
+    assert.match(role, /enableKeyboard:\s*false/);
+    assert.match(role, /features:\s*\[\]/);
+    assert.match(peer, /case 'playvideo':/);
+    assert.match(peer, /case 'seekvideo':/);
+
+    assert.match(markup, /id="interpreter-player-volume"[^>]*hidden/);
+    assert.match(markup, /id="interpreter-video-volume"[^>]*min="0" max="100"/);
+    assert.ok(markup.indexOf('id="interpreter-player-volume"') > markup.indexOf('class="video-player-interaction-shield"'));
+    assert.match(css, /#interpreter-player-volume \.form-range\s*\{[^}]*width:\s*clamp/);
+    assert.match(markup, /src="js\/role-interpreter\.js\?v=1\.0\.4"/);
+});
