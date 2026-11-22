@@ -364,3 +364,12 @@ test('mode icons use correct flex alignment and font-specific optical offsets', 
         assert.match(html, /class="[^"]*align-items-center[^"]*" id="session-mode"/);
     }
 });
+
+test('Material Symbols are loaded and configured for all three roles', () => {
+    const root = path.resolve(__dirname, '..');
+    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.ok(html.includes('fonts.googleapis.com/css2?family=Material+Symbols+Outlined'), page);
+        assert.match(html, /\.material-font\s*\{[^}]*font-family:\s*'Material Symbols Outlined'/);
+    }
+});
