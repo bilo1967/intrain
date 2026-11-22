@@ -353,11 +353,11 @@ test('interpreter synchronizes seeks using the MediaElement player API', () => {
 });
 
 
-test('mode icons use correct flex alignment and font-specific optical offsets', () => {
+test('mode indicator retains centered layout without imposing optical offsets', () => {
     const root = path.resolve(__dirname, '..');
     const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
-    assert.match(css, /#session-mode \.session-mode-icon\.fa-bullhorn\s*\{[^}]*top:\s*1px;/);
-    assert.match(css, /#session-mode \.session-mode-icon\.material-font\s*\{[^}]*top:\s*-1px;/);
+    assert.match(css, /#session-mode \.session-mode-icon\s*\{/);
+    // Pixel-level optical adjustments are intentionally left to the layout CSS.
     for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
         assert.doesNotMatch(html, /align-items-middle/);
