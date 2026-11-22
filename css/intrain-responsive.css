@@ -671,14 +671,10 @@ input.bg-chat {
     cursor: default;
 }
 
-/* A single local control below the interpreter video, outside the click shield. */
-#interpreter-player-volume {
-    flex: 0 0 auto;
-    white-space: nowrap;
-}
-
-#interpreter-player-volume .form-range {
-    width: clamp(6rem, 12vw, 9rem);
+/* Permanent listening control, immediately before the setup button. */
+.headphone-control { white-space: nowrap; }
+.headphone-control .form-range {
+    width: clamp(5rem, 12vw, 9rem);
     height: 1.25rem;
     cursor: pointer;
 }
@@ -825,6 +821,12 @@ input.bg-chat {
 /* The supervisor's local-file player uses the browser's playback controls. */
 video:not(.local-floor-media)::-webkit-media-controls {
   display:none !important;
+}
+
+/* The file decoder stays at unity; headphone level belongs to the header. */
+.local-floor-media::-webkit-media-controls-volume-slider,
+.local-floor-media::-webkit-media-controls-mute-button {
+  display: none !important;
 }
 
 

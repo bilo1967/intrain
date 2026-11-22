@@ -53,6 +53,13 @@ async function browserChecks() {
         window.split2 = context.createChannelSplitter(2);
         window.showPlayer = false; window.swapChannels = false;
         window.sharingScreenActive = true; window.screenshareMediaStream = audio.stream;
+        const headphones = document.createElement('audio');
+        headphones.srcObject = audio.stream;
+        InTrainHeadphones.registerOutput(headphones);
+        await headphones.play();
+        // Muting the final headphone output must not mute the recorded floor.
+        InTrainHeadphones.setVolume(0);
+        check(headphones.volume === 0 && audio.media.volume === 1, 'Headphone mute leaves source level intact');
         const interpreter = context.createOscillator(); interpreter.frequency.value = 880;
         const interpretation = context.createMediaStreamDestination(); interpreter.connect(interpretation); interpreter.start();
         window.interpreterMedia = {open: true}; window.interpreterMediaStream = interpretation.stream;
@@ -73,6 +80,21 @@ async function browserChecks() {
         check(power(decoded.getChannelData(0), 880) > 0.1 && power(decoded.getChannelData(0), 440) < 0.01, 'WAV left contains interpreter only');
         check(power(decoded.getChannelData(1), 440) > 0.03 && power(decoded.getChannelData(1), 880) < 0.01, 'WAV right contains file only');
         interpreter.stop();
+        headphones.pause(); InTrainHeadphones.unregisterOutput(headphones);
+
+        // Local notification audio must use the same control and release its sink.
+        let notification;
+        const register = InTrainHeadphones.registerOutput;
+        InTrainHeadphones.registerOutput = element => {notification = element; register(element);};
+        const notificationURL = URL.createObjectURL(new Blob([buffer], {type: 'audio/wav'}));
+        loadAndPlay(notificationURL);
+        await wait(250);
+        check(notification && notification.volume === 0 && !notification.paused, 'Notification obeys headphone mute');
+        await wait(1100);
+        check(notification.srcObject === null, 'Notification output is cleaned up');
+        URL.revokeObjectURL(notificationURL);
+        InTrainHeadphones.registerOutput = register;
+        InTrainHeadphones.setVolume(100);
 
         // Build a real local WebM fixture entirely inside the browser.
         const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 90;
@@ -162,8 +184,12 @@ async function browserChecks() {
         }
         const role = fs.readFileSync(path.join(__dirname, '../js/role-supervisor.js'), 'utf8');
         const recording = role.slice(role.indexOf('function initCrossFader()'), role.indexOf('// the ONLY time saveAudio'));
-        const source = fs.readFileSync(path.join(__dirname, '../js/local-floor.js'), 'utf8') + '\n' +
-            fs.readFileSync(path.join(__dirname, '../js/recorderjs/recorder.js'), 'utf8') + '\n' + recording;
+        const common = fs.readFileSync(path.join(__dirname, '../js/intrain.js'), 'utf8');
+        const notifications = common.slice(common.indexOf('function loadAndPlay('), common.indexOf('async function setUserMediaConstraints()'));
+        const source = 'window.$ = () => ({ready() {}});\n' +
+            fs.readFileSync(path.join(__dirname, '../js/headphones.js'), 'utf8') + '\n' +
+            fs.readFileSync(path.join(__dirname, '../js/local-floor.js'), 'utf8') + '\n' +
+            fs.readFileSync(path.join(__dirname, '../js/recorderjs/recorder.js'), 'utf8') + '\n' + recording + '\n' + notifications;
         const result = await send('Runtime.evaluate', {expression: source + '\n(' + browserChecks.toString() + ')()', awaitPromise: true, returnByValue: true, timeout: 25000});
         assert.ok(result.result && !result.result.exceptionDetails, JSON.stringify(result));
         console.log(result.result.result.value);

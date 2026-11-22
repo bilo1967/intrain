@@ -622,45 +622,60 @@ test('interpreter video renderer fits the central speaker video, not the mini vi
 });
 
 
-test('interpreter adjusts local video volume without enabling transport controls', () => {
-    const root = path.resolve(__dirname, '..');
-    const role = fs.readFileSync(path.join(root, 'js/role-interpreter.js'), 'utf8');
-    const peer = fs.readFileSync(path.join(root, 'js/peercommon.js'), 'utf8');
-    const markup = fs.readFileSync(path.join(root, 'interpreter.html'), 'utf8');
-    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+test('headphone level covers native outputs and iframe players without touching the floor decoder', () => {
     const c = loadApp();
-    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
-
+    const slider = {value: 100, setAttribute() {}, addEventListener(event, handler) {this.input = handler;}};
+    const speaker = {volume: 1, muted: true}, supervisor = {volume: 1};
+    const decoder = {volume: 1};
+    c.document.getElementById = () => slider;
+    c.document.querySelectorAll = () => [speaker, supervisor];
+    const stored = [];
+    c.InTrainStorage = {get: () => '60', set: (key, value) => stored.push([key, value])};
+    vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../js/headphones.js'), 'utf8'), c);
+    c.InTrainHeadphones.init();
+    assert.equal(speaker.volume, 0.6);
+    assert.equal(speaker.muted, true);
     const volumes = [];
-    c.myVideoPlayer = {setVolume: amount => volumes.push(amount)};
-    assert.equal(c.setInterpreterVideoVolume(50), true);
-    assert.equal(volumes.at(-1), 0.5);
-    assert.equal(c.setInterpreterVideoVolume(0), true);
+    c.InTrainHeadphones.setPlayer({setVolume: value => volumes.push(value)});
+    assert.equal(volumes.at(-1), 0.6);
+    const mixedOutput = {volume: 1};
+    c.InTrainHeadphones.registerOutput(mixedOutput);
+    slider.value = '0'; slider.input.call(slider);
+    assert.equal(mixedOutput.volume, 0);
+    assert.equal(supervisor.volume, 0);
     assert.equal(volumes.at(-1), 0);
-    assert.equal(c.setInterpreterVideoVolume(110), true);
-    assert.equal(volumes.at(-1), 1);
-    assert.equal(c.setInterpreterVideoVolume(-10), true);
-    assert.equal(volumes.at(-1), 0);
-    assert.equal(c.setInterpreterVideoVolume('invalid'), false);
-    assert.equal(volumes.length, 4);
+    assert.equal(decoder.volume, 1);
+    assert.equal(stored[0][0], 'headphone-volume');
+    c.InTrainHeadphones.setVolume(45);
+    c.InTrainHeadphones.applyPlayerVolume(); // rendererready/loadedmetadata
+    assert.equal(volumes.at(-1), 0.45);
+    assert.equal(mixedOutput.volume, 0.45);
+    assert.equal(c.InTrainHeadphones.setVolume('invalid'), false);
+    c.InTrainHeadphones.setVolume(200); assert.equal(mixedOutput.volume, 1);
+    c.InTrainHeadphones.setVolume(-1); assert.equal(mixedOutput.volume, 0);
+});
 
-    assert.match(role, /startVolume:\s*interpreterVideoVolume\s*\/\s*100/);
-    assert.match(role, /InTrainStorage\.get\('interpreter-video-volume'\)/);
-    assert.match(role, /InTrainStorage\.set\('interpreter-video-volume', interpreterVideoVolume\)/);
-    assert.match(role, /addEventListener\('rendererready', applyInterpreterVideoVolume/);
+test('all role headers have one headphone slider before setup and iframe volume remains local', () => {
+    const root = path.resolve(__dirname, '..');
+    for (const name of ['speaker', 'interpreter', 'supervisor']) {
+        const html = fs.readFileSync(path.join(root, name + '.html'), 'utf8');
+        assert.equal((html.match(/id="headphone-volume"/g) || []).length, 1);
+        assert.ok(html.indexOf('id="headphone-volume"') < html.indexOf('id="config-button"'));
+        assert.match(html, /src="js\/headphones.js/);
+        assert.doesNotMatch(html, /id="interpreter-(?:player-volume|video-volume)"/);
+    }
+    for (const name of ['interpreter', 'supervisor']) {
+        const role = fs.readFileSync(path.join(root, 'js/role-' + name + '.js'), 'utf8');
+        assert.match(role, /startVolume:\s*InTrainHeadphones.getVolume\(\)/);
+        assert.match(role, /addEventListener\('rendererready', InTrainHeadphones.applyPlayerVolume/);
+        assert.match(role, /addEventListener\('loadedmetadata', InTrainHeadphones.applyPlayerVolume/);
+        assert.match(role, /InTrainHeadphones.registerOutput\(audioOutputElement\)/);
+    }
+    const role = fs.readFileSync(path.join(root, 'js/role-interpreter.js'), 'utf8');
     assert.match(role, /clickToPlayPause:\s*false/);
     assert.match(role, /enableKeyboard:\s*false/);
     assert.match(role, /features:\s*\[\]/);
-    assert.match(peer, /case 'playvideo':/);
-    assert.match(peer, /case 'seekvideo':/);
-
-    assert.match(markup, /id="interpreter-player-volume"[^>]*hidden/);
-    assert.match(markup, /id="interpreter-video-volume"[^>]*min="0" max="100"/);
-    assert.ok(markup.indexOf('id="interpreter-player-volume"') > markup.indexOf('class="video-player-interaction-shield"'));
-    assert.match(css, /#interpreter-player-volume \.form-range\s*\{[^}]*width:\s*clamp/);
-    assert.match(markup, /src="js\/role-interpreter\.js\?v=1\.0\.\d+"/);
 });
-
 
 test('supervisor starts only after matching ready and preserves interpreter position', () => {
     const c = loadApp();
@@ -817,8 +832,8 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.10'},
-        {role: 'interpreter', version: '1.0.7'}
+        {role: 'supervisor', version: '1.0.11'},
+        {role: 'interpreter', version: '1.0.8'}
     ];
     for (const {role, version} of pages) {
         const script = fs.readFileSync(path.join(root, 'js/role-' + role + '.js'), 'utf8');

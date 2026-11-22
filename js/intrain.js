@@ -928,35 +928,28 @@ console.log('LOADANDPLAY');
         var node = audioContext.createBufferSource();
         node.buffer = buffer;
         
-        if (sinkId) {
-            
-            console.log("Play in media element: " + tunePath);    
-            
-            const dest = audioContext.createMediaStreamDestination();
-            node.connect(dest); 
-            
-            const player = new Audio();
-            player.srcObject = dest.stream;
-            
-            player.setSinkId(sinkId).then(() => {
-                console.log("Hardware id: " + player.sinkId)
-                player.play();
-                
-            }).catch(e => {
-               console.log(e) ;
-                
-            });
-
-
-        } else {
-            console.log("Play in default context: " + tunePath);    
-            node.connect(audioContext.destination);
-        }
-        
-        node.loop = false; //loop;
-        node.start();
+        // Notifications use the same final listening level as conversation audio.
+        const output = audioContext.createMediaStreamDestination();
+        node.connect(output);
+        const player = new Audio();
+        player.srcObject = output.stream;
+        if (typeof InTrainHeadphones !== 'undefined') InTrainHeadphones.registerOutput(player);
+        node.onended = () => {
+            player.pause();
+            if (typeof InTrainHeadphones !== 'undefined') InTrainHeadphones.unregisterOutput(player);
+            node.disconnect();
+            output.stream.getTracks().forEach(track => track.stop());
+            player.srcObject = null;
+        };
+        const ready = sinkId && typeof player.setSinkId === 'function'
+            ? player.setSinkId(sinkId).catch(error => console.warn('Using default notification output', error))
+            : Promise.resolve();
+        ready.then(() => player.play()).then(() => {
+            node.loop = false;
+            node.start();
+        }).catch(error => {node.onended(); console.warn('Cannot play notification', error);});
     }
-    
+
     req.send();
 };
 

@@ -42,7 +42,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.9/dist/css/bootstrap.min.css" integrity="sha384-yEPZ7jP9S0QKiUQ0m3jjsO4ProIW7wvR9gXkI7JOGa2XVsw53Yke2bsdkBbjmmiX" crossorigin="anonymous">
 
   <!-- InTrain: css -->
-  <link rel="stylesheet" href="css/intrain-responsive.css?v=1.0.10">
+  <link rel="stylesheet" href="css/intrain-responsive.css?v=1.0.14">
 
   <!-- JQuery, JQueryUI, Migrate: js -->
   <script
@@ -75,7 +75,7 @@
   <script src="js/common.js?0.02"></script>
   <script src="js/peercommon.js?v=1.0.3"></script>
   <script src="config/config.js"></script>
-  <script src="js/intrain.js?v=1.0.2"></script>
+  <script src="js/intrain.js?v=1.0.3"></script>
   <script src="js/log.js?0.01"></script>
   <script src="js/io-devices.js?0.01"></script>
 
@@ -100,7 +100,8 @@
 
 
 <script src="js/storage.js"></script>
-<script src="js/role-interpreter.js?v=1.0.7"></script>
+<script src="js/headphones.js?v=1.0.0"></script>
+<script src="js/role-interpreter.js?v=1.0.8"></script>
 
 </head>
 
@@ -111,7 +112,15 @@
 <!-- Header: begin -->
 <div class="undroppable unselectable container clearfix bg-light border rounded mt-2 mb-2 p-2 opacity-75 opacity-hover-100 app-width" id="top-panel">
   <div class="float-start" id="login-info">You're not logged in</div>
-  <div class="float-end">
+  <div class="float-end d-inline-flex align-items-center gap-1">
+    <div class="headphone-control d-inline-flex align-items-center gap-2 me-2">
+      <label for="headphone-volume" class="m-0" title="Headphone volume">
+        <i class="fas fa-headphones" aria-hidden="true"></i>
+        <span class="visually-hidden">Headphone volume</span>
+      </label>
+      <input type="range" id="headphone-volume" class="form-range m-0" min="0" max="100" step="1" value="100" aria-label="Headphone volume">
+    </div>
+
     <div class="btn btn-sm btn-success">
       <i id="config-button" class="fas fa-cog" aria-hidden="true" data-bs-toggle="modal" data-bs-target="#config-panel"></i>
     </div>
@@ -227,15 +236,6 @@
 
           <!-- audio controls: begin -->
           <div class="audio-controls d-flex justify-content-center align-items-center gap-3 fixed-flex mt-1" style="height: var(--normal-button-height)">
-            <!-- Local video volume only: play, pause and seek remain supervisor-controlled. -->
-            <div id="interpreter-player-volume" class="d-inline-flex align-items-center gap-2 hidden">
-              <label for="interpreter-video-volume" class="m-0" title="Video volume">
-                <i class="fas fa-volume-up" aria-hidden="true"></i>
-                <span class="visually-hidden">Video volume</span>
-              </label>
-              <input type="range" id="interpreter-video-volume" class="form-range m-0"
-                     min="0" max="100" step="1" value="100" aria-label="Video playback volume">
-            </div>
             <div id="recording-indicator" class="text-danger"></div>
           </div>
           <!-- audio controls: end -->

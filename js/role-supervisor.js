@@ -391,6 +391,7 @@ $(document).ready(async function() {
     
     // Create a dynamic <audio> element
     audioOutputElement = new Audio();
+    InTrainHeadphones.registerOutput(audioOutputElement);
     audioOutputElement.loop = false;
     //audioOutputElement.play();
 
@@ -517,7 +518,7 @@ $(document).ready(async function() {
 
     // init player
 	$('#myplayer').mediaelementplayer({
-        startVolume: 1,
+        startVolume: InTrainHeadphones.getVolume(),
         // End the video normally; do not loop or rewind to its beginning.
         loop: false,
         autoRewind: false,
@@ -528,15 +529,18 @@ $(document).ready(async function() {
         videoHeight: initialVideoSize.height,
         controls: true,
         alwaysShowControls: true,
-        features: ["playpause", "progress", "current", "duration", "tracks", "volume", "fullscreen"],
+        features: ["playpause", "progress", "current", "duration", "tracks", "fullscreen"],
         success: function(mediaElement, originalNode, instance) {
         
             myVideoPlayer = instance; 
             myVideoMediaElement = mediaElement;
+            InTrainHeadphones.setPlayer(instance);
             fitSupervisorPlayerToVideo();
             // Async renderers initialize their iframe only after rendererready.
             mediaElement.addEventListener('rendererready', fitSupervisorPlayerToVideo, false);
+            mediaElement.addEventListener('rendererready', InTrainHeadphones.applyPlayerVolume, false);
             mediaElement.addEventListener('loadedmetadata', fitSupervisorPlayerToVideo, false);
+            mediaElement.addEventListener('loadedmetadata', InTrainHeadphones.applyPlayerVolume, false);
 
             mediaElement.addEventListener('progress', function() { 
                 console.log('progress', myVideoPlayer.currentTime);  

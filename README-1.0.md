@@ -151,9 +151,9 @@ receive the video player, by design.
 The interpreter's MediaElement player has no local playback controls. Mouse
 interactions with the renderer (including YouTube/Vimeo iframes) are blocked by a
 transparent overlay; MediaElement keyboard and click-to-play behavior are off.
-An independent volume slider below the player adjusts only the interpreter's
-local playback volume (0-100%) and is remembered by the browser. It does not
-control the supervisor or send volume commands to other peers.
+The permanent headphone slider in the header controls this viewer's playback
+volume, including the embedded video. It does not control the supervisor or
+send volume commands to other peers.
 Programmatic playback from the supervisor is unaffected, subject to browser
 autoplay policies.
 
@@ -203,3 +203,23 @@ Manual checks: play/pause/seek on the supervisor, verify interpreter follows
 without local control, reconnect the interpreter while a video is playing or
 paused, try a valid-looking nonexistent ID, and verify the control group's
 vertical alignment with the rest of the toolbar.
+
+## Headphone volume (all roles)
+
+Each role has one permanent 0-100% headphone slider in the top-right header,
+immediately before Setup. `js/headphones.js` remembers this browser preference
+under `headphone-volume`, so it survives role changes. Zero silences local
+listening; existing participant mute settings and session controls are unchanged.
+
+The control attenuates native remote media elements, the supervisor's final
+mixed audio output and local notification sounds. For the interpreter and
+supervisor, it also sets the embedded YouTube/Vimeo player's volume via
+MediaElement, reapplied when an iframe renderer becomes ready or loads a new
+source. The old interpreter-only video slider and the supervisor embedded
+player's separate volume control have been removed.
+
+Capture elements and the local multimedia decoder are excluded. The stereo
+recorder still taps the original splitters before the final playback element,
+and outgoing media tracks are untouched. The browser regression test records
+separate interpreter/file tones with headphone volume at zero and checks both
+WAV channels still contain their original signals.
