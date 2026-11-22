@@ -409,6 +409,9 @@ $(document).ready(async function() {
     // init player
 	$('#myplayer').mediaelementplayer({
         startVolume: interpreterVideoVolume / 100,
+        // End the video normally; do not loop or rewind to its beginning.
+        loop: false,
+        autoRewind: false,
         stretching: 'none',
         videoWidth: initialVideoSize.width,
         videoHeight: initialVideoSize.height,

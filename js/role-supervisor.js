@@ -478,6 +478,9 @@ $(document).ready(async function() {
     // init player
 	$('#myplayer').mediaelementplayer({
         startVolume: 1,
+        // End the video normally; do not loop or rewind to its beginning.
+        loop: false,
+        autoRewind: false,
         // The video panel has a fixed height (set by responsive CSS variables).
         // Responsive stretching otherwise lets iframe renderers grow past it.
         stretching: 'none',
