@@ -324,8 +324,9 @@ test('supervisor video player is shown above the speaker and hidden again', () =
     const markup = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
 
-    assert.match(supervisor, /\$\('#player-container'\)\.removeClass\('stack-bottom hidden'\)\.addClass\('stack-top'\)/);
-    assert.match(supervisor, /\$\('#player-container'\)\.removeClass\('stack-top'\)\.addClass\('stack-bottom hidden'\)/);
+    assert.match(supervisor, /function setSupervisorPlayerVisible\(visible\)/);
+    assert.match(supervisor, /toggleClass\('stack-top', showPlayer\)/);
+    assert.match(supervisor, /toggleClass\('stack-bottom hidden', !showPlayer\)/);
     assert.match(markup, /id="player-container"/);
     assert.match(markup, /id="speakerVideo"/);
     assert.match(css, /\.player-container\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*left:\s*0;/);
@@ -350,7 +351,9 @@ test('URL panel and supervisor original Material Symbols styling', () => {
 
 test('interpreter synchronizes seeks using the MediaElement player API', () => {
     const peer = fs.readFileSync(path.resolve(__dirname, '../js/peercommon.js'), 'utf8');
-    assert.match(peer, /myVideoPlayer\.setCurrentTime\(parseFloat\(data\.time\)\)/);
+    const interpreter = fs.readFileSync(path.resolve(__dirname, '../js/role-interpreter.js'), 'utf8');
+    assert.match(peer, /seekRemoteVideo\(data.time, data.pause\)/);
+    assert.match(interpreter, /myVideoPlayer\.setCurrentTime\(position\)/);
     assert.doesNotMatch(peer, /myVideoMediaElement\.setCurrentTime/);
 });
 

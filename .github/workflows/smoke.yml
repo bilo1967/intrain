@@ -30,20 +30,5 @@ jobs:
             esac
             node --check "$script"
           done
-      - name: Previously existing tests
-        run: node --test --test-name-pattern='^(?!(video URL validation|supervisor state snapshot|interpreter cannot|supervisor validates)).*' tests/smoke.test.js
-      - name: URL validator test
-        if: always()
-        run: node --test --test-name-pattern='^video URL validation' tests/smoke.test.js
-      - name: Supervisor snapshot test
-        if: always()
-        run: node --test --test-name-pattern='^supervisor state snapshot' tests/smoke.test.js
-      - name: Interpreter read-only test
-        if: always()
-        run: node --test --test-name-pattern='^interpreter cannot' tests/smoke.test.js
-      - name: Supervisor video load test
-        if: always()
-        run: node --test --test-name-pattern='^supervisor validates' tests/smoke.test.js
       - name: Run regression tests
-        if: always()
         run: node --test tests/smoke.test.js
