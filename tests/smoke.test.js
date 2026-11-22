@@ -494,7 +494,8 @@ test('interpreter cannot click or use keyboard controls and late join restores t
     assert.match(html, /class="video-player-interaction-shield"/);
     assert.match(css, /\.interpreter-video-player \.mejs__container\s*\{[^}]*pointer-events:\s*none/);
     assert.match(css, /\.interpreter-video-player \.video-player-interaction-shield\s*\{[^}]*z-index:\s*100/);
-    assert.match(supervisor, /role === RoleInterpreter\) sendCurrentVideoState\(c\)/);
+    assert.match(supervisor, /sendCurrentVideoState\(c, true\)/);
+    assert.match(supervisor, /prepareSupervisorVideoSync\(\{resume, reconnect: true\}\)/);
     assert.match(peer, /case 'playerstate':/);
     assert.match(peer, /applyRemoteVideoState\(data\)/);
 });
@@ -657,4 +658,155 @@ test('interpreter adjusts local video volume without enabling transport controls
     assert.ok(markup.indexOf('id="interpreter-player-volume"') > markup.indexOf('class="video-player-interaction-shield"'));
     assert.match(css, /#interpreter-player-volume \.form-range\s*\{[^}]*width:\s*clamp/);
     assert.match(markup, /src="js\/role-interpreter\.js\?v=1\.0\.4"/);
+});
+
+
+test('supervisor starts only after matching ready and preserves interpreter position', () => {
+    const c = loadApp();
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    vm.runInContext(source.slice(0, source.indexOf('$(document).ready(')), c);
+    const timers = new Map();
+    let nextTimer = 0;
+    c.setTimeout = callback => {const id = ++nextTimer; timers.set(id, callback); return id;};
+    c.clearTimeout = id => timers.delete(id);
+    const connection = {open: true, sent: [], send(data) {this.sent.push(data);}};
+    c.interpreterData = connection;
+    c.currentVideoURL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    let time = 40, paused = false, played = 0, seekCount = 0;
+    c.myVideoPlayer = {
+        get paused() {return paused;},
+        getCurrentTime() {return time;},
+        pause() {paused = true;},
+        play() {paused = false; played++;},
+        setCurrentTime(value) {time = value; seekCount++;}
+    };
+
+    assert.equal(c.prepareSupervisorVideoSync({resume: true, reconnect: false}), true);
+    assert.equal(paused, true);
+    assert.equal(played, 0);
+    const message = connection.sent.find(data => data.action === 'syncprepare');
+    assert.equal(message.preserve, true);
+    assert.equal(message.time, 40);
+    assert.equal(c.receiveSupervisorVideoReady({
+        action: 'syncready', epoch: message.epoch - 1, url: message.url, time: 38
+    }, connection), false);
+    assert.equal(c.receiveSupervisorVideoReady({
+        action: 'syncready', epoch: message.epoch, url: message.url, time: 38
+    }, {open: true}), false);
+    assert.equal(played, 0);
+
+    assert.equal(c.receiveSupervisorVideoReady({
+        action: 'syncready', epoch: message.epoch, url: message.url, time: 38
+    }, connection), true);
+    assert.equal(time, 38); // Supervisor rewinds, not the interpreter.
+    assert.equal(seekCount, 1);
+    assert.equal(played, 0);
+    for (const [id, callback] of Array.from(timers)) {timers.delete(id); callback();}
+    assert.equal(played, 1);
+    assert.equal(connection.sent.filter(data => data.action === 'syncstart').length, 1);
+    assert.equal(c.receiveSupervisorVideoReady({
+        action: 'syncready', epoch: message.epoch, url: message.url, time: 38
+    }, connection), false);
+});
+
+test('supervisor reconnect targets its own position and rejects unsuccessful seeks', () => {
+    const c = loadApp();
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    vm.runInContext(source.slice(0, source.indexOf('$(document).ready(')), c);
+    c.setTimeout = () => 1;
+    c.clearTimeout = () => {};
+    const connection = {open: true, sent: [], send(data) {this.sent.push(data);}};
+    c.interpreterData = connection;
+    c.currentVideoURL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    let paused = false, time = 74, starts = 0;
+    c.myVideoPlayer = {
+        get paused() {return paused;},
+        getCurrentTime: () => time,
+        pause() {paused = true;},
+        play() {starts++;},
+        setCurrentTime(value) {time = value;}
+    };
+    c.prepareSupervisorVideoSync({resume: true, reconnect: true});
+    const request = connection.sent.find(data => data.action === 'syncprepare');
+    assert.equal(request.preserve, false);
+    assert.equal(request.time, 74);
+    assert.equal(c.receiveSupervisorVideoReady({
+        epoch: request.epoch, url: request.url, time: 0
+    }, connection), false);
+    assert.equal(starts, 0); // Do not restart if new iframe could not seek.
+    c.prepareSupervisorVideoSync({resume: true, reconnect: true});
+    const retry = connection.sent.filter(data => data.action === 'syncprepare').at(-1);
+    assert.ok(retry.epoch > request.epoch);
+    assert.equal(c.receiveSupervisorVideoReady({
+        epoch: retry.epoch, url: retry.url, time: 74
+    }, connection), true);
+    assert.equal(starts, 1);
+});
+
+test('lag samples never seek or pause the interpreter automatically', () => {
+    const c = loadApp();
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    vm.runInContext(source.slice(0, source.indexOf('$(document).ready(')), c);
+    const connection = {open: true};
+    c.interpreterData = connection;
+    c.currentVideoURL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    c.showPlayer = true;
+    let seeks = 0, pauses = 0;
+    c.myVideoPlayer = {
+        paused: false,
+        getCurrentTime: () => 50,
+        setCurrentTime() {seeks++;},
+        pause() {pauses++;}
+    };
+    const status = {url: c.currentVideoURL, time: 48, playing: true, buffering: false};
+    for (let i = 0; i < 3; i++) c.receiveInterpreterVideoStatus(status, connection);
+    assert.equal(c.videoSyncLagSamples, 3);
+    assert.equal(seeks, 0);
+    assert.equal(pauses, 0);
+    c.receiveInterpreterVideoStatus({...status, time: 50}, connection);
+    assert.equal(c.videoSyncLagSamples, 0);
+});
+
+test('interpreter only seeks while paused for forced reconnection, not normal resume', () => {
+    const c = loadApp();
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/role-interpreter.js'), 'utf8');
+    vm.runInContext(source.slice(0, source.indexOf('$(document).ready(')), c);
+    const tasks = [];
+    c.setTimeout = callback => {tasks.push(callback); return tasks.length;};
+    c.clearTimeout = () => {};
+    c.requestAnimationFrame = () => {};
+    const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    const connection = {open: true, sent: [], send(data) {this.sent.push(data);}};
+    c.supervisorData = connection;
+    c.remoteVideoURL = url;
+    c.interpreterReadyURL = url;
+    let time = 18.5, paused = false, seeks = 0, plays = 0;
+    c.myVideoPlayer = {
+        get paused() {return paused;},
+        getCurrentTime: () => time,
+        setCurrentTime(value) {time = value; seeks++;},
+        pause() {paused = true;},
+        play() {paused = false; plays++;}
+    };
+
+    c.prepareInterpreterVideoSync({epoch: 10, url, time: 20, preserve: true});
+    assert.equal(paused, true);
+    assert.equal(seeks, 0);
+    tasks.shift()();
+    const ready = connection.sent.at(-1);
+    assert.equal(ready.action, 'syncready');
+    assert.equal(ready.time, 18.5);
+    assert.equal(c.startInterpreterSynchronizedVideo({epoch: 9, url}), false);
+    assert.equal(c.startInterpreterSynchronizedVideo({epoch: 10, url}), true);
+    assert.equal(plays, 1);
+    assert.equal(seeks, 0);
+
+    c.prepareInterpreterVideoSync({epoch: 11, url, time: 33, preserve: false});
+    assert.equal(seeks, 1);
+    assert.equal(time, 33);
+    tasks.shift()();
+    assert.equal(connection.sent.at(-1).epoch, 11);
+    assert.equal(c.startInterpreterSynchronizedVideo({epoch: 10, url}), false);
+    assert.equal(c.startInterpreterSynchronizedVideo({epoch: 11, url}), true);
+    assert.equal(plays, 2);
 });

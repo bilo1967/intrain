@@ -309,6 +309,16 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                     }
                     break;
 
+                case 'syncprepare':
+                    if (myRole === RoleInterpreter) prepareInterpreterVideoSync(data);
+                    break;
+                case 'syncstart':
+                    if (myRole === RoleInterpreter) startInterpreterSynchronizedVideo(data);
+                    break;
+                case 'videosyncping':
+                    if (myRole === RoleInterpreter) answerInterpreterVideoPing(data);
+                    break;
+
                 case 'loadvideo':
                     if (myRole === RoleInterpreter) {
                         setInterpreterPlayerVisible(true);

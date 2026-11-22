@@ -78,8 +78,191 @@ function getCurrentVideoState() {
     return {action: 'playerstate', url: currentVideoURL, visible: showPlayer, time, playing};
 }
 
-function sendCurrentVideoState(connection) {
-    if (connection && connection.open) connection.send(getCurrentVideoState());
+function sendCurrentVideoState(connection, forcePaused = false) {
+    if (connection && connection.open) {
+        const state = getCurrentVideoState();
+        if (forcePaused) state.playing = false;
+        connection.send(state);
+    }
+}
+
+/*
+ * Synchronization is deliberately supervisory: only the supervisor may seek
+ * while both players are paused. During playback interpreter time reports
+ * produce warnings, never automatic seeks on the interpreting workstation.
+ */
+var videoSyncEpoch = 0;
+var videoSyncPending = null;
+var videoSyncAuthorizedPlay = false;
+var videoSyncLagSamples = 0;
+var videoSyncRtt = 0;
+var videoSyncPingSerial = 0;
+var videoSyncLastPing = null;
+var videoSyncCurrentPosition = null;
+const VideoSyncReadyTimeout = 12000;
+const VideoSyncLagThreshold = 1.0;
+const VideoSyncLagSamplesNeeded = 3;
+
+/* Report a persistent lag unobtrusively, without covering player controls. */
+function showVideoSyncLag(message = '') {
+    const label = $('#video-sync-status');
+    label.text(message).toggleClass('d-none', !message);
+}
+
+/* Discard an obsolete preparation, timeout or connection state. */
+function cancelSupervisorVideoSync() {
+    if (videoSyncPending) clearTimeout(videoSyncPending.timer);
+    videoSyncPending = null;
+    videoSyncLagSamples = 0;
+    videoSyncCurrentPosition = null;
+    videoSyncLastPing = null;
+    showVideoSyncLag();
+}
+
+/* Read the current player time without allowing NaN or invalid iframe values. */
+function getSupervisorVideoTime() {
+    if (!myVideoPlayer) return 0;
+    try {
+        const value = Number(myVideoPlayer.getCurrentTime());
+        return Number.isFinite(value) && value >= 0 ? value : 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
+/*
+ * Called when play is requested, or when an interpreter reconnects.
+ * A paused interpreter is preserved on normal resume: the supervisor seeks
+ * to the interpreter's position, so no part of the speech is lost.
+ * Reconnection instead targets the supervisor's current paused position.
+ */
+function prepareSupervisorVideoSync({resume = true, reconnect = false} = {}) {
+    const connection = interpreterData;
+    if (!currentVideoURL || !myVideoPlayer || !connection || !connection.open) return false;
+
+    cancelSupervisorVideoSync();
+    const epoch = ++videoSyncEpoch;
+    const time = getSupervisorVideoTime();
+    const state = {
+        epoch, connection, url: currentVideoURL, time,
+        preserve: !reconnect, resume, timer: null
+    };
+    videoSyncPending = state;
+    videoSyncAuthorizedPlay = false;
+
+    if (!myVideoPlayer.paused) myVideoPlayer.pause();
+    connection.send({action: 'pausevideo'});
+    connection.send({
+        action: 'syncprepare',
+        epoch, url: currentVideoURL, time, preserve: state.preserve
+    });
+
+    state.timer = setTimeout(function() {
+        if (videoSyncPending !== state) return;
+        cancelSupervisorVideoSync();
+        logToPanel('Interpreter video not ready. Both players remain paused; press Play to retry.', 'warning');
+        console.warn('Video synchronization timed out', epoch);
+    }, VideoSyncReadyTimeout);
+    return true;
+}
+
+/*
+ * Only a matching, current connection/epoch can release the two paused players.
+ * For a normal resume, use the interpreter's position to avoid skipping speech.
+ */
+function receiveSupervisorVideoReady(data, connection) {
+    const state = videoSyncPending;
+    if (!state || connection !== state.connection || state.connection !== interpreterData ||
+        data.epoch !== state.epoch || data.url !== state.url) return false;
+
+    const remoteTime = Number(data.time);
+    if (!Number.isFinite(remoteTime) || remoteTime < 0) return false;
+
+    clearTimeout(state.timer);
+    videoSyncPending = null;
+
+    // After reconnect the interpreter sought to our paused position. During
+    // normal resume the supervisor instead catches up with the interpreter.
+    const target = state.preserve ? remoteTime : state.time;
+    if (!state.preserve && Math.abs(remoteTime - target) > 0.6) {
+        // A new interpreter failed to reach the requested position.
+        // Do not resume two unrelated points in the video.
+        logToPanel('Interpreter could not seek to the synchronization position. Press Play to retry.', 'warning');
+        return false;
+    }
+    const difference = Math.abs(getSupervisorVideoTime() - target);
+    if (difference > 0.15) {
+        try { myVideoPlayer.setCurrentTime(target); }
+        catch (error) { console.warn('Supervisor seek during resynchronization failed', error); }
+    }
+
+    showVideoSyncLag();
+    if (!state.resume) return true;
+
+    // Allow iframe seeks a brief settling period. This is intentionally not
+    // an endless wait, as some providers never emit a reliable seeked event.
+    const start = function() {
+        if (state.connection !== interpreterData || !state.connection.open ||
+            state.url !== currentVideoURL || videoSyncEpoch !== state.epoch ||
+            videoSyncPending) return;
+        state.connection.send({action: 'syncstart', epoch: state.epoch, url: state.url});
+        videoSyncAuthorizedPlay = true;
+        const result = myVideoPlayer.play();
+        if (result && typeof result.catch === 'function') {
+            result.catch(error => {
+                videoSyncAuthorizedPlay = false;
+                console.warn('Supervisor video could not start', error);
+            });
+        }
+    };
+    if (difference > 0.15) setTimeout(start, 300);
+    else start();
+    return true;
+}
+
+/* A periodic ping estimates one-way delivery delay for the lag indicator. */
+function pingInterpreterVideo() {
+    if (!currentVideoURL || !showPlayer || !interpreterData || !interpreterData.open ||
+        !myVideoPlayer || myVideoPlayer.paused) return;
+
+    const sentAt = Date.now();
+    const seq = ++videoSyncPingSerial;
+    videoSyncLastPing = {seq, sentAt, connection: interpreterData};
+    interpreterData.send({action: 'videosyncping', seq});
+}
+
+function receiveVideoSyncPong(data, connection) {
+    const sent = videoSyncLastPing;
+    if (!sent || sent.connection !== connection || data.seq !== sent.seq) return;
+    const rtt = Date.now() - sent.sentAt;
+    if (rtt >= 0 && rtt < 5000) videoSyncRtt = rtt;
+    videoSyncLastPing = null;
+}
+
+/* Track sustained differences, never seek or pause the interpreter here. */
+function receiveInterpreterVideoStatus(data, connection) {
+    if (!currentVideoURL || !showPlayer || !myVideoPlayer ||
+        myVideoPlayer.paused || videoSyncPending || connection !== interpreterData ||
+        data.url !== currentVideoURL) {
+        videoSyncLagSamples = 0;
+        return;
+    }
+    const remoteTime = Number(data.time);
+    if (!Number.isFinite(remoteTime) || remoteTime < 0) return;
+
+    const estimatedRemote = remoteTime + (data.playing && !data.buffering ? videoSyncRtt / 2000 : 0);
+    const difference = getSupervisorVideoTime() - estimatedRemote;
+    videoSyncCurrentPosition = remoteTime;
+    if (Math.abs(difference) >= VideoSyncLagThreshold || data.buffering || !data.playing) {
+        videoSyncLagSamples++;
+        if (videoSyncLagSamples >= VideoSyncLagSamplesNeeded) {
+            showVideoSyncLag(data.buffering ? 'Interpreter buffering' :
+                'Lag ' + (difference > 0 ? '+' : '') + difference.toFixed(1) + ' s');
+        }
+    } else {
+        videoSyncLagSamples = 0;
+        showVideoSyncLag();
+    }
 }
 
 /*
@@ -316,17 +499,31 @@ $(document).ready(async function() {
                 console.log('progress', myVideoPlayer.currentTime);  
             }, false);
             
-            mediaElement.addEventListener('pause', function() { 
-                console.log('pause', myVideoPlayer.currentTime); 
+            mediaElement.addEventListener('pause', function() {
+                console.log('pause', myVideoPlayer.currentTime);
+                videoSyncAuthorizedPlay = false;
+                if (videoSyncPending) return; // Forced pause during preparation.
+                // An explicit pause cancels any queued, not-yet-started resume.
+                ++videoSyncEpoch;
+                videoSyncLagSamples = 0;
+                showVideoSyncLag();
                 if (interpreterData && interpreterData.open)
-                    interpreterData.send({action: "pausevideo"});
-                
+                    interpreterData.send({action: 'pausevideo'});
             }, false);
-            
+
             mediaElement.addEventListener('play', function() {
-                console.log("play from", myVideoPlayer.currentTime);
-                if (interpreterData && interpreterData.open)
-                    interpreterData.send({action: "playvideo"});
+                console.log('play from', myVideoPlayer.currentTime);
+                if (videoSyncAuthorizedPlay) {
+                    videoSyncAuthorizedPlay = false;
+                    return; // This start has already been sent as syncstart.
+                }
+                if (videoSyncPending) {
+                    myVideoPlayer.pause();
+                    return;
+                }
+                // Stop the local player until the interpreter confirms ready.
+                if (interpreterData && interpreterData.open && currentVideoURL)
+                    prepareSupervisorVideoSync({resume: true, reconnect: false});
             }, false);
             mediaElement.addEventListener('error', function(error) {
                 if (!currentVideoURL) return;
@@ -336,27 +533,18 @@ $(document).ready(async function() {
             
             
             instance.prepare = function() {
+                cancelSupervisorVideoSync();
+                ++videoSyncEpoch;
                 if (interpreterData && interpreterData.open)
-                    interpreterData.send({action: "seekvideo", time: 0.0, pause: true});
-                myVideoPlayer.setCurrentTime(0.0);
+                    interpreterData.send({action: 'seekvideo', time: 0.0, pause: true});
                 myVideoPlayer.pause();
+                myVideoPlayer.setCurrentTime(0.0);
             };
 
 
-            // These hacks are to get events (play, seek) before they're
-            // actually handled on the supervisor side, and run them on
-            // to the interpreter side so that they can be handled almost
-            // in parallel, reducing the delay.
+            // Explicit supervisor seeks still reach the interpreter. Unlike
+            // monitoring, this action is deliberately initiated by the teacher.
             var pfx = '.' + this.classPrefix;
-
-            $(pfx + 'playpause-button').on('click', function() {    
-                if (! myVideoPlayer.paused) {
-                    if (interpreterData && interpreterData.open)
-                        interpreterData.send({action: "playvideo"});
-                }
-                console.log("CLICK playpause button ( paused:", myVideoPlayer.paused, ")");
-            });
-
 
             $(pfx + 'time-slider').on('click', function() {
                 var w = myVideoPlayer.total.offsetWidth;
@@ -538,8 +726,21 @@ $(document).ready(async function() {
                     // Bring a late joiner up to date with session mode and recording.
                     c.send({action: 'setaudiomode', mode: sessionMode});
                     c.send({action: 'recording', mode: recording ? 'on' : 'off'});
-                    // Screen share already reconnects via media; also restore the video player.
-                    if (role === RoleInterpreter) sendCurrentVideoState(c);
+                    // A new interpreter receives the CURRENT playback position.
+                    // Pause the supervisor first if playback was in progress,
+                    // then run the initial handshake again before resuming.
+                    if (role === RoleInterpreter) {
+                        const resume = !!(currentVideoURL && showPlayer &&
+                            myVideoPlayer && !myVideoPlayer.paused);
+                        // Send a paused snapshot even if the local player was
+                        // playing; syncprepare will pause it before any start.
+                        sendCurrentVideoState(c, true);
+                        if (currentVideoURL && showPlayer) {
+                            if (resume)
+                                logToPanel('Interpreter connected: pausing for video synchronization.', 'info');
+                            prepareSupervisorVideoSync({resume, reconnect: true});
+                        }
+                    }
 
 
                     // Push a notification if permission is granted and 
@@ -594,6 +795,15 @@ $(document).ready(async function() {
                             console.log("received:", data);
 
                             switch (act) {
+                            case 'syncready':
+                                if (role === RoleInterpreter) receiveSupervisorVideoReady(data, c);
+                                break;
+                            case 'videostatus':
+                                if (role === RoleInterpreter) receiveInterpreterVideoStatus(data, c);
+                                break;
+                            case 'videosyncpong':
+                                if (role === RoleInterpreter) receiveVideoSyncPong(data, c);
+                                break;
                             case 'chat':
                                 logToChat(escapeHTML(data.message), role, role == RoleSpeaker ? ColorSpeaker : ColorInterpreter);
                                 break;
@@ -617,7 +827,15 @@ $(document).ready(async function() {
                             }
                         });
 
-                        
+                        if (role === RoleInterpreter) {
+                            c.on('close', function() {
+                                if (interpreterData !== c) return; // Stale connection.
+                                cancelSupervisorVideoSync();
+                                ++videoSyncEpoch;
+                                videoSyncAuthorizedPlay = false;
+                            });
+                        }
+
                         break;
                     case RoleSupervisor:
                         break;
@@ -748,6 +966,9 @@ $(document).ready(async function() {
         }
 
         $('#video-url').removeClass('is-invalid').val(result.url);
+        cancelSupervisorVideoSync();
+        ++videoSyncEpoch; // Invalidate any delayed start for the previous source.
+        videoSyncAuthorizedPlay = false;
         if (!showPlayer) setSupervisorPlayerVisible(true);
 
         // Wait until the overlay is visible; MediaElement's iframe renderers
@@ -971,6 +1192,9 @@ $(document).ready(async function() {
         }
     }
 
+
+    // Keep the data traffic small; send one RTT probe every five seconds.
+    setInterval(pingInterpreterVideo, 5000);
 
     // ondevicechange event (webcam or headset has been plugged in or out)
     navigator.mediaDevices.ondevicechange = (e) => {

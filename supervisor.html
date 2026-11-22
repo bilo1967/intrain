@@ -103,7 +103,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mediaelement@4.2.7/build/renderers/vimeo.min.js"></script>
 
 <script src="js/storage.js"></script>
-<script src="js/role-supervisor.js?v=1.0.4"></script>
+<script src="js/role-supervisor.js?v=1.0.5"></script>
 </head>
 
 <body class="background-supervisor">
@@ -352,6 +352,9 @@
             </div>
           </div>
         </div>
+        <span id="video-sync-status" class="d-none ms-2 align-self-center text-warning text-nowrap small"
+              title="Interpreter and supervisor video positions differ. Pause and press Play to resynchronize."
+              aria-live="polite"></span>
         <!-- player controls:end -->
 
 

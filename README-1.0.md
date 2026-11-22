@@ -92,6 +92,35 @@ video without checking the external video service. MediaElement.js remains at
 version 4.2.7 during stabilization; upgrading to the 7.x series requires its
 own compatibility test, particularly for third-party iframe renderers.
 
+### External video synchronization (supervisor/interpreter)
+
+YouTube and Vimeo playback use independent streams. InTrain therefore cannot
+guarantee frame-accurate start, but it now waits for a `syncprepare` /
+`syncready` exchange before sending `syncstart`. Each preparation has a
+monotonically increasing epoch; stale replies and old connections are ignored.
+A 12-second preparation timeout leaves playback paused rather than starting
+unsynchronized. If the browser prevents remote autoplay, its warning is logged.
+
+During uninterrupted playback the interpreter reports its player position
+roughly every second. A small data-channel ping estimates network delay. The
+supervisor displays a persistent warning after three reports with at least
+one second of lag (or buffering). These reports **never** trigger automatic
+seeks or playback changes on the interpreter.
+
+When the supervisor pauses and later resumes, the interpreter first pauses and
+reports its actual position. The **supervisor** seeks to that position before
+both resume; the interpreting student never skips over an unheard passage.
+A new or reconnecting interpreter instead seeks to the supervisor's current
+paused position. If the supervisor was playing at reconnection, playback is
+paused automatically and resumes only after the new interpreter reports ready.
+If the interpreter cannot reach that position, both remain paused.
+
+Manual checks: verify video load while disconnected, first Play with both
+participants, pause/resume after letting one player lag, reconnect mid-play,
+failed or private video timeout, and warning disappearance when lag clears.
+YouTube/Vimeo may report readiness before network buffering has fully
+stabilized, so the two streams can still begin at slightly different moments.
+
 Manual checks: play/pause/seek on the supervisor, verify interpreter follows
 without local control, reconnect the interpreter while a video is playing or
 paused, try a valid-looking nonexistent ID, and verify the control group's

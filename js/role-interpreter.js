@@ -82,6 +82,130 @@ function fitInterpreterPlayerToVideo() {
     }
 }
 
+/*
+ * A new sync request pauses this renderer and waits until the remote iframe
+ * reports that it can play. Only this paused preparation can perform a seek.
+ * During normal playback we merely send position reports to the supervisor.
+ */
+var interpreterSyncRequest = null;
+var interpreterReadyURL = null;
+var interpreterBuffering = false;
+var interpreterSyncPoll = null;
+
+function reportInterpreterVideoStatus() {
+    if (!showPlayer || !remoteVideoURL || !myVideoPlayer ||
+        !supervisorData || !supervisorData.open) return;
+
+    let time;
+    try { time = Number(myVideoPlayer.getCurrentTime()); }
+    catch (error) { return; }
+    if (!Number.isFinite(time) || time < 0) return;
+
+    supervisorData.send({
+        action: 'videostatus',
+        url: remoteVideoURL,
+        time,
+        playing: !myVideoPlayer.paused,
+        buffering: interpreterBuffering
+    });
+}
+
+/* Never acknowledge a video that has not reached the renderer's canplay state. */
+function sendInterpreterSyncReady() {
+    const request = interpreterSyncRequest;
+    if (!request || request.ready || remoteVideoURL !== request.url ||
+        interpreterReadyURL !== request.url || !myVideoPlayer ||
+        !supervisorData || !supervisorData.open) return;
+
+    let position;
+    try {
+        myVideoPlayer.pause();
+        position = Number(myVideoPlayer.getCurrentTime());
+        if (!Number.isFinite(position) || position < 0) return;
+        if (!request.preserve && !request.seekIssued &&
+            Math.abs(position - request.time) > 0.2) {
+            myVideoPlayer.setCurrentTime(request.time);
+            request.seekIssued = true;
+            request.attempts++;
+            interpreterSyncPoll = setTimeout(sendInterpreterSyncReady, 200);
+            return;
+        }
+    } catch (error) {
+        console.warn('Unable to prepare interpreter video', error);
+        return;
+    }
+
+    // Some iframe APIs report the previous position briefly after seek().
+    if (!request.preserve && Math.abs(position - request.time) > 0.6 &&
+        request.attempts < 12) {
+        request.attempts++;
+        interpreterSyncPoll = setTimeout(sendInterpreterSyncReady, 200);
+        return;
+    }
+    request.ready = true;
+    supervisorData.send({
+        action: 'syncready', epoch: request.epoch, url: request.url, time: position
+    });
+}
+
+function interpreterVideoCanPlay() {
+    interpreterReadyURL = remoteVideoURL;
+    interpreterBuffering = false;
+    sendInterpreterSyncReady();
+}
+
+/* Handle a new supervisor preparation, including reconnection at mid-video. */
+function prepareInterpreterVideoSync(data) {
+    const parsed = validateVideoURL(data && data.url);
+    const time = Number(data && data.time);
+    if (!parsed.valid || !Number.isSafeInteger(data.epoch) || data.epoch < 1 ||
+        !Number.isFinite(time) || time < 0 || !myVideoPlayer) return;
+
+    clearTimeout(interpreterSyncPoll);
+    const sameSource = parsed.url === remoteVideoURL;
+    interpreterSyncRequest = {
+        epoch: data.epoch, url: parsed.url, time,
+        preserve: data.preserve === true && sameSource,
+        ready: false, seekIssued: false, attempts: 0
+    };
+    if (!sameSource) interpreterReadyURL = null;
+    setInterpreterPlayerVisible(true);
+    try { myVideoPlayer.pause(); }
+    catch (error) { console.warn('Unable to pause interpreter player for sync', error); }
+
+    if (!sameSource) {
+        applyRemoteVideoState({url: parsed.url, time, playing: false});
+    } else {
+        // Existing source: no seek for normal pause/resume. The supervisor will
+        // seek to the position reported by this interpreter.
+        if (!interpreterSyncRequest.preserve) {
+            try { myVideoPlayer.setCurrentTime(time); interpreterSyncRequest.seekIssued = true; }
+            catch (error) { console.warn('Unable to seek for reconnection', error); }
+        }
+        interpreterSyncPoll = setTimeout(sendInterpreterSyncReady, 150);
+    }
+}
+
+/* A stale start never overrides a newer pause or synchronization cycle. */
+function startInterpreterSynchronizedVideo(data) {
+    const request = interpreterSyncRequest;
+    if (!request || !request.ready || request.epoch !== data.epoch ||
+        request.url !== data.url) return false;
+
+    clearTimeout(interpreterSyncPoll);
+    interpreterSyncRequest = null;
+    interpreterBuffering = false;
+    setRemoteVideoPlaying(true);
+    return true;
+}
+
+/* Echo only a short token; the supervisor owns RTT estimation. */
+function answerInterpreterVideoPing(data) {
+    if (supervisorData && supervisorData.open && Number.isSafeInteger(data.seq)) {
+        supervisorData.send({action: 'videosyncpong', seq: data.seq});
+    }
+}
+
 function setInterpreterPlayerVisible(visible) {
     showPlayer = !!visible;
     $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
@@ -130,6 +254,7 @@ function applyRemoteVideoState(data) {
 
     if (remoteVideoURL !== parsed.url) {
         remoteVideoURL = parsed.url;
+        interpreterReadyURL = null;
         // Give MediaElement's embedded iframe a frame with a visible container.
         requestAnimationFrame(function() {
             if (remoteVideoURL !== parsed.url || !myVideoPlayer) return;
@@ -150,6 +275,10 @@ function applyRemoteVideoState(data) {
 function setRemoteVideoPlaying(playing) {
     if (pendingRemoteVideoState) {
         pendingRemoteVideoState.playing = !!playing;
+        // A pause still needs to reach an already playing old renderer.
+        if (!playing && myVideoPlayer) {
+            try { myVideoPlayer.pause(); } catch (error) { console.warn(error); }
+        }
         return;
     }
     if (!myVideoPlayer) return;
@@ -298,6 +427,15 @@ $(document).ready(async function() {
             mediaElement.addEventListener('loadedmetadata', applyInterpreterVideoVolume, false);
             mediaElement.addEventListener('loadedmetadata', applyPendingRemoteVideoState, false);
             mediaElement.addEventListener('canplay', applyPendingRemoteVideoState, false);
+            mediaElement.addEventListener('canplay', interpreterVideoCanPlay, false);
+            mediaElement.addEventListener('pause', reportInterpreterVideoStatus, false);
+            mediaElement.addEventListener('playing', function() {
+                interpreterBuffering = false;
+                reportInterpreterVideoStatus();
+            }, false);
+            mediaElement.addEventListener('waiting', function() { interpreterBuffering = true; }, false);
+            mediaElement.addEventListener('stalled', function() { interpreterBuffering = true; }, false);
+            mediaElement.addEventListener('seeked', sendInterpreterSyncReady, false);
             mediaElement.addEventListener('error', function(error) {
                 console.warn('Cannot load the synchronized video', error);
                 logToPanel('This video is unavailable or cannot be embedded.', 'warning');
@@ -372,6 +510,9 @@ $(document).ready(async function() {
     window.addEventListener('resize', function() {
         if (showPlayer) requestAnimationFrame(fitInterpreterPlayerToVideo);
     });
+
+    // Small status report (one per second), never an automatic playback seek.
+    setInterval(reportInterpreterVideoStatus, 1000);
 
     // ondevicechange event (webcam or headset has been plugged in or out)
     navigator.mediaDevices.ondevicechange = (e) => {
