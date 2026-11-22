@@ -51,8 +51,13 @@ async function browserChecks() {
         // Use InTrain's real crossfader and WAV encoder, with an 880 Hz interpreter.
         window.audioContext = context;
         window.channel1 = window.channel2 = null;
-        window.split1 = context.createChannelSplitter(2);
-        window.split2 = context.createChannelSplitter(2);
+        const balance = document.createElement('input'); balance.id = 'cross-fader';
+        balance.type = 'range'; balance.min = 0; balance.max = 100; balance.value = 50;
+        document.body.append(balance);
+        window.speakerAudioMuted = window.interpreterAudioMuted = window.boostVolume = false;
+        window.audioOutputElement = new Audio();
+        InTrainHeadphones.registerOutput(audioOutputElement);
+        initAudioCtx();
         window.showPlayer = false; window.swapChannels = false;
         window.sharingScreenActive = true; window.screenshareMediaStream = audio.stream;
         const headphones = document.createElement('audio');
@@ -81,6 +86,24 @@ async function browserChecks() {
         };
         check(power(decoded.getChannelData(0), 880) > 0.1 && power(decoded.getChannelData(0), 440) < 0.01, 'WAV left contains interpreter only');
         check(power(decoded.getChannelData(1), 440) > 0.03 && power(decoded.getChannelData(1), 880) < 0.01, 'WAV right contains file only');
+
+        // A shared screen can be stereo. Its right channel must not be discarded.
+        const screen = context.createMediaStreamDestination();
+        const screenStereo = context.createChannelMerger(2);
+        const screenTone = context.createOscillator(); screenTone.frequency.value = 660;
+        screenTone.connect(screenStereo, 0, 1); screenStereo.connect(screen); screenTone.start();
+        window.screenshareMediaStream = screen.stream; initCrossFader();
+        audioRecorder.clear(); audioRecorder.record(); await wait(350); audioRecorder.stop();
+        const screenWav = await new Promise(resolve => audioRecorder.exportWAV(resolve));
+        const screenDecoded = await context.decodeAudioData(await screenWav.arrayBuffer());
+        check(power(screenDecoded.getChannelData(1), 660) > 0.03, 'Right-only stereo screen audio reaches WAV floor channel');
+        check(power(screenDecoded.getChannelData(0), 880) > 0.1, 'Screen floor retains interpreter channel');
+        window.swapChannels = true; initCrossFader();
+        audioRecorder.clear(); audioRecorder.record(); await wait(350); audioRecorder.stop();
+        const swappedWav = await new Promise(resolve => audioRecorder.exportWAV(resolve));
+        const swapped = await context.decodeAudioData(await swappedWav.arrayBuffer());
+        check(power(swapped.getChannelData(0), 660) > 0.03 && power(swapped.getChannelData(1), 880) > 0.1, 'Swap exchanges the two recorded channels');
+        screenTone.stop(); window.swapChannels = false;
         interpreter.stop();
         headphones.pause(); InTrainHeadphones.unregisterOutput(headphones);
 
@@ -188,13 +211,14 @@ async function browserChecks() {
             await pause(100);
         }
         const role = fs.readFileSync(path.join(__dirname, '../js/role-supervisor.js'), 'utf8');
-        const recording = role.slice(role.indexOf('function initCrossFader()'), role.indexOf('// the ONLY time saveAudio'));
+        const recording = role.slice(role.indexOf('function initAudioCtx()'), role.indexOf('// Called after stopping the recorder'));
+        const monitor = role.slice(role.indexOf('function updateSupervisorMonitor()'), role.indexOf('// When the page has been loaded'));
         const common = fs.readFileSync(path.join(__dirname, '../js/intrain.js'), 'utf8');
         const notifications = common.slice(common.indexOf('function loadAndPlay('), common.indexOf('async function setUserMediaConstraints()'));
         const source = 'window.$ = () => ({ready() {}});\n' +
             fs.readFileSync(path.join(__dirname, '../js/headphones.js'), 'utf8') + '\n' +
             fs.readFileSync(path.join(__dirname, '../js/local-floor.js'), 'utf8') + '\n' +
-            fs.readFileSync(path.join(__dirname, '../js/recorderjs/recorder.js'), 'utf8') + '\n' + recording + '\n' + notifications;
+            fs.readFileSync(path.join(__dirname, '../js/recorderjs/recorder.js'), 'utf8') + '\n' + monitor + '\n' + recording + '\n' + notifications;
         const result = await send('Runtime.evaluate', {expression: source + '\n(' + browserChecks.toString() + ')()', awaitPromise: true, returnByValue: true, timeout: 25000});
         assert.ok(result.result && !result.result.exceptionDetails, JSON.stringify(result));
         console.log(result.result.result.value);

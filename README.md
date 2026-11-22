@@ -1,8 +1,24 @@
 # inTrain
 
-## Disclaimer
+## Version 1.0 stabilization
 
-This code is still full of commented parts and debugging instructions and needs to be cleaned up. Also, some of the internal documentation is still in Italian and needs to be translated. Use it at your own risk. We do not take any responsibility for any kind of damage it might cause. That said, once you meet the prerequisites and edit the configuration files accordingly, inTrain should work as is. Please, read the License section below before downloading inTrain.
+Work currently takes place on branch `1.0`. The principal branch will be updated
+only after manual acceptance testing. See [README-1.0.md](README-1.0.md) for the
+[supervisor audio-routing diagram](README-1.0.md#supervisor-audio-routing), source
+and control tables, browser limitations and the
+[acceptance checklist](README-1.0.md#acceptance-checklist-before-replacing-the-principal-branch).
+
+The current application retains three roles and anonymous sessions: supervisor,
+speaker and interpreter. Briefing permits conversation; training routes the
+selected floor to the interpreter while the supervisor monitors interpreter and
+floor. The floor can be a live speaker, supervisor screen share, synchronized
+YouTube/Vimeo player, or a local audio/video file streamed over WebRTC without
+uploading the original file. All roles have one local headphone-volume control.
+The supervisor records a stereo WAV with interpreter on L and floor on R by
+default; Swap exchanges them. YouTube/Vimeo audio is excluded from the WAV.
+
+Tandem/booth-mate sessions and a supervisor who also participates as interpreter
+are planned separately from this stabilization release.
 
 ## What is inTrain and how it works
 
@@ -10,7 +26,7 @@ inTrain (which stands for _INterpreter TRAINing_) is a [WebRTC](https://webrtc.o
 
 The system connects a supervisor (instructor), an interpreter and a speaker.
 
-inTrain WebRTC connections are peer-to-peer. There's a single audio/video WebRTC connection between the supervisor and the speaker, the supervisor and the interpreter, the speaker and the interpreter. .
+inTrain WebRTC connections are peer-to-peer. There's a single audio/video WebRTC connection between the supervisor and the speaker, the supervisor and the interpreter, the speaker and the interpreter. A supervisor-owned screen or file adds a secondary media call to the interpreter; embedded videos are played independently and synchronized through data messages.
 
 ## Prerequisites
 
@@ -38,12 +54,12 @@ Create a webroot directory and deploy inTrain into it.
 ```bash
 [you@localhost ~]$ sudo mkdir /var/www/virtualhosts/your_site_webroot
 [you@localhost ~]$ cd /var/www/virtualhosts/your_site_webroot
-[you@localhost ~]$ sudo git clone https://github.com/bilo1967/intrain.git .
+[you@localhost ~]$ sudo git clone --branch 1.0 https://github.com/bilo1967/intrain.git .
 ```
 
 Then configure your web server so that it will serve your intrain webroot directory as https://your.site/ (or whatever).
 
-URL rewriting must be also enabled so that the extension for php scripts and html pages is removed. See [.htaccess](.htaccess) file.
+URL rewriting must also be enabled for the extensionless HTML page links. See [.htaccess](.htaccess) file.
 
 
 ## Upgrading
@@ -51,7 +67,7 @@ URL rewriting must be also enabled so that the extension for php scripts and htm
 Basically you need to get the new version of inTrain from GitHub (just do a ```git clone https://github.com/bilo1967/intrain.git``` in a temporary directory) and replace everything on your webroot except your configuration file (always check for additions or changes) and any images you may have replaced or customized. Always make a backup copy of your webroot before trying an upgrade.
 
 
-## Configuration and authentication module
+## Configuration
 
 There's a single configuration file you have to set up:
 - [config/config.js.dist](config/config.js.dist), the anonymous template for the browser configuration. Copy it to `config/config.js` (which is Git-ignored) and configure your PeerJS/STUN/TURN services before launching inTrain.
@@ -100,14 +116,13 @@ This program is distributed in the hope that it will be useful, but **WITHOUT AN
 Documentation is available under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) license. 
 
 inTrain uses several third-party frameworks, components, libraries and resources:
-* [PeerJS](https://peerjs.com/">https://peerjs.com/)
-* [JQuery](https://jquery.com/">https://jquery.com/)
-* [Bootstrap 4](https://getbootstrap.com/)
-* [BootBox JS](http://bootboxjs.com/)
-* [JsZip](https://stuk.github.io/jszip/)
-* [Moment JS](https://momentjs.com/)
-* [Animate.css](https://github.com/animate-css/animate.css)
-* [FontAwesome](https://fontawesome.com/)
-* [Code snippets from WebRTC Samples](https://webrtc.github.io/samples/)
-* [PHP Mailer](https://github.com/PHPMailer/PHPMailer)
 
+- [PeerJS](https://peerjs.com/)
+- [jQuery](https://jquery.com/)
+- [Bootstrap 5](https://getbootstrap.com/)
+- [MediaElement.js](https://www.mediaelementjs.com/)
+- [Recorder.js](https://github.com/mattdiamond/Recorderjs)
+- [Animate.css](https://animate.style/)
+- [FontAwesome](https://fontawesome.com/)
+- [Material Symbols](https://fonts.google.com/icons)
+- [WebRTC Samples](https://webrtc.github.io/samples/)

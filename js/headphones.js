@@ -6,10 +6,11 @@ var InTrainHeadphones = (function() {
     const outputs = new Set();
     let percent = 100;
     let player = null;
+    let playerGain = 1; // Supervisor floor balance; interpreter keeps unity.
 
     function applyPlayerVolume() {
         if (!player || typeof player.setVolume !== 'function') return;
-        try { player.setVolume(percent / 100); }
+        try { player.setVolume(percent / 100 * playerGain); }
         catch (error) { console.warn('Video volume will be applied when its renderer is ready', error); }
     }
 
@@ -45,7 +46,12 @@ var InTrainHeadphones = (function() {
 
     return {init, registerOutput, unregisterOutput: element => outputs.delete(element),
         setVolume, getVolume: () => percent / 100, applyPlayerVolume,
-        setPlayer(value) {player = value; applyPlayerVolume();}};
+        setPlayer(value) {player = value; applyPlayerVolume();},
+        setPlayerGain(value) {
+            if (!Number.isFinite(value)) return;
+            playerGain = Math.max(0, Math.min(1, value));
+            applyPlayerVolume();
+        }};
 })();
 
 $(document).ready(InTrainHeadphones.init);

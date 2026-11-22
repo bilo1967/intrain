@@ -28,14 +28,22 @@ If upgrading a deployment that already has a customized `js/config.js`, move tha
 
 ## Verification
 
-Run the dependency-free regression tests with `node --test tests/smoke.test.js`. Check JavaScript syntax with `node --check js/intrain.js` and `node --check js/peercommon.js`. Tests exercise JavaScript with mocked browser APIs; they **do not** replace testing with real devices, multiple browsers, TURN/ICE, stereo monitoring, recording, or screen sharing.
+Run `node --test tests/smoke.test.js` for the dependency-free regression tests
+and `node tests/local-floor-browser.cjs` for real Chrome media/WebRTC/WAV checks.
+The browser test uses the supervisor's actual mono buses and recording graph,
+checks a right-only stereo screen source and WAV channel swapping, and records
+with headphone volume at zero. The unit tests additionally cover iframe volume
+composition, mutes after Swap and WAV-export locking. Syntax-check the unminified
+`js/*.js` files with `node --check`. These checks **do not** replace testing real
+devices, external iframe services, multiple browsers or TURN/ICE.
 
 Suggested manual acceptance test: connect supervisor, speaker and interpreter; verify briefing/training audio routing, stereo balance, recorder output with separate L/R channels, role switching, late joining, reconnection, camera/microphone device changes, and screen sharing (with and without desktop audio, including stopping from the browser UI). In particular, test speaker joining while supervisor screen sharing is active, interpreter reconnecting to an active share, and restoration of speaker video when sharing ends.
 
 ## Code maintenance
 
 The application still uses its existing PeerJS mesh topology and separate role pages.
-This maintenance work does not change signaling, routing or role semantics.
+The signaling topology and three-role model remain unchanged; maintenance fixes
+source selection, monitoring and recording without introducing tandem roles.
 
 - Bootstrap 5.3.9 replaces Bootstrap 4.6.1. The Bootstrap bundle provides Popper;
   `js/bootstrap-ui.js` exposes explicit native APIs for modals, tooltips and popovers.
@@ -51,7 +59,7 @@ This maintenance work does not change signaling, routing or role semantics.
   `js/input-clearer.js`. Existing third-party prebuilt libraries, such as the
   bundled PeerJS client, are not rewritten or minified as part of this change.
 - Removed abandoned commented-out implementation blocks. Explanatory comments,
-  including the stereo audio graph and the original language of comments, remain.
+  including the updated audio graph and the original language of comments, remain.
 
 ## Manual UI validation after Bootstrap 5 migration
 
@@ -62,24 +70,88 @@ three-peer exercise with recording and device switching. Automated unit tests
 cannot verify visual layout or browser-specific WebRTC behavior.
 
 
-## Recording audio sources
+## Supervisor audio routing
 
-The supervisor's stereo recorder is connected directly to the audio splitters,
-**before** the listening crossfader's gain controls. The second recorded channel
-must therefore be chosen explicitly; muting the supervisor's monitor does not
-remove sound from a recording.
+The default channel order is **interpreter on L, selected floor on R**, in both
+headphones and the stereo WAV. Swap L/R exchanges those two sources before
+monitoring and recording. Older comments saying the opposite were incorrect.
+`channel1` starts as floor and `channel2` as interpreter; `split1` and `split2`
+are legacy names for the **mono tap buses**, not channel splitters anymore.
+Stereo sources are downmixed before the tap, preserving both stereo sides.
 
-- Speaker mode: interpreter on one channel, live speaker on the other.
-- Screen share: interpreter on one channel, captured screen audio on the other.
-  If the selected tab/window has no audio track, record digital silence instead
-  of falling back to the speaker.
-- Embedded YouTube/Vimeo player: interpreter on one channel, digital silence
-  on the other. The embedded video audio is not recorded.
+```mermaid
+flowchart TD
+    Speaker["Live speaker audio"] --> Floor["Select floor source"]
+    Screen["Supervisor screen audio"] --> Floor
+    File["Local file decoder - volume 100%"] --> Local["Web Audio mono stream"]
+    Local --> Floor
+    Local --> Peer["WebRTC secondary floor to interpreter"]
+    Screen --> Peer
+    Silence["Silence for embedded player or capture without audio"] --> Floor
+    Floor --> Swap["Optional L/R swap"]
+    Interpreter["Interpreter media stream"] --> Swap
+    Swap --> R["split1: mono bus R - normally floor"]
+    Swap --> L["split2: mono bus L - normally interpreter"]
+    R --> GR["gain1: right balance / role mute / Boost"]
+    L --> GL["gain2: left balance / role mute / Boost"]
+    GR --> Mix["mix: stereo listening merger"]
+    GL --> Mix
+    Mix --> Dest["ctxDest: playback stream"]
+    Dest --> Output["audioOutputElement: headphone volume"]
+    Output --> Device["Selected output device"]
+    R -->|"WAV R"| Rec["mixrec: stereo recording merger"]
+    L -->|"WAV L"| Rec
+    Rec --> Recorder["Recorder worker"] --> WAV["Stereo WAV download"]
+    Rec --> Zero["zeroGain = 0"] --> Context["AudioContext output - silent activation"]
+    Iframe["YouTube / Vimeo iframe audio"] --> API["Player volume = headphone level x floor balance / mute"]
+    API --> Browser["Browser / system playback output"]
+    Mic["Supervisor microphone"] --> Outgoing["WebRTC to participants - independent of monitoring"]
+```
 
-The existing swap-channels setting still reverses left and right if requested.
-Changes between player, screen share and speaker modes rebuild the input
-routing without recreating the recorder, so the recording remains stereo even
-if sources are switched during a session.
+The iframe branch is separate: cross-origin player audio cannot be tapped by
+this graph. Its volume follows the same headphone control, multiplied by its
+floor balance and mute state. It retains its own stereo image; it cannot be
+isolated onto a single physical L/R channel by InTrain. Device selection through
+`audioOutputElement.setSinkId()` applies to the native mixed output, not to an
+external iframe. If separate iframe output/device control or recording of the
+video audio is essential, use Screen share with audio capture when available.
+
+### Floor and recording sources
+
+| Floor | Native floor bus / WAV floor channel | Supervisor listens to | Interpreter receives |
+| --- | --- | --- | --- |
+| Speaker | Live speaker, downmixed to mono | Floor + interpreter, separate L/R | Speaker media directly |
+| Screen share | Captured audio; silence if absent | Shared audio + interpreter, separate L/R | Secondary WebRTC floor |
+| Multimedia file | Decoded file audio; silence for a silent/unsupported audio track | File + interpreter, separate L/R | Secondary WebRTC floor |
+| YouTube / Vimeo | Digital silence | Independent iframe player + interpreter | Synchronized local iframe player |
+
+Each participant's missing input currently uses the existing very low-level
+Brownian-noise fallback. It can also be present in the corresponding recorded
+channel while that participant is absent. This is separate from the explicit
+silence used for an audio-less capture or embedded floor.
+
+### What the supervisor controls change
+
+| Control | Local monitoring | WAV | Media sent to participants |
+| --- | --- | --- | --- |
+| Headphone volume | Final mixed output and iframe output level | Unchanged | Unchanged |
+| Crossfader | Equal-power balance between physical L/R; iframe follows floor side | Unchanged | Unchanged |
+| Remote participant mute | Mutes the selected participant/floor locally, even after Swap | Unchanged | Unchanged |
+| Boost | Twice the normal native monitor gain; no amplification of iframe output | Unchanged | Unchanged |
+| Swap L/R | Exchanges floor/interpreter channel placement | Exchanges WAV channel placement | Unchanged |
+| Floor selector | Selects the floor source and replaces the old secondary floor | Changes the floor input without recreating Recorder | Changes the interpreter's floor |
+| Briefing / Training | Sends session-mode instructions and toggles the supervisor mic | Recorder continues using its own taps | Supervisor mic is enabled/disabled; participant mode changes |
+
+Microphone capture is independent: headphone volume, monitoring mutes, balance
+and Boost never alter outgoing tracks. Stereo WAV is tapped **before** those
+listening controls, so muting headphones does not mute the recording. The
+supervisor mic is not part of the WAV. Notifications follow headphone volume but
+are not routed into the recording. Using headphones avoids acoustic leakage
+from playback back into a live microphone.
+
+Stopping a recording requests WAV export immediately. Record stays disabled and
+Save remains unavailable until the worker has finished and the new download
+link is ready, protecting the last take against a rapid restart.
 
 ## Floor selector (supervisor)
 
@@ -232,7 +304,47 @@ source. The old interpreter-only video slider and the supervisor embedded
 player's separate volume control have been removed.
 
 Capture elements and the local multimedia decoder are excluded. The stereo
-recorder still taps the original splitters before the final playback element,
+recorder still taps the mono buses before the final playback element,
 and outgoing media tracks are untouched. The browser regression test records
 separate interpreter/file tones with headphone volume at zero and checks both
 WAV channels still contain their original signals.
+
+## Acceptance checklist before replacing the principal branch
+
+All changes remain on `1.0` until the following manual checks pass. Tandem,
+booth-mate sessions and a supervisor who also interprets remain future work.
+
+- [ ] Three separate participants: briefing permits conversation; training lets
+  the interpreter hear only the active floor and keeps interpreter audio off
+  the speaker's monitoring. Return to briefing, including during iframe playback.
+- [ ] All four floor choices: speaker, screen (with/without audio), local audio
+  and video, and real YouTube/Vimeo links. Cancellation/unsupported files leave
+  the previous floor active. Browser Stop Sharing restores the speaker.
+- [ ] Headphone volume at 0/50/100% for every role and every floor. Move the
+  supervisor crossfader afterwards: zero must remain silent. Check actual audio
+  output devices; iframe output follows the browser/system path separately.
+- [ ] Supervisor balance, mutes, Boost and Swap L/R, including mute after Swap.
+  Use headphones and a stereo source with sound only on its right channel.
+- [ ] Record while changing floors and monitoring controls; inspect WAV L/R and
+  Swap. Confirm that iframe video audio is absent by design. Stop/restart takes
+  and download each finished WAV; test a realistically long exercise too.
+- [ ] Local audio/video: pause, seek, EOF, replay, another file, unsupported audio,
+  interpreter joining while paused and reconnecting during playback.
+- [ ] YouTube/Vimeo: load, play, pause, seek, lag warning, unavailable/private
+  video, autoplay permission, late join and reconnection. No forced skips during
+  normal monitoring; resuming follows the interpreter's position.
+- [ ] Swap speaker/interpreter roles in briefing, reconnect/disconnect both,
+  reconnect an interpreter to a running shared/file floor, and close all tabs.
+- [ ] Camera/mic/output changes and device unplug/replug; speaker-owned screen
+  sharing and return to camera, including a participant joining during sharing.
+- [ ] Actual target browser/OS combinations and a network that requires TURN.
+  Verify audio-sharing availability for the selected tab/window/screen.
+- [ ] Responsive header/toolbar, setup dialogs, chat/file transfer, recording
+  indicator, timer and fullscreen controls.
+
+Known limits are browser/codec/audio-capture support, non-frame-accurate iframe
+synchronization, iframe audio excluded from WAV and separate iframe device
+routing, in-memory recording size, and the existing anonymous session model.
+No automatic checks certify a three-computer classroom deployment. After this
+checklist passes, review the intended default/principal branch and the deployment
+configuration before merging; this work does not change that branch.

@@ -8,7 +8,8 @@
  * https://webrtc.github.io/samples/src/content/getusermedia/record/
  * https://www.webrtc-experiment.com/RecordRTC/simple-demos/
  * https://webrtc.github.io/samples/src/content/peerconnection/pc1/
- * WebRTC server: https://github.com/meetecho/janus-gateway
+ * Historical server example: https://github.com/meetecho/janus-gateway
+ * InTrain uses PeerJS signaling, not Janus.
  * Explore HTML5 audio: https://dzone.com/articles/exploring-html5-web-audio
  */
 speakerAudioMutedDefault = false;
@@ -23,12 +24,13 @@ myRole = RoleSupervisor;
 myColor = ColorSupervisor;
 
 
-// NB: speaker → 1 (L), interpreter → 2 (R)
+// Default output: interpreter on L (input 0), selected floor on R (input 1).
+// Swap exchanges both listening and recorded channels, not the transmitted media.
 
-var split1    = null; // Splitter di canali
-var split2    = null; // Splitter di canali
-var gain1     = null; // Volume canale 1
-var gain2     = null; // Volume canale 2
+var split1    = null; // Legacy name: mono tap bus for physical R
+var split2    = null; // Legacy name: mono tap bus for physical L
+var gain1     = null; // Listening gain on physical R
+var gain2     = null; // Listening gain on physical L
 var mix       = null; // Mixer di canali
 var channel1  = null;
 var channel2  = null;
@@ -38,13 +40,13 @@ var speakerSource = null;
 var interpreterSource = null;
 var mySource = null;
 
-// AudioRecorder: the two audio sources be mixed as separate L/R
-// stereo tracks, both on mix (which will be eventually connected to
-// the output) and mixrec, which is connected to the audio recorder
+// Both sources are downmixed to mono and placed on separate L/R channels.
+// mix is the listening branch; mixrec taps the same buses before listening gains.
 var zeroGain      = null;
 var mixrec        = null; // Mixer di canali
 var audioRecorder = null;
 var recIndex      = 1; 
+var recordingExportPending = false; // Keep the last take intact until its WAV is ready.
 
 
 // Canvas to draw an audio waveform for the microphone
@@ -56,7 +58,7 @@ var swapChannels = false; // swap channels toggle variable
 var boostVolume = false;  // boost volume
 var showPlayer = false;   // External video player is currently visible
 var pendingMediaModeSwitch = null; // Action awaiting the supervisor's confirmation
-var floorSelectionEpoch = 0; // Ignore obsolete screen capture picker results
+var floorSelectionEpoch = 0; // Ignore obsolete screen capture and local-file loads
 var localFileFloor = null; // Owns decoder, audio nodes, canvas track and object URL
 var sharedFloorKind = 'screen';
 var currentVideoURL = null; // Supervisor-owned video source, for late joiners
@@ -366,12 +368,31 @@ function setSupervisorPlayerVisible(visible) {
     if (interpreterData && interpreterData.open)
         interpreterData.send({action: showPlayer ? 'showplayer' : 'hideplayer'});
 
-    // The recorder taps the splitters before the listening gain controls.
+    // The recorder taps the mono buses before the listening gain controls.
     if (audioContext && split1 && split2) initCrossFader();
     updateSupervisorFloorSelector();
     return true;
 }
 
+
+/* Apply listening controls after routing and whenever balance/mute/swap changes.
+ * The iframe has a separate output: multiply its floor balance by the global
+ * headphone level, rather than overwriting that level with setVolume().
+ */
+function updateSupervisorMonitor() {
+    if (!audioContext || !gain1 || !gain2) return;
+    const slider = document.getElementById('cross-fader');
+    const min = Number(slider.min), max = Number(slider.max);
+    const balance = Math.max(0, Math.min(1, (Number(slider.value) - min) / (max - min)));
+    const right = Math.sin(balance * Math.PI / 2);
+    const left = Math.cos(balance * Math.PI / 2);
+    const rightMuted = swapChannels ? interpreterAudioMuted : speakerAudioMuted;
+    const leftMuted = swapChannels ? speakerAudioMuted : interpreterAudioMuted;
+    const scale = boostVolume ? 4 : 2; // Boost is twice the normal native monitor gain.
+    gain1.gain.setValueAtTime(rightMuted ? 0 : scale * right, audioContext.currentTime);
+    gain2.gain.setValueAtTime(leftMuted ? 0 : scale * left, audioContext.currentTime);
+    InTrainHeadphones.setPlayerGain(speakerAudioMuted ? 0 : (swapChannels ? left : right));
+}
 
 // When the page has been loaded
 $(document).ready(async function() {
@@ -962,42 +983,9 @@ $(document).ready(async function() {
         $('#cross-fader').trigger('input');
     });
     
-    $('#cross-fader').on('input', function(){
-    
-        var val = $(this).val();
-        var min = $(this).attr('min');
-        var max = $(this).attr('max');
-        
-        var m1 = speakerAudioMuted ? 0.0001 : 1;
-        var m2 = interpreterAudioMuted ? 0.0001 : 1;
-        
-        var b = parseInt(val) / (parseInt(max) - parseInt(min));
-        var v = boostVolume ? 8 : 2 ; //1.5*parseInt(volume.value) / (parseInt(volume.max) - parseInt(volume.min));
+    $('#cross-fader').on('input', updateSupervisorMonitor);
+    updateSupervisorMonitor();
 
-        
-        var vol1 = m1 * v * Math.cos((1.0 - b) * 0.5 * Math.PI);
-        var vol2 = m2 * v * Math.cos(b * 0.5 * Math.PI)
-        
-        // exponentialRampToValueAtTime does not allow to set volume to 0
-        if (showPlayer && myVideoPlayer && !myVideoPlayer.paused) {
-            myVideoPlayer.setVolume(Math.cos((1.0 - b) * 0.5 * Math.PI));
-            gain1.gain.setValueAtTime(0, audioContext.currentTime);
-        } else {
-            if (vol1 == 0) {
-                gain1.gain.setValueAtTime(0, audioContext.currentTime);
-            } else {
-                gain1.gain.exponentialRampToValueAtTime(vol1, audioContext.currentTime);
-            }
-        }
-        if (vol2 == 0) {
-            gain2.gain.setValueAtTime(0, audioContext.currentTime);
-        } else {
-            gain2.gain.exponentialRampToValueAtTime(vol2, audioContext.currentTime);
-        }
-        
-    });      
-
-  
     /*
      * A single floor entry point owns all transitions. Modal/capture dialogs
      * only collect input; the active floor changes after a successful action.
@@ -1230,7 +1218,7 @@ $(document).ready(async function() {
     var recording = false;
     $('#record-audio').on('click', function(e) {
     
-        if (!audioRecorder) return;
+        if (!audioRecorder || recordingExportPending) return;
         
         console.log("Record clicked");
         
@@ -1242,12 +1230,11 @@ $(document).ready(async function() {
             
             audioRecorder.stop();
             recording = false;
-            audioRecorder.getBuffers( saveAudio );
-             
-            $("#save-audio").removeClass("disabled");
-            $("#save-audio > i").removeClass('fa-cog fa-spin').addClass('fa-save');
-            $("label[for='save-audio']").html('File ready').removeClass('fa-blink');
-            animateCSS('#save-audio', 'heartBeat');
+            recordingExportPending = true;
+            $('#record-audio').prop('disabled', true);
+            $("label[for='save-audio']").html('Encoding').removeClass('fa-blink');
+            // Export before a new recording can clear/reuse the worker buffers.
+            saveAudio();
             
             if (speakerData && speakerData.open) {
                 speakerData.send({action: "recording", mode: "off"});
@@ -1289,6 +1276,7 @@ $(document).ready(async function() {
     });
     
     
+    // Legacy name: both screen capture and local-file media use this secondary floor.
     function sharingScreen() {
         return sharingScreenActive && screenshareMediaStream &&
                screenshareMediaStream.getTracks().some(track => track.readyState === 'live');
@@ -1441,51 +1429,33 @@ function oscillator(freq = 11, vol = 0.01) {
     return g;
 }
 
-function reconnectChannel(channel, stream) {
-    if (stream) {
-    } else {
-    }
-}
-
-
 /*
-    This is our web audio graph:
-
-        (channel1)  ⇴  (split1)  →  (gain1) 
-                          ↓                 ↘	 
-         (zeroGain) ←  (mixrec) ⇒ recorder    (mix) → (ctxDest) ⇒ speaker
-                          ↑                 ↗   
-        (channel2)  ⇴  (split2)  →  (gain2) 
-
-    The two audio input streams are redirected to channel1 and channel2
-    Channels are conencted to channel splitter nodes, making them two
-    mono tracks. 
-    Each splitter node is connected to a gain node to change its volume
-    and implement cross fading.
-    These two gain nodes are combined by mixer node to become L/R channels.
-    The mixer node is connected to a stream destination node whose audio can then
-    be redirected to a specific audio device
-    The two split nodes are also directly combined into L/R tracks by
-    connecting them to another mixer node (mixrec) which is used to record audio
-    Since the mixrec node must be connected to and audio context destination (to
-    make audio flow) and we don't want to hear that audio, we silence it by
-    connecting to a zero gain node, which is then connected to the standard 
-    destination.
-    
-    channel1 and channel2 are replaced when the iterpreter or the speaker 
-    connect, disconnect, reconnect.
-*/
+ * Source selection + optional L/R swap -> mono tap buses split1 (R), split2 (L).
+ * Each bus feeds two independent branches:
+ *   listening: gain1/gain2 -> stereo mix -> ctxDest -> audioOutputElement
+ *              -> global headphone volume -> selected listening device;
+ *   recording: mixrec -> Recorder -> stereo WAV (before all listening controls).
+ * mixrec -> zeroGain (0) -> AudioContext.destination keeps the recording graph
+ * running without playing a second copy. YouTube/Vimeo audio stays in its iframe;
+ * channel1 is silence in that mode, and the iframe's volume is controlled through
+ * InTrainHeadphones with a separate floor-balance factor. See README-1.0.md.
+ */
 function initAudioCtx() {
-
-//  audioContext = new AudioContext();
 
     console.log("Initializing audio context");
 
-    split1   = audioContext.createChannelSplitter(2);  // Splitter di canali
-    split2   = audioContext.createChannelSplitter(2);  // Splitter di canali
-    gain1    = audioContext.createGain();              // Volume canale 1
-    gain2    = audioContext.createGain();              // Volume canale 2
-    mix      = audioContext.createChannelMerger(2, 2); // Mixer di canali
+    // Downmix before the tap: selecting splitter output 0 discarded stereo R.
+    // Names are retained to keep the common recorder/monitor taps recognizable.
+    split1 = audioContext.createGain();
+    split2 = audioContext.createGain();
+    for (const bus of [split1, split2]) {
+        bus.channelCount = 1;
+        bus.channelCountMode = 'explicit';
+        bus.channelInterpretation = 'speakers';
+    }
+    gain1 = audioContext.createGain();
+    gain2 = audioContext.createGain();
+    mix = audioContext.createChannelMerger(2);
     channel1 = null;
     channel2 = null;
 
@@ -1496,21 +1466,14 @@ function initAudioCtx() {
     gain2.connect(mix, 0, 0);
 
 
-    // Since the Web Audio API does not allow to set a specific audio device
-    // as a destination, we first create a destination node that we will use
-    // it as a source for a dynamic audio element, for which we can set the
-    // sinkId to any device we wish.
+    // Use a playback element's setSinkId to select the output device. The same
+    // element applies headphone volume after the mix, outside the recorder path.
     ctxDest  = audioContext.createMediaStreamDestination();    
 
             
     // Our audio stream becomes the audioOutputElement srcObject
     audioOutputElement.srcObject = ctxDest.stream;
     
-    // Try to play output element if audio context is available
-    if (audioContext.state !== 'suspended') {
-
-    }
-
     mix.connect(ctxDest);
     
     
@@ -1531,7 +1494,7 @@ function initCrossFader() {
         if (typeof channel2.stop === 'function') channel2.stop();
     }
     
-    // The recorder taps the splitters before the listening gain nodes.
+    // The recorder taps the mono buses before the listening gain nodes.
     // Select the recording source explicitly: muting gain1 does not mute
     // the recording. A shared screen without audio also needs a silent track.
     if (showPlayer) {
@@ -1553,7 +1516,7 @@ function initCrossFader() {
         channel1 = brownianNoise(0.0025);
     }
     
-    if (interpreterMedia && interpreterMedia && interpreterMediaStream) {
+    if (interpreterMedia && interpreterMedia.open && interpreterMediaStream) {
         console.log("Adding interpreter audio to crossfader...");    
         channel2 = audioContext.createMediaStreamSource(interpreterMediaStream);
     } else {
@@ -1569,13 +1532,14 @@ function initCrossFader() {
     
     channel1.connect(split1, 0, 0);
     channel2.connect(split2, 0, 0);
+    updateSupervisorMonitor();
 
 }
 
 
 function initRecorder() {
     
-    mixrec        = audioContext.createChannelMerger(2, 2); // Channel mixer for the recorder
+    mixrec        = audioContext.createChannelMerger(2); // Stereo tap: L interpreter, R floor before swap
     audioRecorder = new Recorder( mixrec );
     zeroGain      = audioContext.createGain();
 
@@ -1592,10 +1556,8 @@ function initRecorder() {
 }
 
 
-// the ONLY time saveAudio is called is right after a 
-// new recording is completed, so here's where we should
-// set up the download.
-function saveAudio( buffers ) {
+// Called after stopping the recorder; the worker encodes its captured buffers as WAV.
+function saveAudio() {
 console.log('SAVE AUDIO');
     audioRecorder.exportWAV( doneEncoding );
 }
@@ -1613,6 +1575,12 @@ console.log('DONE ENCODING');
     );
     
     recIndex++;
+    recordingExportPending = false;
+    $('#record-audio').prop('disabled', false);
+    $('#save-audio').removeClass('disabled');
+    $('#save-audio > i').removeClass('fa-cog fa-spin').addClass('fa-save');
+    $("label[for='save-audio']").html('File ready').removeClass('fa-blink');
+    animateCSS('#save-audio', 'heartBeat');
 }
 
 

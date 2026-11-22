@@ -655,6 +655,89 @@ test('headphone level covers native outputs and iframe players without touching 
     c.InTrainHeadphones.setVolume(-1); assert.equal(mixedOutput.volume, 0);
 });
 
+test('supervisor balance preserves headphone mute and participant mutes after swapping sides', () => {
+    const c = loadApp();
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    const balance = {min: '0', max: '100', value: '50'};
+    c.document.getElementById = id => id === 'cross-fader' ? balance : null;
+    vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../js/headphones.js'), 'utf8'), c);
+    let right, left, iframe;
+    c.audioContext = {currentTime: 0};
+    c.gain1 = {gain: {setValueAtTime(value) {right = value;}}};
+    c.gain2 = {gain: {setValueAtTime(value) {left = value;}}};
+    c.InTrainHeadphones.setPlayer({setVolume(value) {iframe = value;}});
+    c.InTrainHeadphones.setVolume(0);
+    c.updateSupervisorMonitor();
+    assert.equal(iframe, 0); // The crossfader must never bypass headphone mute.
+    c.InTrainHeadphones.setVolume(20);
+    assert.ok(Math.abs(iframe - 0.2 * Math.SQRT1_2) < 1e-10);
+    balance.value = '100'; c.updateSupervisorMonitor();
+    assert.equal(right, 2);
+    assert.equal(iframe, 0.2);
+    c.swapChannels = true; c.speakerAudioMuted = true; c.updateSupervisorMonitor();
+    assert.equal(left, 0); // Floor moved to L; its mute must move with it.
+    assert.equal(right, 2);
+    assert.equal(iframe, 0);
+    c.speakerAudioMuted = false; c.interpreterAudioMuted = true;
+    balance.value = '0'; c.updateSupervisorMonitor();
+    assert.equal(right, 0);
+    assert.equal(left, 2);
+    assert.equal(iframe, 0.2); // Swapped floor is now on the left side of balance.
+    c.boostVolume = true; c.updateSupervisorMonitor();
+    assert.equal(left, 4); // The Boost button promises 2x, not 4x.
+    assert.equal(iframe, 0.2); // Iframe API can attenuate but cannot amplify above unity.
+});
+
+test('an embedded interpreter floor cannot leak live speaker audio after a mode change', () => {
+    const c = loadApp();
+    c.myRole = 'interpreter'; c.showPlayer = true; c.speakerVideo = {muted: true};
+    c.muteMicrophone('speaker', false);
+    assert.equal(c.speakerVideo.muted, true);
+    assert.equal(c.speakerAudioMuted, true);
+    c.showPlayer = false; c.muteMicrophone('speaker', false);
+    assert.equal(c.speakerVideo.muted, false);
+});
+
+test('recording cannot restart or download an old take while its WAV is being encoded', () => {
+    const c = loadApp();
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    const state = {}, handlers = {};
+    c.$ = selector => {
+        state[selector] ||= {classes: new Set(), disabled: false};
+        const item = state[selector];
+        const chain = new Proxy({}, {get: (_, key) => (...args) => {
+            if (key === 'on') handlers[selector] = args[1];
+            if (key === 'prop') item[args[0]] = args[1];
+            if (key === 'addClass') item.classes.add(args[0]);
+            if (key === 'removeClass') item.classes.delete(args[0]);
+            return chain;
+        }});
+        return chain;
+    };
+    c.animateCSS = () => {};
+    let cleared = 0, exported, download = 0;
+    c.audioRecorder = {clear() {cleared++;}, record() {}, stop() {}, exportWAV(callback) {exported = callback;}};
+    c.Recorder = {setupDownload() {download++; return 'blob:take';}};
+    const encoding = role.indexOf('function saveAudio(');
+    vm.runInContext(role.slice(encoding, role.indexOf('/**', encoding)), c);
+    const start = role.indexOf('    var recording = false;');
+    vm.runInContext(role.slice(start, role.indexOf("    $('#save-audio').on", start)), c);
+    const click = handlers['#record-audio'];
+    click(); click(); // Start, then stop/export.
+    assert.equal(c.recordingExportPending, true);
+    assert.equal(state['#record-audio'].disabled, true);
+    assert.ok(state['#save-audio'].classes.has('disabled'));
+    click(); assert.equal(cleared, 1); // Do not clear the previous take yet.
+    exported({size: 1024});
+    assert.equal(download, 1);
+    assert.equal(c.recordingExportPending, false);
+    assert.equal(state['#record-audio'].disabled, false);
+    assert.ok(!state['#save-audio'].classes.has('disabled'));
+    click(); assert.equal(cleared, 2);
+});
+
 test('all role headers have one headphone slider before setup and iframe volume remains local', () => {
     const root = path.resolve(__dirname, '..');
     for (const name of ['speaker', 'interpreter', 'supervisor']) {
@@ -832,7 +915,7 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.13'},
+        {role: 'supervisor', version: '1.0.14'},
         {role: 'interpreter', version: '1.0.8'}
     ];
     for (const {role, version} of pages) {

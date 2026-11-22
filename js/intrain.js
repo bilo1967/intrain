@@ -534,7 +534,8 @@ function getFileDownloadLinkFromData(data) {
     return html;
 }
 
-// Keep an active screen share visible while speaker media connects or disconnects.
+// Keep the supervisor's secondary floor (screen or file) selected while speaker
+// media connects or disconnects; volume stays on the same playback element.
 function refreshSpeakerVideoSource() {
     if (!speakerVideo) return;
     const screenIsActive = !!screenshareMediaStream &&
@@ -843,6 +844,11 @@ function isMicrophoneMuted(role) {
 }
 
 function muteMicrophone(role, muted = true) {
+    // This function mutes local playback of a remote participant, not their
+    // transmitted microphone. An embedded floor must exclude the live speaker
+    // even if a briefing/training change tries to restore participant audio.
+    if (myRole === RoleInterpreter && role === RoleSpeaker &&
+        typeof showPlayer !== 'undefined' && showPlayer) muted = true;
     var e = null;
     var c = null;
     

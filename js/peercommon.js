@@ -116,7 +116,7 @@ function loadPeerHandlers(setAudioMode = () => {}) {
 
         // Interpreter and speaker should receive a media call only from each other
         // but not from the supervisor, who is called by each of them.
-        // Interpreter cal also receive a screen share connection
+        // The interpreter can also receive the supervisor's screen or local-file floor.
         if (role == myRole || role == RoleSupervisor ||
             (myRole == RoleSpeaker && role == RoleScreenShare) ||
             (role == RoleScreenShare && c.peer !== userID) ||
@@ -136,7 +136,7 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                 screenshareMediaStream = stream;
                 refreshSpeakerVideoSource();
 
-                // Speaker media arriving later must not replace the current screen.
+                // Late speaker media must not replace the supervisor's current floor.
                 stream.getTracks().forEach(track => {
                     track.onended = () => {
                         if (screenshareConnection !== c || screenshareMediaStream !== stream) return;
