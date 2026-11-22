@@ -16,7 +16,9 @@ function loadApp() {
         navigator: {mediaDevices: {}},
         MediaStream: class MediaStream {},
         HTMLCanvasElement: class HTMLCanvasElement {},
-        URL: {createObjectURL: () => 'blob:test'},
+        URL: class extends URL {
+            static createObjectURL() {return 'blob:test';}
+        },
         Blob, ArrayBuffer,
         window: {},
     });
@@ -340,10 +342,9 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
     assert.match(supervisor, /id="player-panel"/);
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
-    assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.5/);
-    for (const page of ['speaker.html', 'interpreter.html']) {
+    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
-        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.4/);
+        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.6/);
     }
 });
 
@@ -411,4 +412,96 @@ test('all role pages load only the Git-ignored runtime configuration', () => {
     assert.equal(config.WaitBeforeClose, 500);
     assert.doesNotMatch(template, /ditlab\.it/);
     assert.match(template, /REPLACE_ME/);
+});
+
+
+test('video URL validation accepts complete provider links but rejects bare IDs and invalid URLs', () => {
+    const c = loadApp();
+    for (const input of [
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        'https://youtu.be/dQw4w9WgXcQ?t=45',
+        'https://youtube.com/shorts/dQw4w9WgXcQ',
+        'https://player.vimeo.com/video/12345678',
+        'https://vimeo.com/12345678',
+        'https://www.facebook.com/watch/?v=12345678'
+    ]) {
+        assert.equal(c.validateVideoURL(input).valid, true, input);
+    }
+    for (const input of [
+        '',
+        'dQw4w9WgXcQ',
+        '12345678',
+        'youtube.com/watch?v=dQw4w9WgXcQ',
+        'https://www.youtube.com/',
+        'https://www.youtube.com/watch?v=wrong',
+        'https://www.youtube.com/playlist?list=PLTEST',
+        'https://evil.youtube.com/watch?v=dQw4w9WgXcQ',
+        'javascript:alert(1)',
+        'http://youtu.be/dQw4w9WgXcQ',
+        'https://vimeo.com/channels/example',
+        'https://example.org/video/12345678'
+    ]) {
+        const result = c.validateVideoURL(input);
+        assert.equal(result.valid, false, input);
+        assert.ok(result.error, input);
+    }
+    assert.equal(
+        c.validateVideoURL('https://youtu.be/dQw4w9WgXcQ?si=abc').url,
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    );
+});
+
+test('supervisor state snapshot includes video URL, visibility, position and playback', () => {
+    const c = loadApp();
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    // Only evaluate the declarations; the DOM-ready handler needs a real browser.
+    vm.runInContext(
+        source.slice(0, source.indexOf('$(document).ready(')),
+        c,
+        {filename: 'role-supervisor.js'}
+    );
+
+    const sent = [];
+    c.currentVideoURL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    c.showPlayer = true;
+    c.myVideoPlayer = {paused: false, getCurrentTime: () => 37.5};
+    c.sendCurrentVideoState({open: true, send: data => sent.push(data)});
+
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].action, 'playerstate');
+    assert.equal(sent[0].visible, true);
+    assert.equal(sent[0].time, 37.5);
+    assert.equal(sent[0].playing, true);
+    assert.equal(sent[0].url, c.currentVideoURL);
+    c.sendCurrentVideoState({open: false, send: () => assert.fail('Sent to closed connection')});
+});
+
+test('interpreter cannot click or use keyboard controls and late join restores the video', () => {
+    const root = path.resolve(__dirname, '..');
+    const role = fs.readFileSync(path.join(root, 'js/role-interpreter.js'), 'utf8');
+    const peer = fs.readFileSync(path.join(root, 'js/peercommon.js'), 'utf8');
+    const supervisor = fs.readFileSync(path.join(root, 'js/role-supervisor.js'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const html = fs.readFileSync(path.join(root, 'interpreter.html'), 'utf8');
+
+    assert.match(role, /clickToPlayPause:\s*false/);
+    assert.match(role, /enableKeyboard:\s*false/);
+    assert.match(role, /features:\s*\[\]/);
+    assert.match(html, /class="video-player-interaction-shield"/);
+    assert.match(css, /\.interpreter-video-player \.mejs__container\s*\{[^}]*pointer-events:\s*none/);
+    assert.match(css, /\.interpreter-video-player \.video-player-interaction-shield\s*\{[^}]*z-index:\s*100/);
+    assert.match(supervisor, /role === RoleInterpreter\) sendCurrentVideoState\(c\)/);
+    assert.match(peer, /case 'playerstate':/);
+    assert.match(peer, /applyRemoteVideoState\(data\)/);
+});
+
+test('supervisor validates URL and loads source once after overlay is shown', () => {
+    const js = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const loadBlock = js.slice(js.indexOf("$('#run-player').on('click'"), js.indexOf("$('#load-player').on('click'"));
+    assert.match(loadBlock, /validateVideoURL\(/);
+    assert.match(loadBlock, /result\.valid/);
+    assert.match(loadBlock, /requestAnimationFrame\(/);
+    assert.equal((loadBlock.match(/myVideoPlayer\.setSrc\(/g) || []).length, 1);
+    assert.match(loadBlock, /addClass\('is-invalid'\)/);
+    assert.match(js, /addEventListener\('error'/);
 });

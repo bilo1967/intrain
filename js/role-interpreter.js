@@ -16,6 +16,121 @@ supervisorAudioMuted = supervisorAudioMutedDefault;
 // Video player
 var showPlayer = false;
 
+/*
+ * The interpreter is a read-only viewer of the supervisor's synchronized video.
+ * Playback commands arrive through the PeerJS data channel; this page never
+ * starts playback in response to a local mouse or keyboard event.
+ */
+var remoteVideoURL = null;
+var pendingRemoteVideoState = null;
+
+function setInterpreterPlayerVisible(visible) {
+    showPlayer = !!visible;
+    $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
+        .toggleClass('fas fa-times-circle', showPlayer);
+    $('#player-container').toggleClass('stack-top', showPlayer)
+        .toggleClass('stack-bottom hidden', !showPlayer);
+
+    if (showPlayer && myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
+        requestAnimationFrame(function() {
+            if (showPlayer) myVideoPlayer.setPlayerSize(
+                $('#player-container').width(), $('#player-container').height()
+            );
+        });
+    }
+}
+
+/* Try to seek/play after the iframe renderer reports loaded metadata. */
+function applyPendingRemoteVideoState() {
+    if (!pendingRemoteVideoState || !myVideoPlayer) return;
+    const state = pendingRemoteVideoState;
+    try {
+        if (state.time > 0) myVideoPlayer.setCurrentTime(state.time);
+        if (state.playing) {
+            const result = myVideoPlayer.play();
+            if (result && typeof result.catch === 'function') {
+                result.catch(error => console.warn('Browser blocked remote video autoplay', error));
+            }
+        } else {
+            myVideoPlayer.pause();
+        }
+        if (pendingRemoteVideoState === state) pendingRemoteVideoState = null;
+    } catch (error) {
+        // Some iframe renderers reject seeks until they finish initialization.
+        console.warn('Remote player is not ready for synchronized commands yet', error);
+    }
+}
+
+function applyRemoteVideoState(data) {
+    const parsed = validateVideoURL(data && data.url);
+    if (!parsed.valid) {
+        console.warn('Ignoring invalid remote video URL:', parsed.error);
+        return;
+    }
+    if (!myVideoPlayer) return;
+
+    const time = Number(data.time);
+    pendingRemoteVideoState = {
+        time: Number.isFinite(time) && time >= 0 ? time : 0,
+        playing: data.playing === true
+    };
+
+    if (remoteVideoURL !== parsed.url) {
+        remoteVideoURL = parsed.url;
+        // Give MediaElement's embedded iframe a frame with a visible container.
+        requestAnimationFrame(function() {
+            if (remoteVideoURL !== parsed.url || !myVideoPlayer) return;
+            try {
+                myVideoPlayer.setSrc(parsed.url);
+            } catch (error) {
+                pendingRemoteVideoState = null;
+                remoteVideoURL = null;
+                logToPanel('The video sent by the supervisor could not be loaded.', 'warning');
+                console.error('Video source rejected', error);
+            }
+        });
+    } else {
+        applyPendingRemoteVideoState();
+    }
+}
+
+function setRemoteVideoPlaying(playing) {
+    if (pendingRemoteVideoState) {
+        pendingRemoteVideoState.playing = !!playing;
+        return;
+    }
+    if (!myVideoPlayer) return;
+    try {
+        if (playing) {
+            const result = myVideoPlayer.play();
+            if (result && typeof result.catch === 'function') {
+                result.catch(error => console.warn('Browser blocked synchronized playback', error));
+            }
+        } else {
+            myVideoPlayer.pause();
+        }
+    } catch (error) {
+        console.warn('Video player not yet ready for playback', error);
+    }
+}
+
+function seekRemoteVideo(time, pause) {
+    const position = Number(time);
+    if (!Number.isFinite(position) || position < 0) return;
+    if (pendingRemoteVideoState) {
+        pendingRemoteVideoState.time = position;
+        if (pause === true) pendingRemoteVideoState.playing = false;
+        return;
+    }
+    if (!myVideoPlayer) return;
+    try {
+        myVideoPlayer.setCurrentTime(position);
+        if (pause === true) myVideoPlayer.pause();
+    } catch (error) {
+        pendingRemoteVideoState = {time: position, playing: pause !== true};
+    }
+}
+
 // Canvas to draw an audio waveform for the microphone
 var micGraph = null;
 
@@ -94,21 +209,21 @@ $(document).ready(async function() {
 	$('#myplayer').mediaelementplayer({
         startVolume: 1,
         stretching: 'responsive',
-        controls: true,
+        controls: false,
+        clickToPlayPause: false,
+        enableKeyboard: false,
         alwaysShowControls: false,
-        features: [
-        //  "playpause",
-        //  "progress",
-            "current",
-            "duration",
-        //  "tracks",
-            "volume",
-            "fullscreen"
-        ],
+        features: [],
         success: function(mediaElement, originalNode, instance) {
             myVideoPlayer = instance;
-            myVideoMediaElement = mediaElement;            
-	    }
+            myVideoMediaElement = mediaElement;
+            mediaElement.addEventListener('loadedmetadata', applyPendingRemoteVideoState, false);
+            mediaElement.addEventListener('canplay', applyPendingRemoteVideoState, false);
+            mediaElement.addEventListener('error', function(error) {
+                console.warn('Cannot load the synchronized video', error);
+                logToPanel('This video is unavailable or cannot be embedded.', 'warning');
+            }, false);
+        }
         
 	});
 
@@ -170,17 +285,8 @@ $(document).ready(async function() {
 
 
 
-    $('#load-player').on('click', function() {
-        showPlayer = !showPlayer;
-        
-        if (showPlayer) {
-            $('#load-player i').removeClass('fab fa-youtube').addClass('fas fa-times-circle');
-            $('#player-container').removeClass('stack-bottom hidden').addClass('stack-top');
-        } else {
-            $('#load-player i').removeClass('fas fa-times-circle').addClass('fab fa-youtube');
-            $('#player-container').removeClass('stack-top').addClass('stack-bottom hidden');
-        }
-    });
+    // Viewing the video is controlled by the supervisor. No local toggle.
+    $('#load-player').prop('disabled', true);
 
 
     // ondevicechange event (webcam or headset has been plugged in or out)

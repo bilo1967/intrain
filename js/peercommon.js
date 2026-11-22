@@ -283,58 +283,54 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                     break;
 
                 case 'showplayer':
-                    if (myRole == RoleInterpreter ) {
-                        $('#player-container').removeClass('stack-bottom hidden').addClass('stack-top');
-                        $('#player-panel').fadeTo(1000, 1);
-                        showPlayer = true;
-
-                        // Mute speaker audio while in video player mode
-                        if (speakerMedia && speakerMedia.open) 
+                    if (myRole === RoleInterpreter) {
+                        setInterpreterPlayerVisible(true);
+                        // Mute the floor audio while interpreting a synchronized video.
+                        if (speakerMedia && speakerMedia.open)
                             muteMicrophone(RoleSpeaker, true);
                     }
                     break;
-                    
+
                 case 'hideplayer':
-                    if (myRole == RoleInterpreter ) {
-                        showPlayer = false;
-                        $('#player-container').removeClass('stack-top').addClass('stack-bottom hidden');
-                        $('#player-panel').fadeTo(500, 0);
+                    if (myRole === RoleInterpreter) {
+                        setInterpreterPlayerVisible(false);
+                        // Return the floor audio when the video is hidden.
+                        if (speakerMedia && speakerMedia.open)
+                            muteMicrophone(RoleSpeaker, false);
+                    }
+                    break;
+
+                case 'playerstate':
+                    if (myRole === RoleInterpreter) {
+                        setInterpreterPlayerVisible(data.visible === true);
+                        if (data.url) applyRemoteVideoState(data);
+                        if (speakerMedia && speakerMedia.open)
+                            muteMicrophone(RoleSpeaker, data.visible === true);
                     }
                     break;
 
                 case 'loadvideo':
-                    if (myRole == RoleInterpreter ) {
-                        $('#player-container').removeClass('stack-bottom hidden').addClass('stack-top');
-                        $('#player-panel').fadeTo(1000, 1);
-                        if (myVideoPlayer != null) {
-                            console.log("Received video " + data.url);
-                            myVideoPlayer.setSrc(data.url);
-                            if (data.time)
-                                myVideoPlayer.setCurrentTime(parseFloat(data.time));
-                            if (data.pause)
-                                myVideoPlayer.pause();
-                        }
+                    if (myRole === RoleInterpreter) {
+                        setInterpreterPlayerVisible(true);
+                        applyRemoteVideoState({
+                            url: data.url,
+                            time: data.time,
+                            playing: data.pause !== true
+                        });
                     }
                     break;
+
                 case 'playvideo':
-                    if (myVideoPlayer != null) {
-                        console.log("play video");
-                        myVideoPlayer.play();
-                    }
+                    if (myRole === RoleInterpreter) setRemoteVideoPlaying(true);
                     break;
+
                 case 'pausevideo':
-                    if (myVideoPlayer != null) {
-                        console.log("pause video");
-                        myVideoPlayer.pause();
-                    }
+                    if (myRole === RoleInterpreter) setRemoteVideoPlaying(false);
                     break;
+
                 case 'seekvideo':
-                    if (myVideoPlayer != null) {
-                        // Use the same MediaElement.js player API as loadvideo and the supervisor.
-                        myVideoPlayer.setCurrentTime(parseFloat(data.time));
-                        if (data.pause) myVideoPlayer.pause();
-                        console.log("seek video to", data.time);
-                    }
+                    if (myRole === RoleInterpreter)
+                        seekRemoteVideo(data.time, data.pause);
                     break;
                 case 'setaudiomode':
                     setSessionMode(data.mode);

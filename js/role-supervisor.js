@@ -55,6 +55,61 @@ var micGraph = null;
 var swapChannels = false; // swap channels toggle variable
 var boostVolume = false;  // boost volume
 var showPlayer = false;   // show player and load controls
+var currentVideoURL = null; // Supervisor-owned video source, for late joiners
+var videoLoadGeneration = 0; // Ignore stale pending loads
+
+/*
+ * Keep the current video state together with the other session state.
+ * An interpreter joining late receives this snapshot after data connects.
+ */
+function getCurrentVideoState() {
+    let time = 0;
+    let playing = false;
+
+    if (currentVideoURL && myVideoPlayer) {
+        try {
+            const position = Number(myVideoPlayer.getCurrentTime());
+            if (Number.isFinite(position) && position >= 0) time = position;
+            playing = !myVideoPlayer.paused;
+        } catch (error) {
+            console.warn('Cannot read current player position', error);
+        }
+    }
+    return {action: 'playerstate', url: currentVideoURL, visible: showPlayer, time, playing};
+}
+
+function sendCurrentVideoState(connection) {
+    if (connection && connection.open) connection.send(getCurrentVideoState());
+}
+
+/* Show the video above the speaker feed while keeping the URL toolbar aligned. */
+function setSupervisorPlayerVisible(visible) {
+    showPlayer = !!visible;
+    $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
+        .toggleClass('fas fa-times-circle', showPlayer);
+    $('#player-container').toggleClass('stack-top', showPlayer)
+        .toggleClass('stack-bottom hidden', !showPlayer);
+
+    const controls = $('#player-panel').stop(true, true);
+    if (showPlayer) {
+        controls.fadeTo(0, 1).animate({width: controls.css('max-width')}, 400);
+    } else {
+        controls.animate({width: '0'}, 400).fadeTo(0, 0);
+    }
+
+    if (showPlayer && myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
+        requestAnimationFrame(function() {
+            // Recalculate an iframe renderer initialized inside a hidden overlay.
+            if (showPlayer) myVideoPlayer.setPlayerSize(
+                $('#player-container').width(), $('#player-container').height()
+            );
+        });
+    }
+
+    if (interpreterData && interpreterData.open) {
+        interpreterData.send({action: showPlayer ? 'showplayer' : 'hideplayer'});
+    }
+}
 
 
 // When the page has been loaded
@@ -220,6 +275,11 @@ $(document).ready(async function() {
                 if (interpreterData && interpreterData.open)
                     interpreterData.send({action: "playvideo"});
             }, false);
+            mediaElement.addEventListener('error', function(error) {
+                if (!currentVideoURL) return;
+                console.warn('Video renderer reported an error', error);
+                logToPanel('This video cannot be loaded. It may be unavailable, private or restricted.', 'warning');
+            }, false);
             
             
             instance.prepare = function() {
@@ -261,7 +321,12 @@ $(document).ready(async function() {
                 console.log("seek video to", t.toFixed(4));
                 
             });             
-	    }
+	    },
+        error: function(error) {
+            if (!currentVideoURL) return;
+            console.error('Cannot initialize video renderer', error);
+            logToPanel('Unable to load the selected video. Verify that it exists and can be embedded.', 'warning');
+        }
 	});
        
     
@@ -420,6 +485,8 @@ $(document).ready(async function() {
                     // Bring a late joiner up to date with session mode and recording.
                     c.send({action: 'setaudiomode', mode: sessionMode});
                     c.send({action: 'recording', mode: recording ? 'on' : 'off'});
+                    // Screen share already reconnects via media; also restore the video player.
+                    if (role === RoleInterpreter) sendCurrentVideoState(c);
 
 
                     // Push a notification if permission is granted and 
@@ -611,54 +678,48 @@ $(document).ready(async function() {
     });      
 
   
-    $('#run-player').on('click', function() {
-        var videoURL = $('#video-url').val();
-        myVideoPlayer.setSrc(videoURL);
-        if (interpreterData && interpreterData.open) {
-
-            console.log("Sending video " + videoURL + " to interpreter");
-            interpreterData.send({
-                action: "loadvideo",
-                url: videoURL,
-                time:  0.01,
-                pause: true
-            });
-
-            myVideoPlayer.setSrc(videoURL);
-            myVideoPlayer.setCurrentTime(0.0);
-            myVideoPlayer.pause();
-        }
-
-        //myVideoPlayer.play();
-        //myVideoPlayer.volume = 1;        
-        console.log(videoURL);
+    $('#video-url').on('input change', function() {
+        $(this).removeClass('is-invalid');
     });
-    
-    $('#load-player').on('click', function() {
-        showPlayer = !showPlayer;
-        
-        if (showPlayer) {
-            if (interpreterData && interpreterData.open)
-                interpreterData.send({action: "showplayer"});
-        
-            $('#load-player i').removeClass('fab fa-youtube').addClass('fas fa-times-circle');
-            // The hidden class must also be removed, not only the low z-index.
-            $('#player-container').removeClass('stack-bottom hidden').addClass('stack-top');
 
-            $('#player-panel').fadeTo(0, 1);
-            $('#player-panel').animate({ width: $('#player-panel').css('max-width')}, 400);
-            
-        } else {
-            if (interpreterData && interpreterData.open)
-                interpreterData.send({action: "hideplayer"});
-        
-            $('#load-player i').removeClass('fas fa-times-circle').addClass('fab fa-youtube');
-            $('#player-container').removeClass('stack-top').addClass('stack-bottom hidden');
-
-            $('#player-panel').animate({ width: '0' }, 400);
-            $('#player-panel').fadeTo(0, 0);
-            
+    $('#run-player').on('click', function() {
+        const result = validateVideoURL($('#video-url').val());
+        if (!result.valid) {
+            $('#video-url').addClass('is-invalid').focus();
+            logToPanel(result.error, 'warning');
+            return;
         }
+        if (!myVideoPlayer) {
+            logToPanel('Video player is not ready yet. Please try again.', 'warning');
+            return;
+        }
+
+        $('#video-url').removeClass('is-invalid').val(result.url);
+        if (!showPlayer) setSupervisorPlayerVisible(true);
+
+        // Wait until the overlay is visible; MediaElement's iframe renderers
+        // may initialize with zero dimensions when their container is hidden.
+        const generation = ++videoLoadGeneration;
+        requestAnimationFrame(function() {
+            if (generation !== videoLoadGeneration) return;
+            try {
+                // Stop the previous source before switching, then load exactly once.
+                if (!myVideoPlayer.paused) myVideoPlayer.pause();
+                myVideoPlayer.setSrc(result.url);
+                currentVideoURL = result.url;
+                if (interpreterData && interpreterData.open) {
+                    interpreterData.send({action: 'loadvideo', url: result.url, time: 0, pause: true});
+                }
+                console.log('Video loaded:', result.url);
+            } catch (error) {
+                console.error('Video player rejected the selected source', error);
+                logToPanel('Could not load the video. Verify the URL and embedding permissions.', 'warning');
+            }
+        });
+    });
+
+    $('#load-player').on('click', function() {
+        setSupervisorPlayerVisible(!showPlayer);
     });
 
 

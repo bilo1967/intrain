@@ -595,6 +595,7 @@ input.bg-chat {
 .video-player-controls {
     height: var(--normal-button-height);
     flex: 0 0 auto;
+    align-self: center;
     white-space: nowrap;
 }
 
@@ -645,6 +646,22 @@ input.bg-chat {
     color: inherit;
     cursor: pointer;
     line-height: 1;
+}
+
+/* The interpreter can watch a synchronized video but cannot operate it.
+ * The transparent shield blocks clicks on the video and embedded iframes.
+ * Playback, seeking and pause commands from the supervisor still work.
+ */
+.interpreter-video-player .mejs__container {
+    pointer-events: none;
+}
+
+.interpreter-video-player .video-player-interaction-shield {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: transparent;
+    cursor: default;
 }
 
 .undroppable {

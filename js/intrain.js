@@ -1,6 +1,69 @@
 /* Load after common.js */
 
 // Escape text received from a peer before inserting it into HTML-based chat UI.
+
+/*
+ * Only complete HTTPS links are accepted; bare IDs are deliberately rejected.
+ * A syntactically valid link can still refer to an unavailable video.
+ */
+function validateVideoURL(value) {
+    const invalid = error => ({valid: false, error});
+    const valueText = String(value || '').trim();
+    let url;
+
+    if (!valueText) return invalid('Enter a complete YouTube, Vimeo or Facebook video URL.');
+    try {
+        url = new URL(valueText);
+    } catch (error) {
+        return invalid('Invalid video URL: include https:// and the video address.');
+    }
+
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) {
+        return invalid('Use an HTTPS video URL without credentials or a custom port.');
+    }
+
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
+    const path = url.pathname.split('/').filter(Boolean);
+    const isYouTube = ['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com', 'youtu.be'].includes(host);
+
+    if (isYouTube) {
+        let id = '';
+        if (host === 'youtu.be' && path.length === 1) id = path[0];
+        else if (path[0] === 'watch' && path.length === 1) id = url.searchParams.get('v') || '';
+        else if (['embed', 'shorts', 'live'].includes(path[0]) && path.length === 2) id = path[1];
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+            return invalid('Invalid YouTube link: use a complete video URL with an 11-character ID.');
+        }
+        return {valid: true, provider: 'youtube', url: 'https://www.youtube.com/watch?v=' + id};
+    }
+
+    if (['vimeo.com', 'player.vimeo.com'].includes(host)) {
+        let id = '';
+        if (host === 'player.vimeo.com' && path[0] === 'video' && path.length === 2) id = path[1];
+        else if (host === 'vimeo.com') {
+            if (path.length === 1) id = path[0];
+            else if (path[0] === 'channels' && path.length === 3) id = path[2];
+            else if (path[0] === 'groups' && path[2] === 'videos' && path.length === 4) id = path[3];
+        }
+        if (!/^\d{1,12}$/.test(id)) {
+            return invalid('Invalid Vimeo link: use a complete URL containing the numeric video ID.');
+        }
+        return {valid: true, provider: 'vimeo', url: url.href};
+    }
+
+    // Keep full Facebook video links supported by the previous player.
+    if (['facebook.com', 'm.facebook.com', 'web.facebook.com', 'fb.watch'].includes(host)) {
+        const watch = path[0] === 'watch' && /^\d+$/.test(url.searchParams.get('v') || '');
+        const reel = path[0] === 'reel' && /^\d+$/.test(path[1] || '');
+        const video = path.includes('videos') && /^\d+$/.test(path[path.length - 1] || '');
+        const short = host === 'fb.watch' && path.length === 1 && /^[\w-]+$/.test(path[0]);
+        if (watch || reel || video || short) return {valid: true, provider: 'facebook', url: url.href};
+        return invalid('Invalid Facebook video link.');
+    }
+
+    return invalid('Unsupported video URL. Use YouTube, Vimeo or Facebook.');
+}
+
 function escapeHTML(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'

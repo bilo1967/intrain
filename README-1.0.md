@@ -60,3 +60,31 @@ login and configuration dialogs, briefing/training buttons, debug-log collapse,
 role-switch dialog, screen-share controls and responsive sizing. Then repeat a
 three-peer exercise with recording and device switching. Automated unit tests
 cannot verify visual layout or browser-specific WebRTC behavior.
+
+
+## Synchronized external videos
+
+The supervisor controls the YouTube/Vimeo/Facebook player and sends `loadvideo`,
+`playvideo`, `pausevideo` and `seekvideo` over the existing PeerJS data channel.
+A late-joining interpreter also receives a `playerstate` snapshot with the current
+URL, visibility, playback position and playing/paused state. Speakers do not
+receive the video player, by design.
+
+The interpreter's MediaElement player has no local playback controls. Mouse
+interactions with the renderer (including YouTube/Vimeo iframes) are blocked by a
+transparent overlay; MediaElement keyboard and click-to-play behavior are off.
+Programmatic playback from the supervisor is unaffected, subject to browser
+autoplay policies.
+
+The video URL field accepts **complete HTTPS URLs only**, with supported YouTube,
+Vimeo and Facebook video paths. Bare video IDs, general webpages and malformed
+links are rejected before transmission. MediaElement errors are reported when
+available; a URL cannot be guaranteed to refer to an existing or embeddable
+video without checking the external video service. MediaElement.js remains at
+version 4.2.7 during stabilization; upgrading to the 7.x series requires its
+own compatibility test, particularly for third-party iframe renderers.
+
+Manual checks: play/pause/seek on the supervisor, verify interpreter follows
+without local control, reconnect the interpreter while a video is playing or
+paused, try a valid-looking nonexistent ID, and verify the control group's
+vertical alignment with the rest of the toolbar.
