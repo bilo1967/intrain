@@ -30,5 +30,20 @@ jobs:
             esac
             node --check "$script"
           done
+      - name: Prior regression tests
+        run: node --test --test-name-pattern='^(?!(session mode shows|supervisor video player|URL panel collapses|interpreter synchronizes seeks)).*' tests/smoke.test.js
+      - name: Session mode icon test
+        if: always()
+        run: node --test --test-name-pattern='^session mode shows' tests/smoke.test.js
+      - name: Video overlay test
+        if: always()
+        run: node --test --test-name-pattern='^supervisor video player' tests/smoke.test.js
+      - name: URL collapse test
+        if: always()
+        run: node --test --test-name-pattern='^URL panel collapses' tests/smoke.test.js
+      - name: Seek API test
+        if: always()
+        run: node --test --test-name-pattern='^interpreter synchronizes seeks' tests/smoke.test.js
       - name: Run regression tests
+        if: always()
         run: node --test tests/smoke.test.js
