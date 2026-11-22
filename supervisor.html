@@ -331,16 +331,13 @@
         &nbsp;
         &nbsp;
         <!-- The floor selector replaces the separate share/player toolbar. -->
-        <div class="input-group">
-          <div class="input-group-text"><span class="material-symbols-outlined">interpreter_mode</span></div>
-          <label class="visually-hidden" for="floor-select">Select floor</label>
-          <select id="floor-select" class="form-select form-select-sm ms-2" aria-label="Select floor">
-            <option value="" selected disabled>Select floor... (Speaker)</option>
-            <option value="speaker">Speaker</option>
-            <option value="screen">Screen share...</option>
-            <option value="external">YouTube / Vimeo...</option>
-          </select>	
-        </div>
+        <label class="visually-hidden" for="floor-select">Select floor</label>
+        <select id="floor-select" class="form-select form-select-sm ms-2" aria-label="Select floor">
+          <option value="" selected disabled>Select floor... (Speaker)</option>
+          <option value="speaker">Speaker</option>
+          <option value="screen">Screen share...</option>
+          <option value="external">YouTube / Vimeo...</option>
+        </select>
         <span id="video-sync-status" class="d-none ms-2 align-self-center text-warning text-nowrap small"
               title="Interpreter and supervisor video positions differ. Pause and press Play to resynchronize."
               aria-live="polite"></span>
