@@ -141,6 +141,9 @@ remains zero after three seconds of actual playback, or at EOF for shorter
 files. Paused playback and headphone mute do not trigger it. This is a diagnostic
 notice, not a codec identification: a file with no audio produces the same
 notice. Browsers without this native counter cannot provide this diagnostic.
+The warning suggests playing the file in a compatible external player and using
+Screen share, including audio when supported for the selected capture source.
+A version with AAC audio is offered as another option.
 If audio decoding subsequently starts, a recovery message is logged. InTrain's
 synthetic outgoing audio track is deliberately not used to infer file audio
 support, since that track is present even for silent files.

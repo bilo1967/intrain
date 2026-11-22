@@ -1105,7 +1105,7 @@ $(document).ready(async function() {
             candidate = await createLocalFileFloor(file, audioContext, status => {
                 if (localFileFloor !== candidate) return;
                 if (status === 'unavailable') {
-                    logToPanel('No audio is being decoded from the local file. It may have no audio, or its audio codec may not be supported by this browser. Try a version with AAC audio.', 'warning');
+                    logToPanel('No audio is being decoded from the local file. It may have no audio, or its audio codec may not be supported by this browser. Play it in a compatible player and select Screen share, including audio if your browser offers it for that source. Alternatively, use a file with AAC audio.', 'warning');
                 } else if (status === 'decoded') {
                     logToPanel('Audio decoding is now available for the local file.', 'info');
                 }
