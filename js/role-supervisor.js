@@ -54,8 +54,9 @@ var micGraph = null;
 // Various toggles
 var swapChannels = false; // swap channels toggle variable
 var boostVolume = false;  // boost volume
-var showPlayer = false;   // show player and load controls
+var showPlayer = false;   // External video player is currently visible
 var pendingMediaModeSwitch = null; // Action awaiting the supervisor's confirmation
+var floorSelectionEpoch = 0; // Ignore obsolete screen capture picker results
 var currentVideoURL = null; // Supervisor-owned video source, for late joiners
 var videoLoadGeneration = 0; // Ignore stale pending loads
 
@@ -310,21 +311,41 @@ function fitSupervisorPlayerToVideo() {
 }
 
 /*
- * Confirm the switch before destroying an active source. The action is run
- * only by the modal's Continue button, never when Cancel or Escape is used.
+ * The selector is an action list rather than a persistent select value:
+ * resetting it lets the teacher select YouTube/Vimeo again to change the URL.
+ * The placeholder always displays the floor that is actually active.
+ */
+function getSupervisorFloor() {
+    if (showPlayer) return 'external';
+    if (sharingScreenActive && screenshareMediaStream) return 'screen';
+    return 'speaker';
+}
+
+function updateSupervisorFloorSelector() {
+    const labels = {speaker: 'Speaker', screen: 'Screen share', external: 'YouTube / Vimeo'};
+    const floor = getSupervisorFloor();
+    $('#floor-select').val('');
+    $('#floor-select option[value=""]').text('Select floor... (' + labels[floor] + ')');
+}
+
+/*
+ * Confirm stopping a running source before the requested action begins.
+ * Closing the Bootstrap dialog without Continue leaves the floor unchanged.
  */
 function confirmMediaModeSwitch(target, action) {
     pendingMediaModeSwitch = action;
-    $('#media-mode-dialog-message').text(target === 'player'
-        ? 'Opening the video player will stop screen sharing. Continue?'
-        : 'Starting screen sharing will stop and hide the video player. Continue?');
+    const message = target === 'screen'
+        ? 'Starting screen sharing will stop the video player. Continue?'
+        : 'Switching to the speaker will stop the current video source. Continue?';
+    $('#media-mode-dialog-message').text(message);
     InTrainUI.showModal('#media-mode-dialog');
 }
 
-/* Hide the video and stop audio immediately; it must not play behind a share. */
-function stopSupervisorVideoForScreenShare() {
+/* Stop playback and cancel stale synchronization before hiding the video. */
+function stopSupervisorExternalVideo() {
+    ++videoLoadGeneration; // Cancel delayed iframe creation when leaving the player.
     cancelSupervisorVideoSync();
-    ++videoSyncEpoch; // Invalidate a late syncstart after the player is hidden.
+    ++videoSyncEpoch;
     videoSyncAuthorizedPlay = false;
     if (myVideoPlayer) {
         try { myVideoPlayer.pause(); }
@@ -333,35 +354,19 @@ function stopSupervisorVideoForScreenShare() {
     setSupervisorPlayerVisible(false);
 }
 
-/* Show the video above the speaker feed while keeping the URL toolbar aligned. */
+/* Only one video source may be visible or contribute to recording at a time. */
 function setSupervisorPlayerVisible(visible) {
-    if (visible && sharingScreenActive && screenshareMediaStream) {
-        // UI callers must end screen sharing after confirmation first.
-        return false;
-    }
+    if (visible && sharingScreenActive && screenshareMediaStream) return false;
     showPlayer = !!visible;
-    $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
-        .toggleClass('fas fa-times-circle', showPlayer);
     $('#player-container').toggleClass('stack-top', showPlayer)
         .toggleClass('stack-bottom hidden', !showPlayer);
-
-    const controls = $('#player-panel').stop(true, true);
-    if (showPlayer) {
-        controls.fadeTo(0, 1).animate({width: controls.css('max-width')}, 400);
-    } else {
-        controls.animate({width: '0'}, 400).fadeTo(0, 0);
-    }
-
-    if (showPlayer) {
-        requestAnimationFrame(fitSupervisorPlayerToVideo);
-    }
-
-    if (interpreterData && interpreterData.open) {
+    if (showPlayer) requestAnimationFrame(fitSupervisorPlayerToVideo);
+    if (interpreterData && interpreterData.open)
         interpreterData.send({action: showPlayer ? 'showplayer' : 'hideplayer'});
-    }
-    // Switching player visibility also changes what is recorded on channel 1.
-    // Record from silence in player mode, never from the live speaker.
+
+    // The recorder taps the splitters before the listening gain controls.
     if (audioContext && split1 && split2) initCrossFader();
+    updateSupervisorFloorSelector();
     return true;
 }
 
@@ -985,11 +990,106 @@ $(document).ready(async function() {
     });      
 
   
+    /*
+     * A single floor entry point owns all transitions. Modal/capture dialogs
+     * only collect input; the active floor changes after a successful action.
+     */
+    function selectSupervisorFloor(floor, options = {}) {
+        if (floor === 'speaker') {
+            if (getSupervisorFloor() === 'speaker') return true;
+            const activateSpeaker = function() {
+                ++floorSelectionEpoch;
+                if (sharingScreen()) unshareScreen();
+                if (showPlayer) stopSupervisorExternalVideo();
+                updateSupervisorFloorSelector();
+            };
+            confirmMediaModeSwitch('speaker', activateSpeaker);
+            return true;
+        }
+
+        if (floor === 'screen') {
+            if (sharingScreen()) return true;
+
+            const startScreenCapture = function() {
+                // This call must happen within a user gesture, including the
+                // confirmation modal's Continue click when switching players.
+                const token = ++floorSelectionEpoch;
+                navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
+                    .then(stream => {
+                        if (token !== floorSelectionEpoch) {
+                            stream.getTracks().forEach(track => track.stop());
+                            return;
+                        }
+                        if (showPlayer) stopSupervisorExternalVideo();
+                        shareScreen(stream);
+                        updateSupervisorFloorSelector();
+                    }).catch(error => {
+                        // Canceling the capture picker never stops the old floor.
+                        if (error.name !== 'NotAllowedError' && error.name !== 'AbortError')
+                            console.error('Error sharing screen:', error);
+                        updateSupervisorFloorSelector();
+                    });
+            };
+            if (showPlayer) confirmMediaModeSwitch('screen', startScreenCapture);
+            else startScreenCapture();
+            return true;
+        }
+
+        if (floor === 'external') {
+            if (!options.url) {
+                $('#video-url').removeClass('is-invalid').val(currentVideoURL || '');
+                $('#video-floor-dialog-note').text(sharingScreen()
+                    ? 'Loading the video will stop screen sharing.'
+                    : 'The supervisor controls playback for the interpreter.');
+                InTrainUI.showModal('#video-floor-dialog');
+                return true;
+            }
+
+            const result = validateVideoURL(options.url);
+            if (!result.valid || !myVideoPlayer) return false;
+
+            ++floorSelectionEpoch;
+            if (sharingScreen()) unshareScreen();
+            cancelSupervisorVideoSync();
+            ++videoSyncEpoch;
+            videoSyncAuthorizedPlay = false;
+            if (!showPlayer) setSupervisorPlayerVisible(true);
+
+            // YouTube/Vimeo iframe renderers need a visible container first.
+            const generation = ++videoLoadGeneration;
+            requestAnimationFrame(function() {
+                if (generation !== videoLoadGeneration || getSupervisorFloor() !== 'external') return;
+                try {
+                    if (!myVideoPlayer.paused) myVideoPlayer.pause();
+                    myVideoPlayer.setSrc(result.url);
+                    currentVideoURL = result.url;
+                    if (interpreterData && interpreterData.open)
+                        interpreterData.send({action: 'loadvideo', url: result.url, time: 0, pause: true});
+                    console.log('Video loaded:', result.url);
+                } catch (error) {
+                    console.error('Video player rejected the selected source', error);
+                    logToPanel('Could not load the video. Verify the URL and embedding permissions.', 'warning');
+                }
+            });
+            return true;
+        }
+
+        return false; // 'file' becomes available only after captureStream tests.
+    }
+
+    // Reset to the informative placeholder so the same floor can be selected again.
+    $('#floor-select').on('change', function() {
+        const floor = $(this).val();
+        selectSupervisorFloor(floor);
+        updateSupervisorFloorSelector();
+    });
+    updateSupervisorFloorSelector();
+
     $('#video-url').on('input change', function() {
         $(this).removeClass('is-invalid');
     });
-
-    $('#run-player').on('click', function() {
+    $('#video-url-form').on('submit', function(event) {
+        event.preventDefault();
         const result = validateVideoURL($('#video-url').val());
         if (!result.valid) {
             $('#video-url').addClass('is-invalid').focus();
@@ -1000,55 +1100,14 @@ $(document).ready(async function() {
             logToPanel('Video player is not ready yet. Please try again.', 'warning');
             return;
         }
-
-        const loadSelectedVideo = function() {
-            // Only stop a live screen share after the switch was approved.
-            if (sharingScreen()) unshareScreen();
-            $('#video-url').removeClass('is-invalid').val(result.url);
-            cancelSupervisorVideoSync();
-            ++videoSyncEpoch; // Invalidate delayed starts from the previous source.
-            videoSyncAuthorizedPlay = false;
-            if (!showPlayer) setSupervisorPlayerVisible(true);
-
-            // A visible overlay is required before creating the embedded iframe.
-            const generation = ++videoLoadGeneration;
-            requestAnimationFrame(function() {
-                if (generation !== videoLoadGeneration) return;
-                try {
-                    if (!myVideoPlayer.paused) myVideoPlayer.pause();
-                    myVideoPlayer.setSrc(result.url);
-                    currentVideoURL = result.url;
-                    if (interpreterData && interpreterData.open) {
-                        interpreterData.send({action: 'loadvideo', url: result.url, time: 0, pause: true});
-                    }
-                    console.log('Video loaded:', result.url);
-                } catch (error) {
-                    console.error('Video player rejected the selected source', error);
-                    logToPanel('Could not load the video. Verify the URL and embedding permissions.', 'warning');
-                }
-            });
-        };
-
-        if (sharingScreen()) confirmMediaModeSwitch('player', loadSelectedVideo);
-        else loadSelectedVideo();
+        if (selectSupervisorFloor('external', {url: result.url}))
+            InTrainUI.hideModal('#video-floor-dialog');
     });
 
-    $('#load-player').on('click', function() {
-        if (showPlayer) {
-            stopSupervisorVideoForScreenShare();
-        } else if (sharingScreen()) {
-            confirmMediaModeSwitch('player', function() {
-                unshareScreen();
-                setSupervisorPlayerVisible(true);
-            });
-        } else {
-            setSupervisorPlayerVisible(true);
-        }
-    });
-
-    // The modal's close, Cancel and Escape paths discard the pending change.
+    // Closing a warning or pressing Escape does not execute its pending action.
     $('#media-mode-dialog').on('hidden.bs.modal', function() {
         pendingMediaModeSwitch = null;
+        updateSupervisorFloorSelector();
     });
     $('#media-mode-confirm').on('click', function() {
         const action = pendingMediaModeSwitch;
@@ -1056,7 +1115,6 @@ $(document).ready(async function() {
         InTrainUI.hideModal('#media-mode-dialog');
         if (action) action();
     });
-
 
     $('#briefing-mode').on('click', function() {
 
@@ -1170,34 +1228,6 @@ $(document).ready(async function() {
     });
     
     
-    $('#share-screen').on('click', function() {
-        if (sharingScreen()) {
-            unshareScreen();
-            return;
-        }
-
-        // The browser's capture picker must start inside a direct click.
-        // The modal Continue button supplies that gesture after confirmation.
-        const requestScreenCapture = function() {
-            navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
-                .then(stream => {
-                    // Do not interrupt a running video if the user canceled the
-                    // browser picker; switch only after capture succeeds.
-                    if (showPlayer || (myVideoPlayer && !myVideoPlayer.paused))
-                        stopSupervisorVideoForScreenShare();
-                    shareScreen(stream);
-                })
-                .catch(err => {
-                    // A canceled picker must leave the existing player intact.
-                    if (err.name !== 'NotAllowedError' && err.name !== 'AbortError')
-                        console.error('Error sharing screen:', err);
-                });
-        };
-
-        if (showPlayer) confirmMediaModeSwitch('screen', requestScreenCapture);
-        else requestScreenCapture();
-    });
-    
     function sharingScreen() {
         return sharingScreenActive && screenshareMediaStream &&
                screenshareMediaStream.getVideoTracks().some(track => track.readyState === 'live');
@@ -1216,7 +1246,7 @@ $(document).ready(async function() {
         closePeerConnection(screenshareConnection);
         screenshareConnection = null;
         refreshSpeakerVideoSource();
-        $('#share-screen > i').removeClass('fa-blink');
+        updateSupervisorFloorSelector();
         initCrossFader();
     }
 
@@ -1233,8 +1263,8 @@ $(document).ready(async function() {
             sharingScreenActive = true;
             screenshareMediaStream = stream;
             refreshSpeakerVideoSource();
-            $('#share-screen > i').addClass('fa-blink');
-            
+            updateSupervisorFloorSelector();
+
             const videoTrack = stream.getVideoTracks()[0];
             if (videoTrack) videoTrack.onended = () => unshareScreen();
             

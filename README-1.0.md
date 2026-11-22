@@ -81,20 +81,30 @@ Changes between player, screen share and speaker modes rebuild the input
 routing without recreating the recorder, so the recording remains stereo even
 if sources are switched during a session.
 
-## Mutually exclusive video sources
+## Floor selector (supervisor)
 
-On the supervisor, screen sharing and the external video player cannot be
-active at the same time. Switching from one to the other requires explicit
-confirmation in a Bootstrap dialog (Cancel leaves the current source active).
-Opening the video player stops any live screen capture and its PeerJS media
-call. Starting a screen share first opens the browser capture picker, then
-stops and hides the player **only if capture succeeds**. Canceling the browser
-picker leaves the existing video playing. Hiding the player also pauses its
-audio locally and tells the interpreter to pause and hide the player.
+The toolbar now has one compact **Select floor...** dropdown. It offers
+**Speaker** (default), **Screen share...** and **YouTube / Vimeo...**.
+The disabled placeholder displays the active floor and resets after selection
+so YouTube/Vimeo can be chosen again to replace the current URL. The fourth
+option, **Multimedia file**, will be added only after validating local
+playback/capture; it is not implemented in this change.
 
-Manual verification: switching from both toolbar buttons and the video URL
-Load button; canceling the confirmation; canceling the capture picker; audio
-not continuing in the hidden player; interpreter returning to the floor video.
+All three existing modes share one `selectSupervisorFloor()` entry point.
+Speaker restores the normal camera/audio floor and stops any previous screen
+share or embedded video after confirmation. Screen share uses the browser's
+native capture picker and only stops the previous player if capture succeeds.
+YouTube/Vimeo opens a small URL dialog. Canceling or submitting an invalid URL
+does not interrupt an active floor; loading a valid video ends any live screen
+capture. Both switching dialogs can be canceled.
+
+The stereo recorder tracks the selected floor: interpreter plus speaker, screen
+audio, or silence for YouTube/Vimeo, with no need to restart the recording.
+
+Manual verification: select each floor, reselect YouTube/Vimeo to load another
+video, cancel the URL dialog and browser capture picker, end the system screen
+share from the browser UI, confirm return to Speaker, and inspect both WAV
+channels when changing floor during a recording.
 
 ## Synchronized external videos
 

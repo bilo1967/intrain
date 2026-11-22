@@ -332,7 +332,7 @@ test('supervisor video player is shown above the speaker and hidden again', () =
     assert.match(css, /\.player-container\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*left:\s*0;/);
 });
 
-test('URL panel and supervisor original Material Symbols styling', () => {
+test('supervisor floor selector retains original Material Symbols styling', () => {
     const root = path.resolve(__dirname, '..');
     const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
     const supervisor = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
@@ -340,9 +340,12 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.ok(!css.includes('Material+Symbols+Outlined'));
     assert.ok(supervisor.includes('fonts.googleapis.com/css2?family=Material+Symbols+Outlined'));
     assert.ok(supervisor.includes("font-family: 'Material Symbols Outlined'"));
-    assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
-    assert.match(supervisor, /id="player-panel"/);
-    assert.match(supervisor, /class="me-1 flex-grow-1"/);
+    assert.match(supervisor, /id="floor-select"/);
+    assert.match(supervisor, /value="speaker">Speaker/);
+    assert.match(supervisor, /value="screen">Screen share/);
+    assert.match(supervisor, /value="external">YouTube \/ Vimeo/);
+    assert.match(css, /#floor-select\s*\{[^}]*height:\s*var\(--normal-button-height\)/);
+    assert.doesNotMatch(supervisor, /id="share-screen"|id="load-player"|id="player-panel"/);
     assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.\d+/);
     for (const page of ['speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
@@ -380,20 +383,18 @@ test('Material Symbols are loaded and configured for all three roles', () => {
     }
 });
 
-test('video URL toolbar has stable height and the clear button cannot cause wrapping', () => {
+test('external video URL uses a modal rather than toolbar controls', () => {
     const root = path.resolve(__dirname, '..');
     const markup = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
-    const clearer = fs.readFileSync(path.join(root, 'js/input-clearer.js'), 'utf8');
-
-    assert.match(markup, /class="d-inline-flex flex-nowrap align-items-center video-player-controls"/);
+    assert.match(markup, /id="floor-select"/);
+    assert.match(markup, /id="video-floor-dialog"/);
+    assert.match(markup, /id="video-url-form"/);
     assert.match(markup, /id="video-url"/);
-    assert.match(markup, /class="form-control form-control-sm clearer"/);
-    assert.match(css, /\.video-player-controls\s*\{[^}]*height:\s*var\(--normal-button-height\)/);
-    assert.match(css, /#player-panel \.input-clearer-wrapper\s*\{[^}]*position:\s*relative/);
-    assert.match(css, /#player-panel \.input-clearer\s*\{[^}]*position:\s*absolute/);
-    assert.match(clearer, /input\.wrap\('<div class="input-clearer-wrapper"><\/div>'\)/);
-    assert.doesNotMatch(clearer, /input\.wrap\('<div class="input-group"><\/div>'\)/);
+    assert.match(markup, /id="run-player"/);
+    assert.match(markup, /id="video-floor-dialog-note"/);
+    assert.match(css, /#video-floor-dialog \.input-clearer-wrapper\s*\{[^}]*position:\s*relative/);
+    assert.doesNotMatch(markup, /class="[^"]*video-player-controls/);
 });
 
 test('all role pages load only the Git-ignored runtime configuration', () => {
@@ -500,17 +501,17 @@ test('interpreter cannot click or use keyboard controls and late join restores t
     assert.match(peer, /applyRemoteVideoState\(data\)/);
 });
 
-test('supervisor validates URL and loads source once after overlay is shown', () => {
+test('supervisor validates URL and loads once after floor switch', () => {
     const js = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
-    const loadBlock = js.slice(js.indexOf("$('#run-player').on('click'"), js.indexOf("$('#load-player').on('click'"));
-    assert.match(loadBlock, /validateVideoURL\(/);
-    assert.match(loadBlock, /result\.valid/);
+    const loadBlock = js.slice(js.indexOf("if (floor === 'external')"),
+        js.indexOf("return false; // 'file' becomes available"));
+    assert.match(loadBlock, /validateVideoURL\(options\.url\)/);
     assert.match(loadBlock, /requestAnimationFrame\(/);
     assert.equal((loadBlock.match(/myVideoPlayer\.setSrc\(/g) || []).length, 1);
-    assert.match(loadBlock, /addClass\('is-invalid'\)/);
+    assert.match(js, /\$\('#video-url-form'\)\.on\('submit'/);
+    assert.match(js, /addClass\('is-invalid'\)/);
     assert.match(js, /addEventListener\('error'/);
 });
-
 
 test('supervisor MediaElement remains within the central speaker video area', () => {
     const root = path.resolve(__dirname, '..');
@@ -816,7 +817,7 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.8'},
+        {role: 'supervisor', version: '1.0.9'},
         {role: 'interpreter', version: '1.0.7'}
     ];
     for (const {role, version} of pages) {
@@ -870,19 +871,20 @@ test('confirming the switch is mandatory and canceling it retains the current mo
     assert.match(markup, /id="media-mode-confirm"/);
     assert.match(markup, /data-bs-dismiss="modal">Cancel/);
     assert.match(role, /'hidden\.bs\.modal', function\(\) \{\s*pendingMediaModeSwitch = null/);
-    assert.match(role, /confirmMediaModeSwitch\('screen', requestScreenCapture\)/);
-    assert.match(role, /confirmMediaModeSwitch\('player', loadSelectedVideo\)/);
+    assert.match(role, /confirmMediaModeSwitch\('screen', startScreenCapture\)/);
+    assert.match(role, /confirmMediaModeSwitch\('speaker', activateSpeaker\)/);
+    assert.match(role, /InTrainUI\.showModal\('#video-floor-dialog'\)/);
 });
 
-test('starting screen capture stops the player only after a successful browser selection', () => {
+test('screen picker preserves previous floor until capture succeeds', () => {
     const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
-    const start = role.slice(role.indexOf("$('#share-screen').on('click'"),
-        role.indexOf('    function sharingScreen()'));
+    const start = role.slice(role.indexOf("if (floor === 'screen')"),
+        role.indexOf("if (floor === 'external')"));
     assert.match(start, /getDisplayMedia\(\{video: true, audio: true\}\)/);
     assert.match(start, /\.then\(stream => \{/);
-    assert.match(start, /stopSupervisorVideoForScreenShare\(\);/);
-    assert.ok(start.indexOf('getDisplayMedia(') < start.indexOf('stopSupervisorVideoForScreenShare()'));
-    assert.ok(start.indexOf('stopSupervisorVideoForScreenShare()') < start.indexOf('shareScreen(stream)'));
+    assert.match(start, /stopSupervisorExternalVideo\(\);/);
+    assert.ok(start.indexOf('getDisplayMedia(') < start.indexOf('stopSupervisorExternalVideo()'));
+    assert.ok(start.indexOf('stopSupervisorExternalVideo()') < start.indexOf('shareScreen(stream)'));
     assert.doesNotMatch(start, /\.catch\([\s\S]*unshareScreen\(\)/);
 });
 
@@ -895,7 +897,7 @@ test('switching from the player pauses both supervisor and interpreter', () => {
     c.interpreterData = {open: true, send: message => messages.push(message)};
     c.myVideoPlayer = {paused: false, pause() {this.paused = true;}};
     c.showPlayer = true;
-    c.stopSupervisorVideoForScreenShare();
+    c.stopSupervisorExternalVideo();
     assert.equal(c.myVideoPlayer.paused, true);
     assert.equal(c.showPlayer, false);
     assert.ok(messages.some(m => m.action === 'hideplayer'));
@@ -991,4 +993,78 @@ test('changing supervisor player visibility rebuilds the recording audio source'
     c.setSupervisorPlayerVisible(true);
     c.setSupervisorPlayerVisible(false);
     assert.equal(rerouted, 2);
+});
+
+test('floor selection is centralized and canceling the video dialog keeps the old floor', () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const start = role.indexOf('    function selectSupervisorFloor(floor, options = {})');
+    const end = role.indexOf('    // Reset to the informative placeholder', start);
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    vm.runInContext(role.slice(start, end), c);
+    const dialogs = [];
+    c.InTrainUI = {showModal(name) {dialogs.push(name);}};
+    c.sharingScreen = () => false;
+    c.showPlayer = false;
+    assert.equal(c.selectSupervisorFloor('file'), false);
+    assert.equal(c.selectSupervisorFloor('external'), true);
+    assert.equal(c.getSupervisorFloor(), 'speaker');
+    assert.deepEqual(dialogs, ['#video-floor-dialog']);
+    assert.equal(c.selectSupervisorFloor('external', {url: 'invalid'}), false);
+    assert.equal(c.showPlayer, false);
+});
+
+test('floor switch to speaker stops the previous source after confirmation', () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const start = role.indexOf('    function selectSupervisorFloor(floor, options = {})');
+    const end = role.indexOf('    // Reset to the informative placeholder', start);
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    vm.runInContext(role.slice(start, end), c);
+    c.sharingScreen = () => false;
+    c.requestAnimationFrame = () => {};
+    c.showPlayer = true;
+    let paused = 0, waiting = null;
+    c.myVideoPlayer = {pause() {paused++;}};
+    c.confirmMediaModeSwitch = (target, action) => {waiting = action;};
+    c.selectSupervisorFloor('speaker');
+    assert.equal(paused, 0);
+    assert.equal(c.showPlayer, true);
+    assert.equal(typeof waiting, 'function');
+    waiting();
+    assert.equal(c.getSupervisorFloor(), 'speaker');
+    assert.equal(paused, 1);
+});
+
+test('screen capture only takes over the previous floor when the picker succeeds', async () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const start = role.indexOf('    function selectSupervisorFloor(floor, options = {})');
+    const end = role.indexOf('    // Reset to the informative placeholder', start);
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    vm.runInContext(role.slice(start, end), c);
+    c.sharingScreen = () => false;
+    c.requestAnimationFrame = () => {};
+    c.showPlayer = true;
+    let paused = 0, switched = 0, confirmAction;
+    c.myVideoPlayer = {pause() {paused++;}};
+    c.confirmMediaModeSwitch = (target, action) => {confirmAction = action;};
+    c.shareScreen = stream => {switched++;c.sharingScreenActive = true;c.screenshareMediaStream = stream;};
+    const stream = {getTracks: () => []};
+    c.navigator.mediaDevices.getDisplayMedia = () => Promise.reject({name: 'NotAllowedError'});
+    c.selectSupervisorFloor('screen');
+    confirmAction();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(paused, 0);
+    assert.equal(c.showPlayer, true);
+    assert.equal(switched, 0);
+
+    c.navigator.mediaDevices.getDisplayMedia = () => Promise.resolve(stream);
+    c.selectSupervisorFloor('screen');
+    confirmAction();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(paused, 1);
+    assert.equal(c.showPlayer, false);
+    assert.equal(switched, 1);
+    assert.equal(c.getSupervisorFloor(), 'screen');
 });
