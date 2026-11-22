@@ -797,7 +797,9 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
     assert.equal(ready.action, 'syncready');
     assert.equal(ready.time, 18.5);
     assert.equal(c.startInterpreterSynchronizedVideo({epoch: 9, url}), false);
+    c.pendingRemoteVideoState = {time: 0, playing: false}; // Stale load.
     assert.equal(c.startInterpreterSynchronizedVideo({epoch: 10, url}), true);
+    assert.equal(c.pendingRemoteVideoState, null);
     assert.equal(plays, 1);
     assert.equal(seeks, 0);
 

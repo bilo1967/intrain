@@ -195,6 +195,8 @@ function startInterpreterSynchronizedVideo(data) {
     clearTimeout(interpreterSyncPoll);
     interpreterSyncRequest = null;
     interpreterBuffering = false;
+    // Older playerstate/loadvideo seeks must never run after synchronized play.
+    pendingRemoteVideoState = null;
     setRemoteVideoPlaying(true);
     return true;
 }
