@@ -1,0 +1,49 @@
+/*
+ * InTrain deployment configuration template.
+ * Copy this file to config/config.js and supply your own PeerJS/TURN servers.
+ * Never commit real TURN credentials. The runtime file is ignored by Git.
+ */
+
+// PeerJS client config
+
+// PeerJS server configuration, with ICE servers
+const PeerJSConfig = {
+    debug: 2,
+    secure: true,
+
+    path: '/',
+    host: 'peerjs.example.org',
+    port: 443, // <= TCP
+
+    /*
+     * You can test if your TURN relays are working using Firefox.
+     *
+     * Open link:  about:config
+     * Search for: media.peerconnection.ice.relay_only
+     * Set it to:  true
+     */
+    config: {
+        'iceServers': [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }, // <= UDP
+            {
+                urls: 'turns:turn.example.org:443',
+                username: 'REPLACE_ME',
+                credential: 'REPLACE_ME',
+            },
+            {
+                urls: 'turns:turn2.example.org:5349',
+                username: 'REPLACE_ME',
+                credential: 'REPLACE_ME',
+            },
+        ]
+    }
+};
+
+
+
+
+// Wait this time (in ms) before closing
+// connection to allow error messages to
+// be delivered
+const WaitBeforeClose = 500; // in milliseconds

@@ -4,7 +4,14 @@ This branch starts from the deployed InTrain files supplied in November 2026, no
 
 ## Deployment configuration
 
-`js/config.js` intentionally contains `SET_AT_DEPLOYMENT` placeholders for TURN credentials. Configure the PeerJS host and TURN credentials on the deployed web server; **never commit permanent TURN passwords to the public repository**. The deployed configuration may be kept out of version control. The remaining PeerJS/STUN/TURN configuration should be verified against the actual services in use.
+`config/config.js.dist` is the versioned, anonymous PeerJS/STUN/TURN configuration template. To deploy, copy it to `config/config.js` and configure the PeerJS server and the TURN servers/credentials. All four HTML pages load **`config/config.js`**, which is ignored by Git (`.gitignore`); the template is not loaded directly by browsers.
+
+```sh
+cp config/config.js.dist config/config.js
+# Edit config/config.js with actual PeerJS and TURN settings.
+```
+
+If upgrading a deployment that already has a customized `js/config.js`, move that file to `config/config.js` instead, preserving its configuration values. **Never commit real TURN credentials to this public repository.** The configuration loaded in the browser is inherently visible to clients, regardless of Git ignore rules.
 
 ## Corrections
 

@@ -390,3 +390,25 @@ test('video URL toolbar has stable height and the clear button cannot cause wrap
     assert.match(clearer, /input\.wrap\('<div class="input-clearer-wrapper"><\/div>'\)/);
     assert.doesNotMatch(clearer, /input\.wrap\('<div class="input-group"><\/div>'\)/);
 });
+
+test('all role pages load only the Git-ignored runtime configuration', () => {
+    const root = path.resolve(__dirname, '..');
+    for (const page of ['index.html', 'supervisor.html', 'speaker.html', 'interpreter.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.match(html, /<script src="config\/config\.js"><\/script>/);
+        assert.doesNotMatch(html, /<script src="js\/config\.js/);
+    }
+
+    const ignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
+    assert.match(ignore, /^config\.js$/m);
+    assert.equal(fs.existsSync(path.join(root, 'js/config.js')), false);
+    assert.equal(fs.existsSync(path.join(root, 'config/config.js')), false);
+
+    const template = fs.readFileSync(path.join(root, 'config/config.js.dist'), 'utf8');
+    const config = vm.runInNewContext(template + '\n({ PeerJSConfig, WaitBeforeClose })');
+    assert.ok(config.PeerJSConfig.host);
+    assert.ok(config.PeerJSConfig.config.iceServers.length >= 1);
+    assert.equal(config.WaitBeforeClose, 500);
+    assert.doesNotMatch(template, /ditlab\.it/);
+    assert.match(template, /REPLACE_ME/);
+});

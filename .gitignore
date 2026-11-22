@@ -1,0 +1,3 @@
+# Runtime settings, potentially containing TURN credentials.
+# Match files named config.js anywhere in the working tree.
+config.js

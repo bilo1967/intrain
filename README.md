@@ -54,11 +54,17 @@ Basically you need to get the new version of inTrain from GitHub (just do a ```g
 ## Configuration and authentication module
 
 There's a single configuration file you have to set up:
-- [config/config.js](config/config.js) for the javascript code running on your browser
+- [config/config.js.dist](config/config.js.dist), the anonymous template for the browser configuration. Copy it to `config/config.js` (which is Git-ignored) and configure your PeerJS/STUN/TURN services before launching inTrain.
 
 ### config.js
 
-Here you basically just have to configure the javascript access to your PeerJS, STUN and TURN servers.
+Copy the template before running the application:
+
+```sh
+cp config/config.js.dist config/config.js
+```
+
+Configure `config/config.js` with the PeerJS/STUN/TURN services for your installation; the file is deliberately not tracked by Git. If migrating from an older release, move your existing `js/config.js` to `config/config.js` rather than overwriting it with the template.
 ```js
 const PeerJSConfig = {
     host:   'your.peerjs.server', // your peerjs server address

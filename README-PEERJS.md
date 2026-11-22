@@ -75,7 +75,7 @@ The PeerJS server should now respond on standard port 443.
   "website":"https://peerjs.com/"
 }
 ```
-Now we can modify our [config/config.js](config/config.js) file to use our PeeJS server...
+Now copy the [configuration template](config/config.js.dist) to `config/config.js` and set the PeerJS server address there; the runtime configuration is ignored by Git.
 
 ```javascript
 ...
@@ -128,7 +128,7 @@ Anything in this appendix could be done much better. This is just a quick start 
 
 ## Use an existing PeerJS server or create a free test one on some cloud service
 
-You may try the default PeerJS server, hoping it's not overloaded or over-quota. Just leave secure, path, host, port keys empty for PeerJSConfig in your [config.js](/config/config.js) file:
+You may try the default PeerJS server, hoping it's not overloaded or over-quota. Just leave secure, path, host, port keys empty for PeerJSConfig in your [config/config.js.dist](config/config.js.dist) file:
 ```js
 ...
 const PeerJSConfig = {
