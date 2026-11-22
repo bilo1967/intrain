@@ -135,6 +135,16 @@ encoded by InTrain's real recorder with separate interpreter/file tones on the
 two channels. The test has no npm dependencies and runs in GitHub Actions.
 Chrome is verified; other browsers and codecs still require manual checks.
 
+Chromium can play video while silently skipping unsupported audio codecs. The
+supervisor now receives a warning when the native decoded-audio byte counter
+remains zero after three seconds of actual playback, or at EOF for shorter
+files. Paused playback and headphone mute do not trigger it. This is a diagnostic
+notice, not a codec identification: a file with no audio produces the same
+notice. Browsers without this native counter cannot provide this diagnostic.
+If audio decoding subsequently starts, a recovery message is logged. InTrain's
+synthetic outgoing audio track is deliberately not used to infer file audio
+support, since that track is present even for silent files.
+
 Manual verification: select each floor, reselect YouTube/Vimeo to load another
 video or multimedia file, cancel the URL dialog and browser capture/file picker, end the system screen
 share from the browser UI, confirm return to Speaker, and inspect both WAV

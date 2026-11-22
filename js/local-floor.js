@@ -2,7 +2,7 @@
  * Web Audio keeps a live (silent when paused) audio track. A canvas keeps the
  * last video frame live at EOF, so replay and seeking need no new PeerJS call.
  */
-async function createLocalFileFloor(file, context) {
+async function createLocalFileFloor(file, context, onAudioStatus = () => {}) {
     const media = document.createElement('video');
     media.controls = true;
     media.playsInline = true;
@@ -74,6 +74,31 @@ async function createLocalFileFloor(file, context) {
             // Late joiners also receive a picture while paused or at EOF.
             heartbeat = setInterval(paint, 1000);
         }
+        // A successful video load does not guarantee that its audio codecs can
+        // be decoded. Chromium exposes decoded byte counts even when it silently
+        // ignores unsupported audio. Do not infer codec support from our synthetic
+        // destination track (which exists even for a silent video).
+        let audioStatus = 'pending';
+        const inspectAudio = () => {
+            if (disposed || typeof media.webkitAudioDecodedByteCount !== 'number') return;
+            if (media.webkitAudioDecodedByteCount > 0) {
+                if (audioStatus !== 'decoded') {
+                    const recovered = audioStatus === 'unavailable';
+                    audioStatus = 'decoded';
+                    if (recovered) onAudioStatus('decoded');
+                }
+                return;
+            }
+            let played = 0;
+            for (let i = 0; i < media.played.length; i++)
+                played += media.played.end(i) - media.played.start(i);
+            if (audioStatus !== 'unavailable' && (played >= 3 || (media.ended && played > 0))) {
+                audioStatus = 'unavailable';
+                onAudioStatus('unavailable');
+            }
+        };
+        media.addEventListener('timeupdate', inspectAudio);
+        media.addEventListener('ended', inspectAudio);
         // Loaded, initially paused: the teacher chooses when the exercise starts.
         return {media, stream, dispose};
     } catch (error) {

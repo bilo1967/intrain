@@ -1102,7 +1102,14 @@ $(document).ready(async function() {
         const token = ++floorSelectionEpoch;
         let candidate;
         try {
-            candidate = await createLocalFileFloor(file, audioContext);
+            candidate = await createLocalFileFloor(file, audioContext, status => {
+                if (localFileFloor !== candidate) return;
+                if (status === 'unavailable') {
+                    logToPanel('No audio is being decoded from the local file. It may have no audio, or its audio codec may not be supported by this browser. Try a version with AAC audio.', 'warning');
+                } else if (status === 'decoded') {
+                    logToPanel('Audio decoding is now available for the local file.', 'info');
+                }
+            });
             if (token !== floorSelectionEpoch) {
                 candidate.dispose();
                 return;

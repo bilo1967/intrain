@@ -832,7 +832,7 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.11'},
+        {role: 'supervisor', version: '1.0.12'},
         {role: 'interpreter', version: '1.0.8'}
     ];
     for (const {role, version} of pages) {

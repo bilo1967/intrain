@@ -26,7 +26,8 @@ async function browserChecks() {
         view.setUint16(32, 4, true); view.setUint16(34, 16, true);
         string(36, 'data'); view.setUint32(40, count * 4, true);
         for (let i = 0; i < count; i++) view.setInt16(46 + i * 4, 24000 * Math.sin(i * 2 * Math.PI * 440 / 48000), true);
-        const audio = await createLocalFileFloor(new File([buffer], 'right-only.wav', {type: 'audio/wav'}), context);
+        const audioNotices = [];
+        const audio = await createLocalFileFloor(new File([buffer], 'right-only.wav', {type: 'audio/wav'}), context, status => audioNotices.push(status));
         sessions.push(audio);
         document.body.append(audio.media);
         check(audio.media.paused, 'File must open paused');
@@ -42,6 +43,7 @@ async function browserChecks() {
         audio.media.currentTime = 0.9;
         await audio.media.play(); await wait(300);
         check(audio.media.ended && audio.stream.getAudioTracks()[0].readyState === 'live', 'EOF retains audio track');
+        check(!audioNotices.length, 'Decodable audio must not trigger an unsupported-audio warning');
         audio.media.currentTime = 0; await audio.media.play(); await wait(150);
         check(level() > 0.1, 'Replay restores audio');
         audio.media.pause();
@@ -107,7 +109,8 @@ async function browserChecks() {
         const timer = setInterval(() => {drawing.fillStyle = 'red'; drawing.fillRect(0, 0, 160, 90);}, 50);
         await wait(600); recorder.stop(); await stopped; clearInterval(timer);
         fixture.getTracks().forEach(track => track.stop());
-        const video = await createLocalFileFloor(new File(chunks, 'floor.webm', {type: 'video/webm'}), context);
+        const videoNotices = [];
+        const video = await createLocalFileFloor(new File(chunks, 'floor.webm', {type: 'video/webm'}), context, status => videoNotices.push(status));
         sessions.push(video); document.body.append(video.media);
         check(video.stream.getVideoTracks().length === 1, 'Video file has outgoing picture');
 
@@ -125,9 +128,11 @@ async function browserChecks() {
         document.body.append(remote); remote.srcObject = received;
         await wait(1400);
         check(video.media.paused && remote.videoWidth === 160, 'Late join receives paused picture');
+        check(!videoNotices.length, 'A paused video must not trigger an audio warning');
         await video.media.play(); await wait(1200);
         check(remote.videoWidth === 160 && remote.videoHeight === 90, 'Video reaches remote peer: ' + JSON.stringify({width: remote.videoWidth, height: remote.videoHeight, state: sender.connectionState, tracks: received.getTracks().map(t => ({kind: t.kind, muted: t.muted})), localTime: video.media.currentTime, videoWidth: video.media.videoWidth}));
         check(video.media.ended, 'Fixture reached EOF');
+        check(videoNotices.length === 1 && videoNotices[0] === 'unavailable', 'Video without decoded audio produces one warning');
         check(video.stream.getVideoTracks()[0].readyState === 'live', 'EOF retains canvas track');
         video.media.currentTime = 0; await video.media.play(); await wait(200);
         check(sender.connectionState === 'connected', 'Replay keeps same WebRTC connection');
