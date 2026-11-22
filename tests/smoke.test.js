@@ -816,8 +816,8 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
     const pages = [
-        {role: 'supervisor', version: '1.0.6'},
-        {role: 'interpreter', version: '1.0.6'}
+        {role: 'supervisor', version: '1.0.7'},
+        {role: 'interpreter', version: '1.0.7'}
     ];
     for (const {role, version} of pages) {
         const script = fs.readFileSync(path.join(root, 'js/role-' + role + '.js'), 'utf8');
@@ -829,4 +829,87 @@ test('external video stops at its natural end on supervisor and interpreter', ()
         assert.doesNotMatch(html.match(/<video id="myplayer"[^>]*>/)[0], /\sloop(?:\s|=|>)/);
         assert.match(html, new RegExp('src="js/role-' + role + '\\.js\\?v=' + version.replaceAll('.', '\\.') + '"'));
     }
+});
+
+test('supervisor cannot reveal the embedded player while screen sharing is live', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const c = loadApp();
+    vm.runInContext(source.slice(0, source.indexOf('$(document).ready(')), c);
+    c.requestAnimationFrame = callback => callback();
+    c.document.getElementById = () => null;
+
+    c.sharingScreenActive = true;
+    c.screenshareMediaStream = {getVideoTracks: () => [{readyState: 'live'}]};
+    c.showPlayer = false;
+    assert.equal(c.setSupervisorPlayerVisible(true), false);
+    assert.equal(c.showPlayer, false);
+
+    c.sharingScreenActive = false;
+    assert.equal(c.setSupervisorPlayerVisible(true), true);
+    assert.equal(c.showPlayer, true);
+});
+
+test('confirming the switch is mandatory and canceling it retains the current mode', () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const markup = fs.readFileSync(path.resolve(__dirname, '../supervisor.html'), 'utf8');
+    const c = loadApp();
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    const shown = [];
+    c.InTrainUI = {showModal: selector => shown.push(selector)};
+    let changes = 0;
+
+    c.confirmMediaModeSwitch('screen', () => {changes++;});
+    assert.deepEqual(shown, ['#media-mode-dialog']);
+    assert.equal(changes, 0); // Not switched simply by opening the dialog.
+    assert.equal(typeof c.pendingMediaModeSwitch, 'function');
+    c.pendingMediaModeSwitch = null; // The modal's hidden handler.
+    assert.equal(changes, 0);
+
+    assert.match(markup, /id="media-mode-dialog"/);
+    assert.match(markup, /id="media-mode-dialog-message"/);
+    assert.match(markup, /id="media-mode-confirm"/);
+    assert.match(markup, /data-bs-dismiss="modal">Cancel/);
+    assert.match(role, /'hidden\.bs\.modal', function\(\) \{\s*pendingMediaModeSwitch = null/);
+    assert.match(role, /confirmMediaModeSwitch\('screen', requestScreenCapture\)/);
+    assert.match(role, /confirmMediaModeSwitch\('player', loadSelectedVideo\)/);
+});
+
+test('starting screen capture stops the player only after a successful browser selection', () => {
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const start = role.slice(role.indexOf("$('#share-screen').on('click'"),
+        role.indexOf('    function sharingScreen()'));
+    assert.match(start, /getDisplayMedia\(\{video: true, audio: true\}\)/);
+    assert.match(start, /\.then\(stream => \{/);
+    assert.match(start, /stopSupervisorVideoForScreenShare\(\);/);
+    assert.ok(start.indexOf('getDisplayMedia(') < start.indexOf('stopSupervisorVideoForScreenShare()'));
+    assert.ok(start.indexOf('stopSupervisorVideoForScreenShare()') < start.indexOf('shareScreen(stream)'));
+    assert.doesNotMatch(start, /\.catch\([\s\S]*unshareScreen\(\)/);
+});
+
+test('switching from the player pauses both supervisor and interpreter', () => {
+    const c = loadApp();
+    const role = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    vm.runInContext(role.slice(0, role.indexOf('$(document).ready(')), c);
+    c.requestAnimationFrame = callback => callback();
+    const messages = [];
+    c.interpreterData = {open: true, send: message => messages.push(message)};
+    c.myVideoPlayer = {paused: false, pause() {this.paused = true;}};
+    c.showPlayer = true;
+    c.stopSupervisorVideoForScreenShare();
+    assert.equal(c.myVideoPlayer.paused, true);
+    assert.equal(c.showPlayer, false);
+    assert.ok(messages.some(m => m.action === 'hideplayer'));
+
+    const roleInterpreter = fs.readFileSync(path.resolve(__dirname, '../js/role-interpreter.js'), 'utf8');
+    const ci = loadApp();
+    vm.runInContext(roleInterpreter.slice(0, roleInterpreter.indexOf('$(document).ready(')), ci);
+    ci.showPlayer = true;
+    let pauseCalls = 0;
+    ci.myVideoPlayer = {pause() {pauseCalls++;}};
+    ci.interpreterSyncRequest = {epoch: 15};
+    ci.pendingRemoteVideoState = {playing: true};
+    ci.setInterpreterPlayerVisible(false);
+    assert.equal(pauseCalls, 1);
+    assert.equal(ci.interpreterSyncRequest, null);
+    assert.equal(ci.pendingRemoteVideoState, null);
 });

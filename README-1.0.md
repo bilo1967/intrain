@@ -62,6 +62,21 @@ three-peer exercise with recording and device switching. Automated unit tests
 cannot verify visual layout or browser-specific WebRTC behavior.
 
 
+## Mutually exclusive video sources
+
+On the supervisor, screen sharing and the external video player cannot be
+active at the same time. Switching from one to the other requires explicit
+confirmation in a Bootstrap dialog (Cancel leaves the current source active).
+Opening the video player stops any live screen capture and its PeerJS media
+call. Starting a screen share first opens the browser capture picker, then
+stops and hides the player **only if capture succeeds**. Canceling the browser
+picker leaves the existing video playing. Hiding the player also pauses its
+audio locally and tells the interpreter to pause and hide the player.
+
+Manual verification: switching from both toolbar buttons and the video URL
+Load button; canceling the confirmation; canceling the capture picker; audio
+not continuing in the hidden player; interpreter returning to the floor video.
+
 ## Synchronized external videos
 
 The supervisor controls the YouTube/Vimeo/Facebook player and sends `loadvideo`,

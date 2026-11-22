@@ -210,6 +210,17 @@ function answerInterpreterVideoPing(data) {
 
 function setInterpreterPlayerVisible(visible) {
     showPlayer = !!visible;
+    if (!showPlayer) {
+        // Screen sharing and the embedded player must never play together.
+        // Cancel a stale synchronization handshake as well as the audio.
+        clearTimeout(interpreterSyncPoll);
+        interpreterSyncRequest = null;
+        pendingRemoteVideoState = null;
+        if (myVideoPlayer) {
+            try { myVideoPlayer.pause(); }
+            catch (error) { console.warn('Cannot pause hidden interpreter video', error); }
+        }
+    }
     $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
         .toggleClass('fas fa-times-circle', showPlayer);
     $('#player-container').toggleClass('stack-top', showPlayer)

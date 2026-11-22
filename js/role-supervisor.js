@@ -55,6 +55,7 @@ var micGraph = null;
 var swapChannels = false; // swap channels toggle variable
 var boostVolume = false;  // boost volume
 var showPlayer = false;   // show player and load controls
+var pendingMediaModeSwitch = null; // Action awaiting the supervisor's confirmation
 var currentVideoURL = null; // Supervisor-owned video source, for late joiners
 var videoLoadGeneration = 0; // Ignore stale pending loads
 
@@ -308,8 +309,36 @@ function fitSupervisorPlayerToVideo() {
     }
 }
 
+/*
+ * Confirm the switch before destroying an active source. The action is run
+ * only by the modal's Continue button, never when Cancel or Escape is used.
+ */
+function confirmMediaModeSwitch(target, action) {
+    pendingMediaModeSwitch = action;
+    $('#media-mode-dialog-message').text(target === 'player'
+        ? 'Opening the video player will stop screen sharing. Continue?'
+        : 'Starting screen sharing will stop and hide the video player. Continue?');
+    InTrainUI.showModal('#media-mode-dialog');
+}
+
+/* Hide the video and stop audio immediately; it must not play behind a share. */
+function stopSupervisorVideoForScreenShare() {
+    cancelSupervisorVideoSync();
+    ++videoSyncEpoch; // Invalidate a late syncstart after the player is hidden.
+    videoSyncAuthorizedPlay = false;
+    if (myVideoPlayer) {
+        try { myVideoPlayer.pause(); }
+        catch (error) { console.warn('Cannot pause hidden video player', error); }
+    }
+    setSupervisorPlayerVisible(false);
+}
+
 /* Show the video above the speaker feed while keeping the URL toolbar aligned. */
 function setSupervisorPlayerVisible(visible) {
+    if (visible && sharingScreenActive && screenshareMediaStream) {
+        // UI callers must end screen sharing after confirmation first.
+        return false;
+    }
     showPlayer = !!visible;
     $('#load-player i').toggleClass('fab fa-youtube', !showPlayer)
         .toggleClass('fas fa-times-circle', showPlayer);
@@ -330,6 +359,7 @@ function setSupervisorPlayerVisible(visible) {
     if (interpreterData && interpreterData.open) {
         interpreterData.send({action: showPlayer ? 'showplayer' : 'hideplayer'});
     }
+    return true;
 }
 
 
@@ -968,35 +998,60 @@ $(document).ready(async function() {
             return;
         }
 
-        $('#video-url').removeClass('is-invalid').val(result.url);
-        cancelSupervisorVideoSync();
-        ++videoSyncEpoch; // Invalidate any delayed start for the previous source.
-        videoSyncAuthorizedPlay = false;
-        if (!showPlayer) setSupervisorPlayerVisible(true);
+        const loadSelectedVideo = function() {
+            // Only stop a live screen share after the switch was approved.
+            if (sharingScreen()) unshareScreen();
+            $('#video-url').removeClass('is-invalid').val(result.url);
+            cancelSupervisorVideoSync();
+            ++videoSyncEpoch; // Invalidate delayed starts from the previous source.
+            videoSyncAuthorizedPlay = false;
+            if (!showPlayer) setSupervisorPlayerVisible(true);
 
-        // Wait until the overlay is visible; MediaElement's iframe renderers
-        // may initialize with zero dimensions when their container is hidden.
-        const generation = ++videoLoadGeneration;
-        requestAnimationFrame(function() {
-            if (generation !== videoLoadGeneration) return;
-            try {
-                // Stop the previous source before switching, then load exactly once.
-                if (!myVideoPlayer.paused) myVideoPlayer.pause();
-                myVideoPlayer.setSrc(result.url);
-                currentVideoURL = result.url;
-                if (interpreterData && interpreterData.open) {
-                    interpreterData.send({action: 'loadvideo', url: result.url, time: 0, pause: true});
+            // A visible overlay is required before creating the embedded iframe.
+            const generation = ++videoLoadGeneration;
+            requestAnimationFrame(function() {
+                if (generation !== videoLoadGeneration) return;
+                try {
+                    if (!myVideoPlayer.paused) myVideoPlayer.pause();
+                    myVideoPlayer.setSrc(result.url);
+                    currentVideoURL = result.url;
+                    if (interpreterData && interpreterData.open) {
+                        interpreterData.send({action: 'loadvideo', url: result.url, time: 0, pause: true});
+                    }
+                    console.log('Video loaded:', result.url);
+                } catch (error) {
+                    console.error('Video player rejected the selected source', error);
+                    logToPanel('Could not load the video. Verify the URL and embedding permissions.', 'warning');
                 }
-                console.log('Video loaded:', result.url);
-            } catch (error) {
-                console.error('Video player rejected the selected source', error);
-                logToPanel('Could not load the video. Verify the URL and embedding permissions.', 'warning');
-            }
-        });
+            });
+        };
+
+        if (sharingScreen()) confirmMediaModeSwitch('player', loadSelectedVideo);
+        else loadSelectedVideo();
     });
 
     $('#load-player').on('click', function() {
-        setSupervisorPlayerVisible(!showPlayer);
+        if (showPlayer) {
+            stopSupervisorVideoForScreenShare();
+        } else if (sharingScreen()) {
+            confirmMediaModeSwitch('player', function() {
+                unshareScreen();
+                setSupervisorPlayerVisible(true);
+            });
+        } else {
+            setSupervisorPlayerVisible(true);
+        }
+    });
+
+    // The modal's close, Cancel and Escape paths discard the pending change.
+    $('#media-mode-dialog').on('hidden.bs.modal', function() {
+        pendingMediaModeSwitch = null;
+    });
+    $('#media-mode-confirm').on('click', function() {
+        const action = pendingMediaModeSwitch;
+        pendingMediaModeSwitch = null;
+        InTrainUI.hideModal('#media-mode-dialog');
+        if (action) action();
     });
 
 
@@ -1113,31 +1168,31 @@ $(document).ready(async function() {
     
     
     $('#share-screen').on('click', function() {
-    
         if (sharingScreen()) {
-        
             unshareScreen();
-
-
-        } else {
-            navigator.mediaDevices
-                
-                .getDisplayMedia({video: true, audio: true,})
-                .then(stream => {
-
-                    shareScreen(stream);
-                    
-                    return stream;
-                    
-                }).catch(err => {
-                
-                    
-                    unshareScreen();
-                    console.error("Error sharing screen: " + err);
-                    return null; 
-                });
+            return;
         }
-    
+
+        // The browser's capture picker must start inside a direct click.
+        // The modal Continue button supplies that gesture after confirmation.
+        const requestScreenCapture = function() {
+            navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
+                .then(stream => {
+                    // Do not interrupt a running video if the user canceled the
+                    // browser picker; switch only after capture succeeds.
+                    if (showPlayer || (myVideoPlayer && !myVideoPlayer.paused))
+                        stopSupervisorVideoForScreenShare();
+                    shareScreen(stream);
+                })
+                .catch(err => {
+                    // A canceled picker must leave the existing player intact.
+                    if (err.name !== 'NotAllowedError' && err.name !== 'AbortError')
+                        console.error('Error sharing screen:', err);
+                });
+        };
+
+        if (showPlayer) confirmMediaModeSwitch('screen', requestScreenCapture);
+        else requestScreenCapture();
     });
     
     function sharingScreen() {
