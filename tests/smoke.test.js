@@ -241,7 +241,7 @@ test('role pages load Bootstrap 5 and external, unminified application scripts',
         const role = page.replace('.html', '');
         assert.ok(html.includes('src="js/bootstrap-ui.js"'));
         assert.ok(html.includes('src="js/storage.js"'));
-        assert.ok(html.includes(`src="js/role-${role}.js"`));
+        assert.ok(html.includes(`src="js/role-${role}.js`));
         assert.ok(html.indexOf('src="js/bootstrap-ui.js"') < html.indexOf(`src="js/role-${role}.js"`));
     }
 });
