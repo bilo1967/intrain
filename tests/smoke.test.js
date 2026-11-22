@@ -616,7 +616,7 @@ test('interpreter video renderer fits the central speaker video, not the mini vi
     assert.match(css, /#player-container\.interpreter-video-player \.mejs__mediaelement iframe\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
     assert.match(html, /<video id="myplayer" width="480" height="300"/);
     assert.match(html, /class="video-player-interaction-shield"/);
-    assert.match(html, /src="js\/role-interpreter\.js\?v=1\.0\.3"/);
+    assert.match(html, /src="js\/role-interpreter\.js\?v=1\.0\.\d+"/);
 });
 
 
