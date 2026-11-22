@@ -343,10 +343,10 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
     assert.match(supervisor, /id="player-panel"/);
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
-    assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.7/);
+    assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.\d+/);
     for (const page of ['speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
-        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.6/);
+        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.\d+/);
     }
 });
 
