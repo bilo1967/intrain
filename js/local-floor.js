@@ -7,7 +7,7 @@ async function createLocalFileFloor(file, context) {
     media.controls = true;
     media.playsInline = true;
     media.preload = 'auto';
-    media.className = 'normal-video rounded';
+    media.className = 'normal-video rounded local-floor-media';
     media.setAttribute('aria-label', 'Local floor: ' + file.name);
     const url = URL.createObjectURL(file);
     let source, destination, stream, canvasStream, frameId, heartbeat, disposed = false;
@@ -15,6 +15,7 @@ async function createLocalFileFloor(file, context) {
         if (disposed) return;
         disposed = true;
         media.pause();
+        media.controls = false;
         if (frameId !== undefined) media.cancelVideoFrameCallback(frameId);
         clearInterval(heartbeat);
         if (source) source.disconnect();

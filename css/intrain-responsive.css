@@ -822,7 +822,8 @@ input.bg-chat {
 }
 
 
-video::-webkit-media-controls {
+/* The supervisor's local-file player uses the browser's playback controls. */
+video:not(.local-floor-media)::-webkit-media-controls {
   display:none !important;
 }
 
