@@ -82,6 +82,35 @@ function sendCurrentVideoState(connection) {
     if (connection && connection.open) connection.send(getCurrentVideoState());
 }
 
+/*
+ * Size the MediaElement player to the actual speaker video, not to the iframe's
+ * intrinsic ratio (which can be square). The audio/recording controls below
+ * the video must remain outside the player.
+ */
+function getSupervisorVideoSize() {
+    const video = document.getElementById('speakerVideo');
+    if (!video) return null;
+
+    const width = Math.round(video.getBoundingClientRect().width);
+    const height = Math.round(video.getBoundingClientRect().height);
+    if (width <= 0 || height <= 0) return null;
+
+    return {width, height};
+}
+
+function fitSupervisorPlayerToVideo() {
+    const size = getSupervisorVideoSize();
+    const container = document.getElementById('player-container');
+    if (!size || !container) return;
+
+    container.style.width = size.width + 'px';
+    container.style.height = size.height + 'px';
+
+    if (myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
+        myVideoPlayer.setPlayerSize(size.width, size.height);
+    }
+}
+
 /* Show the video above the speaker feed while keeping the URL toolbar aligned. */
 function setSupervisorPlayerVisible(visible) {
     showPlayer = !!visible;
@@ -97,13 +126,8 @@ function setSupervisorPlayerVisible(visible) {
         controls.animate({width: '0'}, 400).fadeTo(0, 0);
     }
 
-    if (showPlayer && myVideoPlayer && typeof myVideoPlayer.setPlayerSize === 'function') {
-        requestAnimationFrame(function() {
-            // Recalculate an iframe renderer initialized inside a hidden overlay.
-            if (showPlayer) myVideoPlayer.setPlayerSize(
-                $('#player-container').width(), $('#player-container').height()
-            );
-        });
+    if (showPlayer) {
+        requestAnimationFrame(fitSupervisorPlayerToVideo);
     }
 
     if (interpreterData && interpreterData.open) {
@@ -250,7 +274,11 @@ $(document).ready(async function() {
     // init player
 	$('#myplayer').mediaelementplayer({
         startVolume: 1,
-        stretching: 'responsive',
+        // The video panel has a fixed height (set by responsive CSS variables).
+        // Responsive stretching otherwise lets iframe renderers grow past it.
+        stretching: 'none',
+        videoWidth: getSupervisorVideoSize()?.width || 480,
+        videoHeight: getSupervisorVideoSize()?.height || 300,
         controls: true,
         alwaysShowControls: true,
         features: ["playpause", "progress", "current", "duration", "tracks", "volume", "fullscreen"],
@@ -258,6 +286,8 @@ $(document).ready(async function() {
         
             myVideoPlayer = instance; 
             myVideoMediaElement = mediaElement;
+            fitSupervisorPlayerToVideo();
+            mediaElement.addEventListener('loadedmetadata', fitSupervisorPlayerToVideo, false);
 
             mediaElement.addEventListener('progress', function() { 
                 console.log('progress', myVideoPlayer.currentTime);  
@@ -924,6 +954,11 @@ $(document).ready(async function() {
         console.log("Device list change detected");
         handleDeviceListChange(e); // io-devices.js
     }
+});
+
+// Refit the embedded player when responsive breakpoints change the video size.
+window.addEventListener('resize', function() {
+    if (showPlayer) requestAnimationFrame(fitSupervisorPlayerToVideo);
 });
 
 // Start/stop decalage timer when pressing space bar

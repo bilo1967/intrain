@@ -289,6 +289,33 @@
     height: var(--normal-video-height);
 }
 
+/*
+ * MediaElement creates its own wrapper around the video. Its calculated
+ * dimensions must not extend beyond the speaker video and cover the recorder
+ * buttons underneath. This constraint applies to the supervisor only.
+ */
+#player-container:not(.interpreter-video-player) {
+    overflow: hidden;
+}
+
+#player-container:not(.interpreter-video-player) .mejs__container:not(.mejs__container-fullscreen) {
+    box-sizing: border-box;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#player-container:not(.interpreter-video-player) .mejs__inner,
+#player-container:not(.interpreter-video-player) .mejs__mediaelement {
+    max-height: 100%;
+}
+
+/* Preserve MediaElement's native fullscreen behavior. */
+#player-container:has(.mejs__container-fullscreen) {
+    overflow: visible;
+}
+
 #myplayer {
     /* per qualche motivo l'altezza dev'essere forzata nel tag <video> */
 }

@@ -343,7 +343,8 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
     assert.match(supervisor, /id="player-panel"/);
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
-    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
+    assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.7/);
+    for (const page of ['speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
         assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.6/);
     }
@@ -507,4 +508,45 @@ test('supervisor validates URL and loads source once after overlay is shown', ()
     assert.equal((loadBlock.match(/myVideoPlayer\.setSrc\(/g) || []).length, 1);
     assert.match(loadBlock, /addClass\('is-invalid'\)/);
     assert.match(js, /addEventListener\('error'/);
+});
+
+
+test('supervisor MediaElement remains within the central speaker video area', () => {
+    const root = path.resolve(__dirname, '..');
+    const script = fs.readFileSync(path.join(root, 'js/role-supervisor.js'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const markup = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
+    const c = loadApp();
+
+    // Load declarations without executing browser-only startup.
+    vm.runInContext(script.slice(0, script.indexOf('$(document).ready(')), c);
+
+    const overlay = {style: {}};
+    let size = {width: 480, height: 300};
+    const speaker = {getBoundingClientRect: () => size};
+    c.document.getElementById = id =>
+        id === 'speakerVideo' ? speaker :
+        id === 'player-container' ? overlay : null;
+
+    const requests = [];
+    c.myVideoPlayer = {setPlayerSize(width, height) {requests.push([width, height]);}};
+
+    c.fitSupervisorPlayerToVideo();
+    assert.deepEqual(requests[0], [480, 300]);
+    assert.equal(overlay.style.width, '480px');
+    assert.equal(overlay.style.height, '300px');
+
+    size = {width: 368, height: 230};
+    c.fitSupervisorPlayerToVideo();
+    assert.deepEqual(requests[1], [368, 230]);
+    assert.equal(overlay.style.width, '368px');
+    assert.equal(overlay.style.height, '230px');
+
+    assert.match(script, /stretching:\s*'none'/);
+    assert.match(script, /videoWidth:\s*getSupervisorVideoSize\(\)\?\.width/);
+    assert.match(script, /videoHeight:\s*getSupervisorVideoSize\(\)\?\.height/);
+    assert.match(script, /addEventListener\('resize'/);
+    assert.match(css, /#player-container:not\(\.interpreter-video-player\)\s*\{\s*overflow:\s*hidden;/);
+    assert.match(css, /\.mejs__container:not\(\.mejs__container-fullscreen\)\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
+    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.3"/);
 });
