@@ -30,5 +30,20 @@ jobs:
             esac
             node --check "$script"
           done
+      - name: Existing regression tests
+        run: node --test --test-name-pattern='^(?!supervisor starts only|supervisor reconnect targets|lag samples never|interpreter only seeks).*' tests/smoke.test.js
+      - name: Sync ready regression
+        if: always()
+        run: node --test --test-name-pattern='^supervisor starts only' tests/smoke.test.js
+      - name: Sync reconnect regression
+        if: always()
+        run: node --test --test-name-pattern='^supervisor reconnect targets' tests/smoke.test.js
+      - name: Sync lag regression
+        if: always()
+        run: node --test --test-name-pattern='^lag samples never' tests/smoke.test.js
+      - name: Sync interpreter regression
+        if: always()
+        run: node --test --test-name-pattern='^interpreter only seeks' tests/smoke.test.js
       - name: Run regression tests
+        if: always()
         run: node --test tests/smoke.test.js
