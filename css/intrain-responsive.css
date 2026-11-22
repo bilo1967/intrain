@@ -5,10 +5,20 @@
     white-space: nowrap;
 }
 
+/* Use identical flex line boxes for the icon and label, regardless of font metrics. */
+#session-mode .session-mode-icon,
+#session-mode > span:not(.session-mode-icon) {
+    display: inline-flex;
+    align-items: center;
+    height: 1.5rem;
+    line-height: 1;
+}
+
 #session-mode .session-mode-icon {
     flex: 0 0 auto;
+    justify-content: center;
+    width: 1.5rem;
     font-size: 1.25rem;
-    line-height: 1;
 }
 
 /* Values that may get overriden for specific media screen sizes */

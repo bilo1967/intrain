@@ -284,6 +284,12 @@ test('camera enable/disable checks video tracks rather than audio availability',
 });
 
 
+test('session-mode icon and label share a centered flex line box', () => {
+    const css = fs.readFileSync(path.resolve(__dirname, '../css/intrain-responsive.css'), 'utf8');
+    assert.match(css, /#session-mode \.session-mode-icon,\s*#session-mode > span:not\(\.session-mode-icon\)\s*\{/);
+    assert.match(css, /display: inline-flex;\s*align-items: center;\s*height: 1\.5rem;\s*line-height: 1;/);
+});
+
 test('session mode shows the selected icon with spacing and valid HTML', () => {
     const c = loadApp();
     let rendered = '';
@@ -336,7 +342,7 @@ test('URL panel and supervisor original Material Symbols styling', () => {
     assert.match(supervisor, /class="me-1 flex-grow-1"/);
     for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
-        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.2/);
+        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.3/);
     }
 });
 
