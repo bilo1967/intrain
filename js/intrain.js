@@ -1199,20 +1199,22 @@ function setSessionMode(mode, animate = true) {
 
     switch (mode) {
     case 'briefing':
-        icon = '<div class="mr-2"><i class="fas fa-bullhorn"></i></div>';
+        icon = '<i class="fas fa-bullhorn session-mode-icon me-2" aria-hidden="true"></i>';
         break;
     case 'training':
         color = 'yellow';
-        icon = '<i class="material-icons mr-2">record_voice_over</i>';
+        icon = '<span class="material-font session-mode-icon me-2" aria-hidden="true">record_voice_over</span>';
         break;
     default:
         mode = '';
         break;
     }
-    
+
     if (mode) {
-        
-        $('#session-mode').html( icon + `${mode} mode`.toUpperCase() + '</div>' ).removeClass('hidden');
+        // Both icons use the same spacing. Keep the Material Symbols ligature
+        // in its own element so uppercasing the label cannot change its name.
+        $('#session-mode').html(icon + '<span>' + (mode + ' mode').toUpperCase() + '</span>')
+            .removeClass('hidden');
     
         if (animate) animateCSS('#session-mode', 'heartBeat');
         

@@ -330,8 +330,8 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                     break;
                 case 'seekvideo':
                     if (myVideoPlayer != null) {
-                        //myVideoPlayer.pause();
-                        myVideoMediaElement.setCurrentTime(parseFloat(data.time));
+                        // Use the same MediaElement.js player API as loadvideo and the supervisor.
+                        myVideoPlayer.setCurrentTime(parseFloat(data.time));
                         if (data.pause) myVideoPlayer.pause();
                         console.log("seek video to", data.time);
                     }

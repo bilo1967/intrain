@@ -1,5 +1,30 @@
 @import 'https://fonts.googleapis.com/css?family=Open+Sans';
 @import 'https://fonts.googleapis.com/css?family=Roboto';
+@import 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap';
+
+/*
+ * Material Symbols are used by the session mode indicator and role controls.
+ * The stylesheet is shared by supervisor, speaker and interpreter.
+ */
+.material-font {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 200;
+    font-size: 26px; /* default font size */
+    white-space: nowrap;
+    font-feature-settings: 'liga';
+}
+
+#session-mode {
+    align-items: center;
+    white-space: nowrap;
+}
+
+#session-mode .session-mode-icon {
+    flex: 0 0 auto;
+    font-size: 1.25rem;
+    line-height: 1;
+}
 
 /* Values that may get overriden for specific media screen sizes */
 
@@ -252,7 +277,12 @@
 
 
 .player-container {
-  position: absolute;
+    /* Overlay the speaker video without affecting the surrounding layout. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--normal-video-width);
+    height: var(--normal-video-height);
 }
 
 #myplayer {
@@ -533,7 +563,28 @@ input.bg-chat {
 
 #player-panel {
     max-width: 330px;
-    width: 0px;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+/* While the URL control expands/collapses, keep its input and button on one line. */
+#player-panel > div {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#player-panel #video-url {
+    width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+
+#player-panel #run-player {
+    flex: 0 0 auto;
 }
 
 .undroppable {

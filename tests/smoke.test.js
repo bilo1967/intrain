@@ -282,3 +282,64 @@ test('camera enable/disable checks video tracks rather than audio availability',
     assert.equal(c.enableCam(false), false);
     assert.equal(video.enabled, false);
 });
+
+
+test('session mode shows the selected icon with spacing and valid HTML', () => {
+    const c = loadApp();
+    let rendered = '';
+    c.myRole = 'interpreter';
+    c.logToChat = () => {};
+    c.$ = selector => ({
+        html(value) {
+            if (selector === '#session-mode' && value !== undefined) rendered = value;
+            return this;
+        },
+        removeClass() { return this; },
+        addClass() { return this; }
+    });
+
+    c.setSessionMode('briefing', false);
+    assert.match(rendered, /fa-bullhorn session-mode-icon me-2/);
+    assert.match(rendered, /BRIEFING MODE/);
+    assert.doesNotMatch(rendered, /<\/div>/);
+
+    c.setSessionMode('training', false);
+    assert.match(rendered, /material-font session-mode-icon me-2/);
+    assert.match(rendered, />record_voice_over<\/span>/);
+    assert.match(rendered, /TRAINING MODE/);
+    assert.doesNotMatch(rendered, /<\/div>/);
+});
+
+test('supervisor video player is shown above the speaker and hidden again', () => {
+    const root = path.resolve(__dirname, '..');
+    const supervisor = fs.readFileSync(path.join(root, 'js/role-supervisor.js'), 'utf8');
+    const markup = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+
+    assert.match(supervisor, /\$\('#player-container'\)\.removeClass\('stack-bottom hidden'\)\.addClass\('stack-top'\)/);
+    assert.match(supervisor, /\$\('#player-container'\)\.removeClass\('stack-top'\)\.addClass\('stack-bottom hidden'\)/);
+    assert.match(markup, /id="player-container"/);
+    assert.match(markup, /id="speakerVideo"/);
+    assert.match(css, /\.player-container\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*left:\s*0;/);
+});
+
+test('URL panel collapses without wrapping and mode icon font is shared', () => {
+    const root = path.resolve(__dirname, '..');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const supervisor = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
+
+    assert.match(css, /Material\+Symbols\+Outlined/);
+    assert.match(css, /#player-panel\s*\{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;/);
+    assert.match(supervisor, /id="player-panel"/);
+    assert.match(supervisor, /class="me-1 flex-grow-1"/);
+    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.match(html, /css\/intrain-responsive\.css\?v=1\.0\.1/);
+    }
+});
+
+test('interpreter synchronizes seeks using the MediaElement player API', () => {
+    const peer = fs.readFileSync(path.resolve(__dirname, '../js/peercommon.js'), 'utf8');
+    assert.match(peer, /myVideoPlayer\.setCurrentTime\(parseFloat\(data\.time\)\)/);
+    assert.doesNotMatch(peer, /myVideoMediaElement\.setCurrentTime/);
+});

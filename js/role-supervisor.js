@@ -642,7 +642,8 @@ $(document).ready(async function() {
                 interpreterData.send({action: "showplayer"});
         
             $('#load-player i').removeClass('fab fa-youtube').addClass('fas fa-times-circle');
-            $('#player-container').removeClass('stack-bottom').addClass('stack-top');
+            // The hidden class must also be removed, not only the low z-index.
+            $('#player-container').removeClass('stack-bottom hidden').addClass('stack-top');
 
             $('#player-panel').fadeTo(0, 1);
             $('#player-panel').animate({ width: $('#player-panel').css('max-width')}, 400);
@@ -652,7 +653,7 @@ $(document).ready(async function() {
                 interpreterData.send({action: "hideplayer"});
         
             $('#load-player i').removeClass('fas fa-times-circle').addClass('fab fa-youtube');
-            $('#player-container').removeClass('stack-top').addClass('stack-bottom');
+            $('#player-container').removeClass('stack-top').addClass('stack-bottom hidden');
 
             $('#player-panel').animate({ width: '0' }, 400);
             $('#player-panel').fadeTo(0, 0);
