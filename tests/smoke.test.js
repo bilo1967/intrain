@@ -45,7 +45,7 @@ test('chat colors are readable on light panels without changing layout classes',
     const common = fs.readFileSync(path.join(root, 'js/common.js'), 'utf8');
     const chat = fs.readFileSync(path.join(root, 'js/intrain.js'), 'utf8');
 
-    assert.ok(css.includes('background-color: #F3F8F7;'));
+    assert.ok(css.includes('background-color: #EDF2EF;'));
     assert.ok(css.includes('#chatboard, input.bg-chat {'));
     assert.ok(css.includes('color: #26343C;'));
     assert.ok(common.includes('const ColorInterpreter = "#2459A2";'));

@@ -291,6 +291,8 @@ async function stopSpeakerScreenShare(restorePeers = true) {
     if (!session) return false;
 
     speakerShareSession = null;
+    speakerShareBusy = true; // Ignore clicks until camera tracks have been restored.
+    $('#share-screen').prop('disabled', true);
     sharingScreenActive = false;
     screenshareMediaStream = null;
     const webcam = localStreamBackup || micStream;
@@ -313,6 +315,8 @@ async function stopSpeakerScreenShare(restorePeers = true) {
         }
     } finally {
         session.dispose();
+        speakerShareBusy = false;
+        $('#share-screen').prop('disabled', false);
     }
     console.log('Speaker camera/microphone restored');
     return true;
