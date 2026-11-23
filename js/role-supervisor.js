@@ -868,7 +868,7 @@ $(document).ready(async function() {
                         c.on('data', function(data) {
                             var act = (typeof data === "object") ? data.action : "chat";
 
-                            console.log("received:", data);
+                            if (InTrainFileTransfer.receive(c, data, role)) return;
 
                             switch (act) {
                             case 'syncready':

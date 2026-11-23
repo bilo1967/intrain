@@ -421,7 +421,7 @@ function loadCommonHandlers() {
             sendFilesToDataChannel(supervisorData, e.target.files);
             break;
         }
-        $(this).val();        
+        this.value = ''; // Allow selecting the same file again.
     });
     
     // Send a file to all peers
@@ -430,7 +430,7 @@ function loadCommonHandlers() {
         sendFilesToDataChannel(interpreterData, e.target.files);
         sendFilesToDataChannel(speakerData,     e.target.files);
         sendFilesToDataChannel(supervisorData,  e.target.files);
-        $(this).val();
+        this.value = ''; // Allow selecting the same file again.
     });
 
 
@@ -504,24 +504,8 @@ function loadCommonHandlers() {
 }
 
 function sendFilesToDataChannel(datachannel, file_or_file_list) {
-    if (datachannel && datachannel.open) { 
-        
-        Array.from(file_or_file_list).forEach(function(file) {
-            
-            const blob = new Blob([ file ], { type: file.type });
-            
-            console.log("Sending file '" + file.name + "'");
-            
-            datachannel.send({
-                action: "sendfile", 
-                filename: file.name,
-                filetype: file.type,
-                file: blob
-            });            
-            
-        });
-    }
-}    
+    return InTrainFileTransfer.sendFiles(datachannel, file_or_file_list);
+}
 function getFileDownloadLinkFromData(data) {
     var html = null;
     if (typeof data === "object") {
@@ -803,10 +787,10 @@ function dialPeer(calleeID, callerRole, calleeRole) {
 }
 
 // Handle the internal data transfer protocol
-function handleChat(data, callerRole, callerColor) {
-    
-    console.log("Data received: ", data);
-    
+function handleChat(data, callerRole, callerColor, connection = null) {
+    // The transfer manager consumes chunk messages without logging file contents.
+    if (InTrainFileTransfer.receive(connection, data, callerRole)) return;
+
     var action = (typeof data === "object") ? data.action : "chat";
     switch (action) {
     case 'chat':

@@ -61,6 +61,29 @@ off the camera while the screen is live; test native Stop Sharing, cancel, peers
 reconnecting, disconnect and the supervisor's WAV recording of the mixed floor.
 Screen audio availability varies with browser, OS and capture source.
 
+### PeerJS file transfers
+
+All three roles use `js/file-transfer.js` over their existing reliable PeerJS
+data connections. Files are read incrementally in 12 KiB chunks with channel
+backpressure rather than passed to PeerJS as a single large Blob. Each
+transfer has a header, ordered chunks, a completion marker and a recipient
+acknowledgement; interrupted, incomplete or rejected transfers report an
+error instead of exposing a broken download. Both direct and send-to-all
+actions use the same protocol, and files selected repeatedly or in batches
+are queued per recipient.
+
+The receiver assembles the download link only after validating the complete
+length and chunk sequence. Transfers are capped at 256 MiB to prevent
+unbounded in-browser memory use, with a 120-second stall/ack timeout. A
+transfer is kept in memory on the receiving browser until the page is closed.
+Legacy incoming `sendfile` messages remain accepted, but the new protocol
+requires all three role pages to be deployed together.
+
+Logs no longer dump raw data-channel payloads. A canceled native file picker
+does nothing. Re-selecting the same file is supported. For manual acceptance,
+test several small files, a multi-megabyte file, empty files, repeated sends,
+send-to-all to two peers, disconnect during upload and reconnect.
+
 ## Code maintenance
 
 The application still uses its existing PeerJS mesh topology and separate role pages.

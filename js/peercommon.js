@@ -88,12 +88,12 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                 switch (role) {
                 case RoleInterpreter:
                     interpreterData.on('data', function(data) {
-                        handleChat(data, RoleInterpreter, ColorInterpreter);
+                        handleChat(data, RoleInterpreter, ColorInterpreter, c);
                     });
                     break;
                 case RoleSpeaker:
                     speakerData.on('data', function(data) {
-                        handleChat(data, RoleSpeaker, ColorSpeaker);
+                        handleChat(data, RoleSpeaker, ColorSpeaker, c);
                     });
                     break;
                 case RoleSupervisor:
@@ -248,8 +248,8 @@ function loadPeerHandlers(setAudioMode = () => {}) {
             supervisorData.on('data', function(data) {
                 var act = (typeof data === "object") ? data.action : "chat";
                 
-                console.log("received: " + JSON.stringify(data) +  " from ", RoleSupervisor);
-                
+                if (InTrainFileTransfer.receive(supervisorData, data, RoleSupervisor)) return;
+
                 switch (act) {
                 case 'chat':
                     logToChat(escapeHTML(data.message), RoleSupervisor, ColorSupervisor);

@@ -188,6 +188,100 @@ test('disconnecting the speaker also stops native desktop capture', async () => 
     assert.equal(f.c.localStream, f.webcam);
 });
 
+test('file transfers stream bounded binary chunks and wait for receipt confirmations', async () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/file-transfer.js'), 'utf8');
+    const completed = [], sentMessages = [], senderLog = [], recipientLog = [];
+    function makeTransfer(log) {
+        const c = vm.createContext({
+            Blob, ArrayBuffer, Uint8Array, Promise, Map, WeakMap, WeakSet,
+            setTimeout, clearTimeout,
+            window: {addEventListener() {}},
+            URL: {createObjectURL(blob) {
+                completed.push(blob);
+                return 'blob:received-file';
+            }, revokeObjectURL() {}},
+            console: {warn() {}},
+            escapeHTML(value) {return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');},
+            logToChat(message) {log.push(message);},
+            logToPanel(message) {log.push(message);}
+        });
+        vm.runInContext(source, c, {filename: 'js/file-transfer.js'});
+        return vm.runInContext('InTrainFileTransfer', c);
+    }
+    const sender = makeTransfer(senderLog), recipient = makeTransfer(recipientLog);
+    const one = {
+        open: true, dataChannel: {bufferedAmount: 0}, bufferSize: 0,
+        on() {},
+        send(data) {
+            sentMessages.push(data);
+            queueMicrotask(() => recipient.receive(two, data, 'speaker'));
+        }
+    };
+    const two = {
+        open: true, dataChannel: {bufferedAmount: 0}, bufferSize: 0,
+        on() {},
+        send(data) {queueMicrotask(() => sender.receive(one, data, 'supervisor'));}
+    };
+    const data = new Uint8Array(100000);
+    for (let i = 0; i < data.length; i++) data[i] = (i * 17) % 251;
+    const first = new Blob([data], {type: 'application/octet-stream'});
+    Object.defineProperty(first, 'name', {value: 'test & data.bin'});
+    const empty = new Blob([]);
+    Object.defineProperty(empty, 'name', {value: 'empty.bin'});
+
+    await sender.sendFiles(one, [first, empty]);
+    assert.equal(completed.length, 2);
+    assert.deepEqual(new Uint8Array(await completed[0].arrayBuffer()), data);
+    assert.equal(completed[1].size, 0);
+    assert.ok(recipientLog[0].includes('test &amp; data.bin'));
+    assert.equal(senderLog.filter(message => message.includes('File delivered')).length, 2);
+    const chunks = sentMessages.filter(message => message.action === 'file-part');
+    assert.ok(chunks.length >= 9);
+    assert.ok(chunks.every(chunk => chunk.bytes.byteLength <= 12 * 1024));
+    assert.ok(sentMessages.some(message => message.action === 'file-finish'));
+    assert.ok(sentMessages.every(message => message.action !== 'sendfile'));
+});
+
+test('invalid file chunks are rejected without offering a partial download', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../js/file-transfer.js'), 'utf8');
+    const delivered = [], replies = [];
+    const context = vm.createContext({
+        Blob, ArrayBuffer, Uint8Array, Promise, Map, WeakMap, WeakSet,
+        setTimeout, clearTimeout, window: {addEventListener() {}},
+        URL: {createObjectURL() {delivered.push('download');return 'blob:fake';}, revokeObjectURL() {}},
+        console: {warn() {}},
+        escapeHTML: String, logToChat(message) {delivered.push(message);}, logToPanel() {}
+    });
+    vm.runInContext(source, context);
+    const transfer = vm.runInContext('InTrainFileTransfer', context);
+    const channel = {open: true, on() {}, send(message) {replies.push(message);}};
+    assert.equal(transfer.receive(channel, {action: 'file-begin', id: 'x', name: 'file', type: '',
+        size: 32, total: 1}, 'speaker'), true);
+    transfer.receive(channel, {action: 'file-part', id: 'x', index: 0, bytes: new Uint8Array(4).buffer}, 'speaker');
+    transfer.receive(channel, {action: 'file-finish', id: 'x'}, 'speaker');
+    assert.equal(delivered.length, 0);
+    assert.equal(replies[0].action, 'file-result');
+    assert.equal(replies[0].ok, false);
+});
+
+test('all roles load the shared transfer protocol and do not log raw peer payloads', () => {
+    const root = path.resolve(__dirname, '..');
+    for (const role of ['supervisor', 'speaker', 'interpreter']) {
+        const markup = fs.readFileSync(path.join(root, role + '.html'), 'utf8');
+        assert.ok(markup.includes('src="js/file-transfer.js?v=1.0.1"'));
+        assert.ok(markup.indexOf('js/file-transfer.js') > markup.indexOf('js/intrain.js'));
+    }
+    const intrain = fs.readFileSync(path.join(root, 'js/intrain.js'), 'utf8');
+    const peer = fs.readFileSync(path.join(root, 'js/peercommon.js'), 'utf8');
+    const supervisor = fs.readFileSync(path.join(root, 'js/role-supervisor.js'), 'utf8');
+    assert.doesNotMatch(intrain, /console\\.log\\("Data received: ", data\\)/);
+    assert.doesNotMatch(peer, /JSON\\.stringify\\(data\\)/);
+    assert.doesNotMatch(supervisor, /console\\.log\\("received:", data\\)/);
+    assert.match(intrain, /InTrainFileTransfer\\.sendFiles/);
+    assert.match(peer, /InTrainFileTransfer\\.receive/);
+    assert.match(supervisor, /InTrainFileTransfer\\.receive/);
+});
+
 test('closing peer connections works when open is an inherited getter', async () => {
     const c = loadApp();
     const data = fakeConnection();
