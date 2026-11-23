@@ -17,14 +17,15 @@
     overflow-x: hidden;
 }
 #decalage-average {
-    background: SeaGreen;
-    color: white;
+    background: transparent;
+    border: 1px solid SeaGreen;
+    color: SeaGreen;
     cursor: pointer;
     user-select: none;
 }
 
 #decalage-average:hover {
-    background: MediumSeaGreen;
+    background: #e8f5ee;
 }
 
 .decalage {

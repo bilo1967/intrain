@@ -80,8 +80,8 @@
   <script src="js/animatecss.js"></script>
 
   <!-- Decalage chronometer component -->
-  <link rel="stylesheet" href="css/decalage.css">
-  <script src="js/decalage.js"></script>
+  <link rel="stylesheet" href="css/decalage.css?v=1.0.1">
+  <script src="js/decalage.js?v=1.0.1"></script>
 
 
   <!-- Audio recorder from AudioContext -->
@@ -322,14 +322,14 @@
 
         <!-- decalage chronometer:begin -->
         <div class="d-flex d-inline-flex ms-4" style="position:relative" >
-          <button id="timer-startstop" class="btn btn-sm btn-primary me-1">
+          <button id="timer-startstop" class="btn btn-sm btn-outline-primary me-1">
             <i class="fas fs-large fa-stopwatch" data-bs-toggle="tooltip" title="Start/stop chronometer (you can also press the space bar)"></i>
           </button>
-          <div id="timer-display" class="text-light bg-primary ps-1 pe-1 rounded fs-large">00:00.0</div>
-          <button id="timer-reset" class="btn btn-sm btn-primary ms-1" data-bs-toggle="tooltip" title="Double click to clear stats">
+          <div id="timer-display" class="text-primary border border-primary ps-1 pe-1 rounded fs-large">00:00.0</div>
+          <button id="timer-reset" class="btn btn-sm btn-outline-primary ms-1" data-bs-toggle="tooltip" title="Double click to clear stats">
             <i class="far fs-large fa-times-circle"></i>
           </button>
-          <button id="timepad-toggle"class="btn btn-sm btn-primary ms-1">
+          <button id="timepad-toggle" class="btn btn-sm btn-outline-primary ms-1">
             <i class="fas fa-caret-down" data-bs-toggle="tooltip" title="Show/hide stats"></i>
           </button>
           <div id="timepad" class="flex-fill bg-light border">
@@ -343,9 +343,9 @@
         <!-- Floor selector -->
         <div class="d-flex d-inline-flex mb-2 ms-4" style="position:relative" >
           <label class="visually-hidden" for="floor-select">Select floor</label>
-          <div class="input-group" id="floor-input-group">
-            <span class="input-group-text"><span class="material-symbols-outlined" aria-hidden="true">interpreter_mode</span></span>
-            <select id="floor-select" class="form-select" aria-label="Select floor">
+          <div class="input-group border border-2 border-success rounded" id="floor-input-group">
+            <span class="input-group-text bg-success text-white border-0"><span class="material-symbols-outlined" aria-hidden="true">interpreter_mode</span></span>
+            <select id="floor-select" class="form-select fw-semibold bg-success-subtle border-0" aria-label="Select floor">
               <option value="" selected disabled>Select floor... (Speaker)</option>
               <option value="speaker">Speaker</option>
               <option value="screen">Screen share...</option>

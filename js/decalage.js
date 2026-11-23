@@ -98,8 +98,8 @@ $('document').ready(function() {
         updateDecalageAverage();
         
         timerStarted = false;
-        $("#timer-startstop").removeClass('btn-primary btn-danger');
-        $("#timer-startstop").addClass('btn-primary');
+        $("#timer-startstop").removeClass('btn-outline-primary btn-outline-danger');
+        $("#timer-startstop").addClass('btn-outline-primary');
         
         $("#timer-display").text('00:00.0');
         
@@ -143,7 +143,7 @@ $('document').ready(function() {
             timerStarted = true;
 
         }
-        $(this).toggleClass('btn-primary btn-danger');
+        $(this).toggleClass('btn-outline-primary btn-outline-danger');
         
     });
 
