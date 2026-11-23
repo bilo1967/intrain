@@ -63,6 +63,20 @@ Screen audio availability varies with browser, OS and capture source.
 
 ### PeerJS file transfers
 
+**Why retain the application-level protocol?** PeerJS already supports binary
+Blob/ArrayBuffer messages, automatic chunking (approximately 16.3 KiB per
+chunk), reassembly and buffered sending. Nevertheless, tests with the previous
+single-message implementation showed errors on files larger than 30 MB.
+One issue was caused by logging the complete message with
+`JSON.stringify(data)`; failures persisted after removing that log. The
+remaining cause has not been conclusively isolated. In contrast, the current
+chunked application protocol successfully delivered large files in all six
+directions between supervisor, speaker and interpreter, including send-to-all.
+For the 1.0 stabilization, retaining it is therefore a **precautionary
+reliability choice**, not a claim that PeerJS lacks native chunking. Its
+incremental reads, backpressure and explicit delivery acknowledgements offer
+additional control while avoiding a return to the failing code path.
+
 All three roles use `js/file-transfer.js` over their existing reliable PeerJS
 data connections. Files are read incrementally in 12 KiB chunks with channel
 backpressure rather than passed to PeerJS as a single large Blob. Each
