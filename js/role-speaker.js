@@ -2,7 +2,10 @@ var localVideo;
 var localStream;
 var localStreamBackup;
 
-var screenshareMediaStreamUnmerged = null;
+// Only outgoing tracks change: the speaker keeps the existing WebRTC calls.
+var speakerShareSession = null;
+var speakerShareBusy = false;
+var speakerShareEpoch = 0;
 
 myRole = RoleSpeaker;
 myColor = ColorSpeaker;
@@ -133,100 +136,40 @@ $(document).ready(async function() {
     }
 
 
-    $('#share-screen').on('click', function() {
-        if (sharingScreen()) {
-            unshareScreen();
-        } else {
-            navigator.mediaDevices
-                .getDisplayMedia({video: true, audio: true,})
-                .then(stream => {
-
-                    shareScreen(stream);
-                    
-                    return stream;
-                    
-                }).catch(err => {
-                
-                    unshareScreen();
-                    console.log("Error sharing screen: " + err);
-                    return null; 
-                });
+    // getDisplayMedia must be initiated directly by the user click.
+    $('#share-screen').on('click', async function() {
+        if (speakerShareBusy) return;
+        if (sharingScreenActive) {
+            await stopSpeakerScreenShare();
+            return;
+        }
+        const epoch = ++speakerShareEpoch;
+        speakerShareBusy = true;
+        $('#share-screen').prop('disabled', true);
+        try {
+            // Resume Web Audio without awaiting before the native capture picker.
+            if (audioContext && audioContext.state === 'suspended') {
+                void audioContext.resume().catch(error => console.warn('Audio resume failed', error));
+            }
+            const display = await navigator.mediaDevices.getDisplayMedia({video: true, audio: true});
+            if (epoch !== speakerShareEpoch) {
+                display.getTracks().forEach(track => track.stop());
+                return;
+            }
+            await startSpeakerScreenShare(display, epoch);
+        } catch (error) {
+            // Canceling the picker must not terminate a working webcam stream.
+            if (!['NotAllowedError', 'AbortError'].includes(error.name)) {
+                console.warn('Cannot share screen', error);
+                logToPanel('Cannot share screen: ' + escapeHTML(error.message || String(error)), 'warning');
+            }
+        } finally {
+            speakerShareBusy = false;
+            $('#share-screen').prop('disabled', false);
         }
     });
 
-
-    function sharingScreen() {
-        return sharingScreenActive && screenshareMediaStream &&
-               screenshareMediaStream.getVideoTracks().some(track => track.readyState === 'live');
-    }
-    
-    async function unshareScreen() {
-        if (!sharingScreenActive) return;
-        console.log('Unsharing screen - restoring camera and microphone');
-        sharingScreenActive = false;
-        const shared = screenshareMediaStream;
-        screenshareMediaStream = null;
-        const backup = localStreamBackup;
-        localStreamBackup = null;
-        if (shared) {
-            shared.getTracks().forEach(track => { track.onended = null; track.stop(); });
-        }
-        if (backup) {
-            localStream = backup;
-            await Promise.allSettled([supervisorMedia, interpreterMedia]
-                .map(conn => replaceStreamInMediaConnection(conn, backup, false)));
-            localVideo.srcObject = backup;
-        }
-        $('#share-screen > i').removeClass('fa-blink');
-    }
-
-    function shareScreen(stream) {
-    
-        if (!sharingScreen()) {
-
-            console.log('Screen, application or browser tab has been shared');
-
-            sharingScreenActive = true;
-            
-            
-            $('#share-screen > i').addClass('fa-blink');
-            
-            const screenVideoTrack = stream.getVideoTracks()[0];
-            if (screenVideoTrack) screenVideoTrack.onended = () => unshareScreen();
-            
-            console.log('Speaker stream must be replaced and audio mixed');
-
-
-            // Get a stream with merged audio tracks  
-            // from mic (localStream) and screen share (stream)
-            screenshareMediaStream = mergeAudioStreams(stream, localStream);
-            
-            if (screenshareMediaStream == null) {
-                // should never be here...
-                screenshareMediaStream = stream;
-            } else {
-                // Add screenshare video track to this new stream with merged audio tracks
-                stream.getVideoTracks().forEach(t => {
-                    screenshareMediaStream.addTrack(t);
-                });
-            }
-            
-            
-            localVideo.srcObject = stream;
-
-//          screenshareMediaStream = stream;
-            localStreamBackup = localStream;
-            localStream = screenshareMediaStream;
-
-            
-            // Replace current stream in media connections
-            replaceStreamInMediaConnection(supervisorMedia, screenshareMediaStream, false);
-            replaceStreamInMediaConnection(interpreterMedia, screenshareMediaStream, false);
-
-
-        }
-    }
-
+    window.addEventListener('pagehide', () => { void stopSpeakerScreenShare(false); });
 
     // ondevicechange event (webcam or headset has been plugged in or out)
     navigator.mediaDevices.ondevicechange = (e) => {
@@ -238,44 +181,139 @@ $(document).ready(async function() {
 });
 
 
-const mergeAudioStreams = (desktopStream, voiceStream) => {
+/*
+ * Publish a single screen video track and a single Web Audio audio track.
+ * The latter mixes any captured desktop audio with the original microphone.
+ * All original webcam/microphone tracks stay alive for restoration.
+ */
+function createSpeakerScreenShare(display, microphone, context) {
+    const video = display.getVideoTracks()[0];
+    if (!video || video.readyState === 'ended') throw new Error('Screen video is unavailable.');
 
-  if (desktopStream.getAudioTracks().length == 0 && voiceStream.getAudioTracks().length == 0) return null;
+    const sources = [];
+    let destination = null;
+    try {
+        const stream = new MediaStream();
+        const tracks = [...display.getAudioTracks(),
+            ...(microphone ? microphone.getAudioTracks() : [])]
+            .filter(track => track.readyState !== 'ended');
+        if (tracks.length) {
+            destination = context.createMediaStreamDestination();
+            for (const track of tracks) {
+                const source = context.createMediaStreamSource(new MediaStream([track]));
+                sources.push(source);
+                source.connect(destination);
+            }
+            destination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+        }
+        stream.addTrack(video);
 
-  const destination = audioContext.createMediaStreamDestination();
+        return {stream, video, display, dispose() {
+            video.onended = null;
+            sources.forEach(source => source.disconnect());
+            if (destination) destination.stream.getTracks().forEach(track => track.stop());
+            display.getTracks().forEach(track => track.stop());
+        }};
+    } catch (error) {
+        sources.forEach(source => source.disconnect());
+        if (destination) destination.stream.getTracks().forEach(track => track.stop());
+        display.getTracks().forEach(track => track.stop());
+        throw error;
+    }
+}
 
-console.log('MERGEAUDIOSTREAMS');
-  
-  if (desktopStream.getAudioTracks().length == 0) {
+function speakerMediaConnections() {
+    return [supervisorMedia, interpreterMedia];
+}
 
-      // Create just one source for voice
-      const source = audioContext.createMediaStreamSource(voiceStream);
-      const voiceGain = audioContext.createGain();
-      source.connect(voiceGain).connect(destination);
-  
-  } else if (voiceStream.getAudioTracks().length == 0) {
-  
-      // Create just one source for desktop
-      const source = audioContext.createMediaStreamSource(desktopStream);
-      const desktopGain = audioContext.createGain();
-      source.connect(desktopGain).connect(destination);
+// Wait for ALL track replacements before deciding whether to commit or roll back.
+async function startSpeakerScreenShare(display, epoch = speakerShareEpoch) {
+    const webcam = micStream || localStream;
+    let candidate = null;
+    try {
+        if (!webcam || !audioContext) throw new Error('Microphone and camera are not ready.');
+        if (epoch !== speakerShareEpoch || sharingScreenActive) {
+            display.getTracks().forEach(track => track.stop());
+            return false;
+        }
+        await audioContext.resume();
+        if (epoch !== speakerShareEpoch) {
+            display.getTracks().forEach(track => track.stop());
+            return false;
+        }
+        candidate = createSpeakerScreenShare(display, micStream, audioContext);
+        const changes = await Promise.allSettled(speakerMediaConnections().map(conn =>
+            replaceStreamInMediaConnection(conn, candidate.stream, false)));
+        if (changes.some(change => change.status === 'rejected')) {
+            throw new Error('Could not replace a remote media track.');
+        }
+        if (epoch !== speakerShareEpoch || candidate.video.readyState === 'ended') {
+            throw new Error('Screen capture ended before publication.');
+        }
 
-  } else {
-  
-      // Create two sources and mix them
-      const source1 = audioContext.createMediaStreamSource(desktopStream);
-      const source2 = audioContext.createMediaStreamSource(voiceStream);
-      
-      const desktopGain = audioContext.createGain();
-      const voiceGain = audioContext.createGain();
-        
-      // desktopGain.gain.value = 0.7;
-      // voiceGain.gain.value = 0.7;
-       
-      source1.connect(desktopGain).connect(destination);
-      // Connect source2
-      source2.connect(voiceGain).connect(destination);
-  }
+        // After successful replacement, publish the stream for late peer calls.
+        candidate.wasMirrored = localVideo.classList.contains('mirrored');
+        localVideo.classList.remove('mirrored');
+        localVideo.srcObject = display;
+        localVideo.muted = true;
+        if (typeof localVideo.play === 'function') {
+            const result = localVideo.play();
+            if (result && typeof result.catch === 'function') void result.catch(() => {});
+        }
 
-  return destination.stream;
-};
+        localStreamBackup = webcam;
+        speakerShareSession = candidate;
+        screenshareMediaStream = candidate.stream;
+        sharingScreenActive = true;
+        localStream = candidate.stream;
+        candidate.video.onended = () => { void stopSpeakerScreenShare(); };
+        $('#share-screen > i').addClass('fa-blink');
+        console.log('Speaker screen share published with mixed audio');
+        return true;
+    } catch (error) {
+        // Some peers may already be using the candidate. Restore both calls.
+        if (epoch === speakerShareEpoch && webcam) {
+            await Promise.allSettled(speakerMediaConnections().map(conn =>
+                replaceStreamInMediaConnection(conn, webcam, false)));
+            console.warn('Screen share publication failed', error);
+            logToPanel('Could not share screen: ' + escapeHTML(error.message || String(error)), 'warning');
+        }
+        if (candidate) candidate.dispose();
+        else display.getTracks().forEach(track => track.stop());
+        return false;
+    }
+}
+
+// Restores the webcam and releases screen tracks and Web Audio graph.
+async function stopSpeakerScreenShare(restorePeers = true) {
+    ++speakerShareEpoch; // Invalidates a picker or an unfinished publication.
+    const session = speakerShareSession;
+    if (!session) return false;
+
+    speakerShareSession = null;
+    sharingScreenActive = false;
+    screenshareMediaStream = null;
+    const webcam = localStreamBackup || micStream;
+    localStreamBackup = null;
+    localStream = webcam;
+    session.video.onended = null;
+    if (localVideo) {
+        localVideo.srcObject = webcam;
+        localVideo.classList.toggle('mirrored', session.wasMirrored);
+        if (typeof localVideo.play === 'function') {
+            const result = localVideo.play();
+            if (result && typeof result.catch === 'function') void result.catch(() => {});
+        }
+    }
+    $('#share-screen > i').removeClass('fa-blink');
+    try {
+        if (restorePeers && webcam) {
+            await Promise.allSettled(speakerMediaConnections().map(conn =>
+                replaceStreamInMediaConnection(conn, webcam, false)));
+        }
+    } finally {
+        session.dispose();
+    }
+    console.log('Speaker camera/microphone restored');
+    return true;
+}

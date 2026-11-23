@@ -243,9 +243,11 @@ function toggleMic() {
 }
 
 function toggleCam() {
-    if (!localStream || typeof localStream.getVideoTracks !== 'function') return null;
+    // The speaker's camera control must never disable a shared desktop track.
+    const cameraStream = micStream || localStream;
+    if (!cameraStream || typeof cameraStream.getVideoTracks !== 'function') return null;
     
-    const tracks = localStream.getVideoTracks();
+    const tracks = cameraStream.getVideoTracks();
     // if MediaStream has reference to track
     if (tracks[0]) {
         tracks[0].enabled = !tracks[0].enabled;
@@ -255,8 +257,9 @@ function toggleCam() {
 }
 
 function isCamEnabled() {
-    if (!localStream || typeof localStream.getVideoTracks !== 'function') return null;
-    return localStream.getVideoTracks()[0]?.enabled ?? null;
+    const cameraStream = micStream || localStream;
+    if (!cameraStream || typeof cameraStream.getVideoTracks !== 'function') return null;
+    return cameraStream.getVideoTracks()[0]?.enabled ?? null;
 }
 
 function isMicEnabled() {
@@ -597,6 +600,10 @@ async function resetConnection(role, t = 0) {
 
 async function closeAllConnections(t = 0) {
     if (t > 0) await new Promise(resolve => setTimeout(resolve, t));
+    // End local desktop capture when the speaker leaves the session.
+    if (myRole === RoleSpeaker && typeof stopSpeakerScreenShare === 'function') {
+        await stopSpeakerScreenShare(false);
+    }
     const connections = [speakerData, speakerMedia, interpreterData,
                          interpreterMedia, supervisorData, supervisorMedia,
                          screenshareConnection];

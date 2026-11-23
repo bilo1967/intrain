@@ -39,6 +39,28 @@ devices, external iframe services, multiple browsers or TURN/ICE.
 
 Suggested manual acceptance test: connect supervisor, speaker and interpreter; verify briefing/training audio routing, stereo balance, recorder output with separate L/R channels, role switching, late joining, reconnection, camera/microphone device changes, and screen sharing (with and without desktop audio, including stopping from the browser UI). In particular, test speaker joining while supervisor screen sharing is active, interpreter reconnecting to an active share, and restoration of speaker video when sharing ends.
 
+### Speaker screen sharing
+
+The speaker's screen share replaces the existing outgoing webcam video track
+on both speaker media calls, without opening a separate call. Audio is mixed
+locally from the microphone plus any desktop/tab audio actually captured by the
+browser. If desktop audio is unavailable, the microphone still works.
+Microphone mute affects only the voice contribution, not the desktop audio;
+the camera button always controls the webcam, never the screen.
+
+The microphone/camera capture is retained while sharing. Track replacements
+are awaited and rolled back if publication fails. Canceling the native picker
+keeps the previous floor. The preview is not mirrored. Stopping via the button
+or browser, disconnecting or leaving the page restores camera video and releases
+desktop tracks, audio nodes and synthetic tracks. Camera/microphone device
+selection remains blocked during sharing.
+
+Manual test: three peers, switch camera/screen and back; capture tab audio with
+microphone, and no-desktop-audio capture; mute and unmute the microphone; turn
+off the camera while the screen is live; test native Stop Sharing, cancel, peers
+reconnecting, disconnect and the supervisor's WAV recording of the mixed floor.
+Screen audio availability varies with browser, OS and capture source.
+
 ## Code maintenance
 
 The application still uses its existing PeerJS mesh topology and separate role pages.

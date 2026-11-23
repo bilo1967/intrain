@@ -61,6 +61,133 @@ test('chat colors are readable on light panels without changing layout classes',
     }
 });
 
+// Speaker share tests exercise real code with mock streams, nodes and senders.
+function loadSpeakerShareFixture(withDesktopAudio = true) {
+    const c = loadApp();
+    vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../js/role-speaker.js'), 'utf8'), c);
+    class Stream {
+        constructor(tracks = []) {this.tracks = [...tracks];}
+        getTracks() {return [...this.tracks];}
+        getAudioTracks() {return this.tracks.filter(t => t.kind === 'audio');}
+        getVideoTracks() {return this.tracks.filter(t => t.kind === 'video');}
+        addTrack(t) {this.tracks.push(t);}
+    }
+    c.MediaStream = Stream;
+    const track = (kind, enabled = true) => ({
+        kind, enabled, readyState: 'live', stopped: 0, onended: null,
+        stop() {this.stopped++;this.readyState = 'ended';}
+    });
+    const camera = track('video', false), mic = track('audio', false);
+    const video = track('video'), desktopAudio = track('audio');
+    const webcam = new Stream([camera, mic]);
+    const display = new Stream(withDesktopAudio ? [video, desktopAudio] : [video]);
+    const nodes = [], destinations = [];
+    c.audioContext = {
+        state: 'running', async resume() {},
+        createMediaStreamSource(source) {
+            const node = {source, disconnected: false, connect() {return this;},
+                disconnect() {this.disconnected = true;}};
+            nodes.push(node);
+            return node;
+        },
+        createMediaStreamDestination() {
+            const dest = {stream: new Stream([track('audio')])};
+            destinations.push(dest);
+            return dest;
+        }
+    };
+    let mirrored = true;
+    c.localVideo = {
+        srcObject: webcam, muted: true, play() {return Promise.resolve();},
+        classList: {
+            contains(k) {return k === 'mirrored' && mirrored;},
+            remove(k) {if (k === 'mirrored') mirrored = false;},
+            toggle(k, active) {if (k === 'mirrored') mirrored = active;}
+        }
+    };
+    function connection() {
+        const sender = kind => ({
+            track: kind === 'video' ? camera : mic, history: [],
+            async replaceTrack(newTrack) {this.history.push(newTrack);this.track = newTrack;}
+        });
+        const senders = [sender('video'), sender('audio')];
+        return {open: true, peerConnection: {getSenders: () => senders},
+            senders, close() {this.open = false;}};
+    }
+    c.micStream = webcam;
+    c.localStream = webcam;
+    c.supervisorMedia = connection();
+    c.interpreterMedia = connection();
+    return {c, camera, mic, webcam, video, desktopAudio, display, nodes, destinations};
+}
+
+test('speaker shares screen with microphone and desktop audio, restoring camera and releasing resources', async () => {
+    const f = loadSpeakerShareFixture();
+    assert.equal(await f.c.startSpeakerScreenShare(f.display), true);
+    assert.equal(f.c.sharingScreenActive, true);
+    assert.equal(f.c.localStream.getVideoTracks()[0], f.video);
+    assert.equal(f.c.localStream.getAudioTracks().length, 1);
+    assert.equal(f.nodes.length, 2); // Both microphone and desktop contribute.
+    assert.equal(f.nodes[0].source.getAudioTracks()[0], f.desktopAudio);
+    assert.equal(f.nodes[1].source.getAudioTracks()[0], f.mic);
+    assert.equal(f.c.localVideo.srcObject, f.display);
+    assert.equal(f.c.isCamEnabled(), false);
+    assert.equal(f.c.toggleCam(), true); // Webcam changes, screen keeps running.
+    assert.equal(f.video.enabled, true);
+    assert.equal(f.c.supervisorMedia.senders[0].track, f.video);
+    assert.equal(f.c.interpreterMedia.senders[0].track, f.video);
+    assert.equal(f.c.supervisorMedia.senders[1].track, f.destinations[0].stream.getAudioTracks()[0]);
+    assert.equal(await f.c.stopSpeakerScreenShare(), true);
+    assert.equal(f.c.localStream, f.webcam);
+    assert.equal(f.c.localVideo.srcObject, f.webcam);
+    assert.equal(f.c.localVideo.classList.contains('mirrored'), true);
+    assert.equal(f.c.supervisorMedia.senders[0].track, f.camera);
+    assert.equal(f.c.interpreterMedia.senders[1].track, f.mic);
+    assert.equal(f.video.stopped, 1);
+    assert.equal(f.desktopAudio.stopped, 1);
+    assert.equal(f.destinations[0].stream.getAudioTracks()[0].stopped, 1);
+    assert.ok(f.nodes.every(node => node.disconnected));
+    assert.equal(f.camera.stopped, 0);
+    assert.equal(f.mic.stopped, 0);
+});
+
+test('speaker screen share falls back to microphone when desktop audio is absent', async () => {
+    const f = loadSpeakerShareFixture(false);
+    assert.equal(await f.c.startSpeakerScreenShare(f.display), true);
+    assert.equal(f.nodes.length, 1);
+    assert.equal(f.nodes[0].source.getAudioTracks()[0], f.mic);
+    await f.c.stopSpeakerScreenShare();
+});
+
+test('failed speaker track replacement rolls back both peers and keeps camera running', async () => {
+    const f = loadSpeakerShareFixture();
+    const fail = f.c.interpreterMedia.senders[0];
+    fail.replaceTrack = async function(t) {
+        if (t === f.video) throw new Error('replaceTrack failed');
+        this.track = t;
+    };
+    assert.equal(await f.c.startSpeakerScreenShare(f.display), false);
+    assert.equal(f.c.sharingScreenActive, false);
+    assert.equal(f.c.localStream, f.webcam);
+    assert.equal(f.c.supervisorMedia.senders[0].track, f.camera);
+    assert.equal(f.c.interpreterMedia.senders[0].track, f.camera);
+    assert.equal(f.video.stopped, 1);
+    assert.equal(f.desktopAudio.stopped, 1);
+    assert.ok(f.nodes.every(node => node.disconnected));
+    assert.equal(f.camera.stopped, 0);
+    assert.equal(f.mic.stopped, 0);
+});
+
+test('disconnecting the speaker also stops native desktop capture', async () => {
+    const f = loadSpeakerShareFixture();
+    assert.equal(await f.c.startSpeakerScreenShare(f.display), true);
+    await f.c.closeAllConnections();
+    assert.equal(f.c.sharingScreenActive, false);
+    assert.equal(f.video.stopped, 1);
+    assert.equal(f.desktopAudio.stopped, 1);
+    assert.equal(f.c.localStream, f.webcam);
+});
+
 test('closing peer connections works when open is an inherited getter', async () => {
     const c = loadApp();
     const data = fakeConnection();
