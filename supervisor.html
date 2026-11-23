@@ -319,7 +319,8 @@
         </div>
         <!-- send file to all: end -->
 
-        <!-- decalage chronometer: begin -->
+
+        <!-- decalage chronometer:begin -->
         <div class="d-flex d-inline-flex ms-4" style="position:relative" >
           <button id="timer-startstop" class="btn btn-sm btn-primary me-1">
             <i class="fas fs-large fa-stopwatch" data-bs-toggle="tooltip" title="Start/stop chronometer (you can also press the space bar)"></i>
@@ -339,11 +340,11 @@
         </div>
         <!-- decalage chronometer:end -->
 
-        <!-- Floor selector: begin -->
+        <!-- Floor selector -->
         <div class="d-flex d-inline-flex mb-2 ms-4" style="position:relative" >
           <label class="visually-hidden" for="floor-select">Select floor</label>
           <div class="input-group" id="floor-input-group">
-            <span class="input-group-text"><span class="material-symbols-outlined" aria-hidden="true">interpreter_mode</
+            <span class="input-group-text"><span class="material-symbols-outlined" aria-hidden="true">interpreter_mode</span></span>
             <select id="floor-select" class="form-select" aria-label="Select floor">
               <option value="" selected disabled>Select floor... (Speaker)</option>
               <option value="speaker">Speaker</option>
@@ -353,7 +354,6 @@
             </select>
           </div>
         </div>
-        <!-- Floor selector:end -->
 
         <input type="file" id="floor-file" accept="audio/*,video/*" hidden>
         <span id="video-sync-status" class="d-none ms-2 align-self-center text-warning text-nowrap small"
@@ -366,6 +366,7 @@
 
           <div class="btn-group" role="group" aria-label="Activity mode">
             <button id="briefing-mode" class="btn btn-sm btn-warning btn-w-2  active" aria-pressed="true">
+
               <i class="fas fa-bullhorn" data-bs-toggle="tooltip" title="Brief&shy;ing mode: un&shy;mute ev&shy;ery&shy;one"></i>
             </button>
             <button id="training-mode" class="btn btn-sm btn-warning btn-w-2 p-0 m-0" aria-pressed="false">
@@ -387,6 +388,7 @@
                 <i class="material-font">face</i>
             </button>
         </div>
+
         <!-- activity buttons: end -->
 
 
@@ -604,7 +606,6 @@
   </div>
 </div>
 <!-- Confirmation dialog: end -->
-
 
 </body>
 </html>
