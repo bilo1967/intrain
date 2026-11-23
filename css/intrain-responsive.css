@@ -627,10 +627,9 @@ input.bg-chat {
     padding-top: 5px;
 }
 
-/* Keep the floor selector compact and aligned with the other toolbar buttons. */
+/* Let Bootstrap determine the height from the input-group children. */
 #floor-input-group {
     width: clamp(16rem, 23vw, 19rem);
-    height: var(--normal-button-height);
     flex: 0 0 auto;
 }
 #floor-select { min-width: 0; }

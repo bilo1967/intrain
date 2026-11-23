@@ -344,7 +344,7 @@ test('supervisor floor selector retains original Material Symbols styling', () =
     assert.match(supervisor, /value="speaker">Speaker/);
     assert.match(supervisor, /value="screen">Screen share/);
     assert.match(supervisor, /value="external">YouTube \/ Vimeo/);
-    assert.match(css, /#floor-input-group\s*\{[^}]*height:\s*var\(--normal-button-height\)/);
+    assert.doesNotMatch(css, /#floor-input-group\s*\{[^}]*\bheight\s*:/);
     assert.doesNotMatch(supervisor, /id="share-screen"|id="load-player"|id="player-panel"/);
     assert.match(supervisor, /css\/intrain-responsive\.css\?v=1\.0\.\d+/);
     for (const page of ['speaker.html', 'interpreter.html']) {
