@@ -240,9 +240,9 @@
     hyphens: auto;
 }
 
-.color-interpreter { color: Gold; }
-.color-speaker     { color: PaleGreen; }
-.color-supervisor  { color: White; }
+.color-interpreter { color: #2459A2; }
+.color-speaker     { color: #176C46; }
+.color-supervisor  { color: #475569; }
 
 .background-speaker {
   background: #2e8b57; 
@@ -488,14 +488,14 @@
 
 
 .bg-chat {
-    background-color: #17a2b8;
+    background-color: #F3F8F7;
 }
 
-input.bg-chat {
-    color: LightYellow;
+#chatboard, input.bg-chat {
+    color: #26343C;
 }
 .bg-chat::placeholder {
-    color: DarkKhaki;
+    color: #6A7880;
 }
 
 
@@ -510,7 +510,7 @@ input.bg-chat {
 }
 
 #chatboard a {
-  color: white;
+  color: #2459A2;
   font-weight: bold;
 }
 

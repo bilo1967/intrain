@@ -19,9 +19,9 @@ const RoleSpeaker     = "speaker";
 const RoleSupervisor  = "supervisor";
 const RoleScreenShare = "screenshare"; // supervisor second stream...
 
-const ColorInterpreter = "Gold";
-const ColorSpeaker     = "PaleGreen";
-const ColorSupervisor  = "White";
+const ColorInterpreter = "#2459A2";
+const ColorSpeaker     = "#176C46";
+const ColorSupervisor  = "#475569";
 
 var myRole;
 var myColor;

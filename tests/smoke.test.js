@@ -39,6 +39,28 @@ function fakeConnection() {
     return connection;
 }
 
+test('chat colors are readable on light panels without changing layout classes', () => {
+    const root = path.resolve(__dirname, '..');
+    const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
+    const common = fs.readFileSync(path.join(root, 'js/common.js'), 'utf8');
+    const chat = fs.readFileSync(path.join(root, 'js/intrain.js'), 'utf8');
+
+    assert.ok(css.includes('background-color: #F3F8F7;'));
+    assert.ok(css.includes('#chatboard, input.bg-chat {'));
+    assert.ok(css.includes('color: #26343C;'));
+    assert.ok(common.includes('const ColorInterpreter = "#2459A2";'));
+    assert.ok(common.includes('const ColorSpeaker     = "#176C46";'));
+    assert.ok(common.includes('const ColorSupervisor  = "#475569";'));
+    const chatRenderer = chat.slice(chat.indexOf('function logToChat'), chat.indexOf('let hideLogPanelTimeout'));
+    assert.ok(chatRenderer.includes("<strong style='color: "));
+    assert.ok(!chatRenderer.includes("<span style='color: "));
+    for (const page of ['supervisor.html', 'speaker.html', 'interpreter.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.ok(html.includes('id="chatboard" class="selectable-text align-self-stretch bg-chat border rounded p-1 mb-1 h-100"'));
+        assert.ok(html.includes('id="chattext" class="bg-chat align-self-stretch border rounded mt-auto p-1 w-100"'));
+    }
+});
+
 test('closing peer connections works when open is an inherited getter', async () => {
     const c = loadApp();
     const data = fakeConnection();

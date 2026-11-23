@@ -70,21 +70,20 @@ function escapeHTML(value) {
     })[ch]);
 }
 
-function logToChat(m, w = "", color = "white") {
-    
+function logToChat(m, w = "", color = "#475569") {
+    // Color the sender only; the message inherits the chat panel's dark text color.
     var t = "";
-    
+
     if (w != '') {
-        t = "<span style='color: " + color + ";'><strong>" + escapeHTML(w) + "</strong>: " + m + "<br/></span>";
+        t = "<span><strong style='color: " + color + ";'>" + escapeHTML(w) + "</strong>: " + m + "<br/></span>";
     } else {
-        t = "<span style='color: " + color + ";'>" + m + "<br/></span>";
-        
+        t = "<span>" + m + "<br/></span>";
     }
 
     animateCSS('#chatboard', 'bounce');
-    
+
     $("#chatboard").append(t);
-                  
+
     $("#chatboard").scrollToEnd();
 }
 
@@ -1257,14 +1256,14 @@ function setSessionMode(mode, animate = true) {
     
     mode = mode.toLowerCase();
     var icon = null;
-    var color = 'white';
+    var color = '#475569';
 
     switch (mode) {
     case 'briefing':
         icon = '<i class="fas fa-bullhorn session-mode-icon me-2" aria-hidden="true"></i>';
         break;
     case 'training':
-        color = 'yellow';
+        color = '#946200';
         icon = '<span class="material-font session-mode-icon me-2" aria-hidden="true">record_voice_over</span>';
         break;
     default:
