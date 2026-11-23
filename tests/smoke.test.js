@@ -222,7 +222,7 @@ test('file transfers stream bounded binary chunks and wait for receipt confirmat
         on() {},
         send(data) {queueMicrotask(() => sender.receive(one, data, 'supervisor'));}
     };
-    const data = new Uint8Array(100000);
+    const data = new Uint8Array(1024 * 1024);
     for (let i = 0; i < data.length; i++) data[i] = (i * 17) % 251;
     const first = new Blob([data], {type: 'application/octet-stream'});
     Object.defineProperty(first, 'name', {value: 'test & data.bin'});
@@ -236,7 +236,7 @@ test('file transfers stream bounded binary chunks and wait for receipt confirmat
     assert.ok(recipientLog[0].includes('test &amp; data.bin'));
     assert.equal(senderLog.filter(message => message.includes('File delivered')).length, 2);
     const chunks = sentMessages.filter(message => message.action === 'file-part');
-    assert.ok(chunks.length >= 9);
+    assert.ok(chunks.length >= 80); // One-megabyte file, not one giant message.
     assert.ok(chunks.every(chunk => chunk.bytes.byteLength <= 12 * 1024));
     assert.ok(sentMessages.some(message => message.action === 'file-finish'));
     assert.ok(sentMessages.every(message => message.action !== 'sendfile'));
