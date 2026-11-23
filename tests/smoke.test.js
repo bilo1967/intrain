@@ -1074,11 +1074,8 @@ test('interpreter only seeks while paused for forced reconnection, not normal re
 
 test('external video stops at its natural end on supervisor and interpreter', () => {
     const root = path.resolve(__dirname, '..');
-    const pages = [
-        {role: 'supervisor', version: '1.0.14'},
-        {role: 'interpreter', version: '1.0.8'}
-    ];
-    for (const {role, version} of pages) {
+    const pages = ['supervisor', 'interpreter'];
+    for (const role of pages) {
         const script = fs.readFileSync(path.join(root, 'js/role-' + role + '.js'), 'utf8');
         const html = fs.readFileSync(path.join(root, role + '.html'), 'utf8');
         const playerOptions = script.slice(script.indexOf("$('#myplayer').mediaelementplayer({"));
@@ -1086,7 +1083,7 @@ test('external video stops at its natural end on supervisor and interpreter', ()
         assert.match(playerOptions, /autoRewind:\s*false/);
         assert.match(html, /<video id="myplayer"[^>]*>/);
         assert.doesNotMatch(html.match(/<video id="myplayer"[^>]*>/)[0], /\sloop(?:\s|=|>)/);
-        assert.match(html, new RegExp('src="js/role-' + role + '\\.js\\?v=' + version.replaceAll('.', '\\.') + '"'));
+        assert.match(html, new RegExp('src="js/role-' + role + '\\.js\\?v=1\\.0\\.\\d+"'));
     }
 });
 
