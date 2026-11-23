@@ -182,6 +182,8 @@ The toolbar now has one compact **Select floor...** dropdown. It offers
 **Multimedia file...**, preceded by the Material Symbol `interpreter_mode`.
 The disabled placeholder displays the active floor and resets after selection
 so YouTube/Vimeo or Multimedia file can be chosen again to replace the source.
+When the speaker is absent, the Speaker option reads **Speaker (not connected)**
+but remains selectable; its label updates automatically upon joining or leaving.
 
 All four modes share one `selectSupervisorFloor()` entry point.
 Speaker restores the normal camera/audio floor and stops any previous screen
