@@ -274,12 +274,12 @@ test('all roles load the shared transfer protocol and do not log raw peer payloa
     const intrain = fs.readFileSync(path.join(root, 'js/intrain.js'), 'utf8');
     const peer = fs.readFileSync(path.join(root, 'js/peercommon.js'), 'utf8');
     const supervisor = fs.readFileSync(path.join(root, 'js/role-supervisor.js'), 'utf8');
-    assert.doesNotMatch(intrain, /console\\.log\\("Data received: ", data\\)/);
-    assert.doesNotMatch(peer, /JSON\\.stringify\\(data\\)/);
-    assert.doesNotMatch(supervisor, /console\\.log\\("received:", data\\)/);
-    assert.match(intrain, /InTrainFileTransfer\\.sendFiles/);
-    assert.match(peer, /InTrainFileTransfer\\.receive/);
-    assert.match(supervisor, /InTrainFileTransfer\\.receive/);
+    assert.ok(!intrain.includes('console.log("Data received: ", data)'));
+    assert.ok(!peer.includes('JSON.stringify(data)'));
+    assert.ok(!supervisor.includes('console.log("received:", data)'));
+    assert.ok(intrain.includes('InTrainFileTransfer.sendFiles'));
+    assert.ok(peer.includes('InTrainFileTransfer.receive'));
+    assert.ok(supervisor.includes('InTrainFileTransfer.receive'));
 });
 
 test('closing peer connections works when open is an inherited getter', async () => {
