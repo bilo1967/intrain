@@ -77,7 +77,10 @@ length and chunk sequence. Transfers are capped at 256 MiB to prevent
 unbounded in-browser memory use, with a 120-second stall/ack timeout. A
 transfer is kept in memory on the receiving browser until the page is closed.
 Legacy incoming `sendfile` messages remain accepted, but the new protocol
-requires all three role pages to be deployed together.
+requires all three role pages to be deployed together. The data handler for
+a participant-initiated interpreter/speaker connection must also pass the
+actual PeerJS connection into `handleChat()`, so file chunks and receipt
+acknowledgements work in both directions regardless of who joined first.
 
 Logs no longer dump raw data-channel payloads. A canceled native file picker
 does nothing. Re-selecting the same file is supported. For manual acceptance,

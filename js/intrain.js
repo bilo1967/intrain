@@ -721,7 +721,8 @@ function dialPeer(calleeID, callerRole, calleeRole) {
         logToChat("<b>" + calleeRole + "</b> has joined");
 
         c.on('data', function(data) {
-            handleChat(data, calleeRole, calleeColor);
+            // Outgoing peer links must supply the channel for file chunks and ACKs.
+            handleChat(data, calleeRole, calleeColor, c);
         });
     });
     c.on('close', function() {

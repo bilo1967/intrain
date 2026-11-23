@@ -242,6 +242,86 @@ test('file transfers stream bounded binary chunks and wait for receipt confirmat
     assert.ok(sentMessages.every(message => message.action !== 'sendfile'));
 });
 
+test('direct speaker/interpreter file transfers complete both ways regardless of dial order', async () => {
+    const root = path.resolve(__dirname, '..');
+    const transferSource = fs.readFileSync(path.join(root, 'js/file-transfer.js'), 'utf8');
+
+    for (const initiatingRole of ['speaker', 'interpreter']) {
+        const receivingRole = initiatingRole === 'speaker' ? 'interpreter' : 'speaker';
+        const initiating = loadApp();
+        const receiving = loadApp();
+        const logs = {speaker: [], interpreter: []};
+
+        for (const [context, role] of [[initiating, initiatingRole], [receiving, receivingRole]]) {
+            context.myRole = role;
+            context.logToPanel = () => {};
+            context.logToChat = message => logs[role].push(message);
+            vm.runInContext(transferSource, context, {filename: 'js/file-transfer.js'});
+            context.fileTransfer = vm.runInContext('InTrainFileTransfer', context);
+        }
+
+        const callbacks = {};
+        receiving.myPeer = {on(event, handler) {callbacks[event] = handler;}};
+        receiving.loadPeerHandlers(() => {});
+
+        function endpoint(peer, role) {
+            const listeners = {};
+            return {
+                peer, options: {metadata: {role}}, open: true,
+                dataChannel: {bufferedAmount: 0}, bufferSize: 0,
+                on(event, handler) {(listeners[event] ||= []).push(handler);return this;},
+                emit(event, payload) {for (const fn of listeners[event] || []) fn(payload);},
+                send(data) {queueMicrotask(() => this.other.emit('data', data));},
+                close() {
+                    if (!this.open) return;
+                    this.open = false;
+                    this.emit('close');
+                }
+            };
+        }
+
+        const outgoing = endpoint('incoming-peer', initiatingRole);
+        const incoming = endpoint('outgoing-peer', initiatingRole);
+        outgoing.other = incoming;
+        incoming.other = outgoing;
+        initiating.myPeer = {
+            connect() {return outgoing;},
+            call() {return {on() {return this;},close() {}};}
+        };
+
+        // The later joiner receives the connection; the earlier peer dials.
+        callbacks.connection(incoming);
+        initiating.dialPeer('incoming-peer', initiatingRole, receivingRole);
+        outgoing.emit('open');
+        incoming.emit('open');
+
+        const forward = new Blob([new Uint8Array(48000).fill(7)]);
+        const backward = new Blob([new Uint8Array(64000).fill(9)]);
+        Object.defineProperty(forward, 'name', {value: 'forward.bin'});
+        Object.defineProperty(backward, 'name', {value: 'backward.bin'});
+
+        // Close a stalled connection rather than leave a 120s timer in CI.
+        const watchdog = setTimeout(() => {outgoing.close(); incoming.close();}, 1500);
+        try {
+            await Promise.all([
+                initiating.fileTransfer.sendFiles(outgoing, [forward]),
+                receiving.fileTransfer.sendFiles(incoming, [backward])
+            ]);
+        } finally {
+            clearTimeout(watchdog);
+        }
+
+        assert.ok(logs[receivingRole].some(s => s.includes('sent you a file:') && s.includes('forward.bin')),
+            initiatingRole + ' -> ' + receivingRole + ' must arrive');
+        assert.ok(logs[initiatingRole].some(s => s.includes('sent you a file:') && s.includes('backward.bin')),
+            receivingRole + ' -> ' + initiatingRole + ' must arrive');
+        assert.ok(logs[initiatingRole].some(s => s.includes('File delivered') && s.includes('forward.bin')),
+            initiatingRole + ' must receive acknowledgement');
+        assert.ok(logs[receivingRole].some(s => s.includes('File delivered') && s.includes('backward.bin')),
+            receivingRole + ' must receive acknowledgement');
+    }
+});
+
 test('invalid file chunks are rejected without offering a partial download', () => {
     const source = fs.readFileSync(path.resolve(__dirname, '../js/file-transfer.js'), 'utf8');
     const delivered = [], replies = [];
