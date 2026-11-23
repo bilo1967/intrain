@@ -326,10 +326,14 @@ function getSupervisorFloor() {
 }
 
 function updateSupervisorFloorSelector() {
+    const speakerConnected = !!(speakerData && speakerData.open);
     const labels = {speaker: 'Speaker', screen: 'Screen share', external: 'YouTube / Vimeo', file: 'Multimedia file'};
     const floor = getSupervisorFloor();
+    // The speaker floor remains selectable even before the speaker joins.
+    $('#floor-select option[value="speaker"]').text(speakerConnected ? 'Speaker' : 'Speaker (not connected)');
+    const activeLabel = floor === 'speaker' && !speakerConnected ? 'Speaker - not connected' : labels[floor];
     $('#floor-select').val('');
-    $('#floor-select option[value=""]').text('Select floor... (' + labels[floor] + ')');
+    $('#floor-select option[value=""]').text('Select floor... (' + activeLabel + ')');
 }
 
 /*
@@ -763,6 +767,7 @@ $(document).ready(async function() {
                         screenshareConnection = null;
                     }
                     resetConnection(role);
+                    if (role === RoleSpeaker) updateSupervisorFloorSelector();
                     logToPanel("<b>" + role + "</b> media connection closed", "danger");
                     logToChat("<b>" + role + "</b> media connection closed");
                     console.log(role + " media connection closed");
@@ -792,6 +797,7 @@ $(document).ready(async function() {
 
                 if (setupDataConnection(c, role)) {
                     console.log("Connection handle has been set for", role);
+                    if (role === RoleSpeaker) updateSupervisorFloorSelector();
                     
                     // Bring a late joiner up to date with session mode and recording.
                     c.send({action: 'setaudiomode', mode: sessionMode});
@@ -879,6 +885,7 @@ $(document).ready(async function() {
                                 break;
                             case 'leaving':
                                 resetConnection(role);
+                                if (role === RoleSpeaker) updateSupervisorFloorSelector();
                                 logToPanel("<b>" + role + "</b> has logged out", "danger");
                                 logToChat("<b>" + role + "</b> has logged out");
                                 console.log(role + " has logged out");
@@ -896,6 +903,13 @@ $(document).ready(async function() {
                                 break;                             
                             }
                         });
+
+                        if (role === RoleSpeaker) {
+                            c.on('close', function() {
+                                if (speakerData !== c) return; // Stale connection.
+                                updateSupervisorFloorSelector();
+                            });
+                        }
 
                         if (role === RoleInterpreter) {
                             c.on('close', function() {
@@ -1616,6 +1630,7 @@ function performRoleSwitch() {
     setTimeout(() => {
         resetConnection(RoleSpeaker);
         resetConnection(RoleInterpreter);
+        updateSupervisorFloorSelector();
         logToPanel("Waiting for participants to reconnect with swapped roles...", "success");
         
         // Riabilita il bottone dopo un po'

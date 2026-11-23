@@ -481,6 +481,38 @@ test('supervisor video player is shown above the speaker and hidden again', () =
     assert.match(css, /\.player-container\s*\{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*left:\s*0;/);
 });
 
+test('supervisor floor selector reflects speaker availability while leaving floor selectable', () => {
+    const root = path.resolve(__dirname, '..');
+    const source = fs.readFileSync(path.join(root, 'js/role-supervisor.js'), 'utf8');
+    const markup = fs.readFileSync(path.join(root, 'supervisor.html'), 'utf8');
+    const c = loadApp();
+    vm.runInContext(source.slice(0, source.indexOf('$(document).ready(')), c);
+    const labels = new Map();
+    c.$ = selector => selector === '#floor-select' ? {val() {return this;}} : {
+        text(value) {labels.set(selector, value);return this;}
+    };
+    const speakerOption = '#floor-select option[value="speaker"]';
+    const placeholder = '#floor-select option[value=""]';
+    c.showPlayer = false;
+    c.sharingScreenActive = false;
+    c.speakerData = null;
+    c.updateSupervisorFloorSelector();
+    assert.equal(labels.get(speakerOption), 'Speaker (not connected)');
+    assert.equal(labels.get(placeholder), 'Select floor... (Speaker - not connected)');
+    c.speakerData = {open: true};
+    c.updateSupervisorFloorSelector();
+    assert.equal(labels.get(speakerOption), 'Speaker');
+    assert.equal(labels.get(placeholder), 'Select floor... (Speaker)');
+    c.speakerData.open = false;
+    c.updateSupervisorFloorSelector();
+    assert.equal(labels.get(speakerOption), 'Speaker (not connected)');
+    c.showPlayer = true;
+    c.updateSupervisorFloorSelector();
+    assert.equal(labels.get(placeholder), 'Select floor... (YouTube / Vimeo)');
+    assert.ok(markup.includes('<option value="speaker">Speaker</option>'));
+    assert.ok(!markup.includes('<option value="speaker" disabled'));
+});
+
 test('supervisor floor selector retains original Material Symbols styling', () => {
     const root = path.resolve(__dirname, '..');
     const css = fs.readFileSync(path.join(root, 'css/intrain-responsive.css'), 'utf8');
