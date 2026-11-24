@@ -61,6 +61,33 @@ off the camera while the screen is live; test native Stop Sharing, cancel, peers
 reconnecting, disconnect and the supervisor's WAV recording of the mixed floor.
 Screen audio availability varies with browser, OS and capture source.
 
+### Isolated PeerJS multitrack experiment
+
+`tests/peerjs-multitrack.html` tests **one** PeerJS MediaConnection with
+two separate synthetic audio tracks (440 Hz simulated supervisor microphone,
+880 Hz floor audio) plus a video track generated from Canvas. The caller may
+replace floor audio with 660 Hz and swap the video source using
+`RTCRtpSender.replaceTrack()`, without creating another media connection.
+The receiving page shows audio/video track counts, an independent level control
+for each received audio track, and a frequency detector to distinguish the two
+streams without relying on their order or IDs.
+
+Open the page twice (two tabs or two PCs) from the same HTTPS deployment,
+create a peer on both pages, copy the receiver's generated peer ID into the
+caller, and click **Call with 3 tracks**. On the receiver click **Enable audio
+monitoring**, then use the caller's replacement buttons. Confirm the two
+frequencies can be controlled separately and that 440 Hz does not change when
+the floor switches between 880 and 660 Hz. The remote video should update
+without opening a second call. Repeat after **Hang up** and reconnect.
+
+The page loads the repo's bundled `js/peerjs.min.js` and, if deployed,
+`config/config.js`; without the local configuration file PeerJS uses its
+default signaling server (which may lack the deployment's TURN configuration).
+The page is an isolated experiment: it does not load or change InTrain's
+supervisor, interpreter or speaker code. Outcomes must be checked manually in
+real browsers; successful syntax/static tests alone do not establish WebRTC
+compatibility.
+
 ### PeerJS file transfers
 
 **Why retain the application-level protocol?** PeerJS already supports binary

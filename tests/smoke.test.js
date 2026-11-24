@@ -188,6 +188,19 @@ test('disconnecting the speaker also stops native desktop capture', async () => 
     assert.equal(f.c.localStream, f.webcam);
 });
 
+test('isolated multitrack experiment is independent of the three role pages', () => {
+    const root = path.resolve(__dirname, '..');
+    const html = fs.readFileSync(path.join(root, 'tests/peerjs-multitrack.html'), 'utf8');
+    assert.ok(html.includes('src="../js/peerjs.min.js"'));
+    assert.ok(html.includes('src="../config/config.js"'));
+    assert.ok(html.includes('new MediaStream([mic.track, floor.track, video.track])'));
+    assert.ok(html.includes('connection.answer()'));
+    assert.ok(html.includes('sender.replaceTrack(replacement.track)'));
+    assert.ok(html.includes('getAudioTracks().length'));
+    assert.ok(!html.includes('js/intrain.js'));
+    assert.ok(!html.includes('role-supervisor.js'));
+});
+
 test('file transfers stream bounded binary chunks and wait for receipt confirmations', async () => {
     const source = fs.readFileSync(path.resolve(__dirname, '../js/file-transfer.js'), 'utf8');
     const completed = [], sentMessages = [], senderLog = [], recipientLog = [];

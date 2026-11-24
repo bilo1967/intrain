@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InTrain - PeerJS multitrack experiment</title>
+<style>
+  :root { color-scheme: light; font: 15px/1.45 system-ui, sans-serif; color: #20323d; background: #f3f7f6; }
+  body { max-width: 1080px; margin: 24px auto; padding: 0 18px; }
+  h1 { font-size: 1.4rem; margin-bottom: .2rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  p { margin-top: 4px; }
+  .panel { background: white; border: 1px solid #cedbd6; border-radius: 9px; padding: 16px; margin: 14px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(330px,1fr)); gap: 14px; }
+  .grid .panel { margin: 0; }
+  button, input { padding: 8px 11px; font: inherit; }
+  input[type="text"] { width: min(290px,90%); }
+  button { border: 1px solid #a4c3b7; border-radius: 5px; background: #e8f4ee; cursor: pointer; margin: 3px 3px 3px 0; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:hover:not(:disabled) { background: #d7eee2; }
+  video, canvas { display: block; width: 100%; max-height: 228px; background: #152732; border-radius: 6px; object-fit: contain; }
+  .hint { color: #5c6d76; font-size: .88rem; }
+  .meter { font-variant-numeric: tabular-nums; padding: 5px 0; }
+  .track { padding: 7px 0; border-top: 1px solid #e2ebe6; }
+  .track label { display: inline-block; min-width: 120px; }
+  .track input { width: 120px; vertical-align: middle; }
+  code { font-size: .9em; }
+  #log { height: 200px; white-space: pre-wrap; overflow: auto; background: #17262e; color: #d8f2e3; border-radius: 6px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; }
+  .ok { color: #177048; } .warn { color: #a25716; }
+</style>
+<script src="../js/peerjs.min.js"></script>
+<!-- Optional deployment configuration. When missing, PeerJS uses its public cloud server. -->
+<script src="../config/config.js"></script>
+</head>
+<body>
+<h1>PeerJS multitrack experiment</h1>
+<p class="hint">Standalone test. One PeerJS MediaConnection transports two audio tracks (440 Hz microphone, 880 Hz floor) and one video track. No InTrain role code is loaded. Requires HTTPS or localhost. Each page gets an automatic PeerJS ID.</p>
+<div class="panel">
+  <h2>1. Connect two browser tabs or computers</h2>
+  <button id="start">Create peer</button>
+  <span>My peer ID: <strong id="my-id">not connected</strong></span>
+  <p><label>Remote peer ID: <input type="text" id="remote-id" placeholder="Paste the other tab's peer ID"></label>
+  <button id="call" disabled>Call with 3 tracks</button>
+  <button id="hangup" disabled>Hang up</button></p>
+  <div class="hint">Open this same page twice. Create a peer on each page; paste one ID into the other page and click Call. Only the caller sends media; the receiver answers without its own stream.</div>
+  <p>Status: <strong id="status">idle</strong> · Media connections: <strong id="calls">0</strong> · <span id="connection-state">no RTCPeerConnection</span></p>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h2>2. Sender</h2>
+    <canvas id="local-canvas" width="640" height="360"></canvas>
+    <p>Source: <strong id="source-info">not started</strong></p>
+    <button id="switch-floor" disabled>Replace floor: 880 → 660 Hz</button>
+    <button id="restore-floor" disabled>Restore floor: 880 Hz</button>
+    <button id="switch-video" disabled>Replace video source</button>
+    <p class="hint">The 440 Hz microphone stays unchanged. Each button uses <code>RTCRtpSender.replaceTrack()</code>, not a new call. Check signalingState and sender IDs in the log.</p>
+    <div id="sender-info" class="meter">No senders.</div>
+  </div>
+  <div class="panel">
+    <h2>3. Receiver</h2>
+    <video id="remote-video" autoplay muted playsinline></video>
+    <p id="received-count" class="meter">Received: 0 audio, 0 video tracks.</p>
+    <button id="enable-audio" disabled>Enable audio monitoring</button>
+    <p class="hint">Separate gain controls for each remote audio track. The detected tone identifies the track independently of arrival order or track ID. Levels default to 0 to avoid unexpected playback.</p>
+    <div id="audio-tracks"></div>
+  </div>
+</div>
+<div class="panel">
+  <h2>4. Event log</h2>
+  <button id="clear-log">Clear log</button>
+  <pre id="log"></pre>
+</div>
+<script>
+'use strict';
+
+// This diagnostic intentionally avoids the three InTrain role pages.
+const $ = id => document.getElementById(id);
+let peer = null;
+let call = null;
+let dataConnection = null;
+let audioContext = null;
+let source = null;
+let remoteStream = null;
+let remoteNodes = [];
+let frameLoop = 0;
+let videoGeneration = 0;
+let remoteGainContext = null;
+const observedRemoteStreams = new WeakSet();
+
+function log(message) {
+    const stamp = new Date().toLocaleTimeString();
+    $('log').textContent += '[' + stamp + '] ' + message + '\n';
+    $('log').scrollTop = $('log').scrollHeight;
+    console.info('[multitrack] ' + message);
+}
+function status(text) { $('status').textContent = text; }
+function countCalls() { $('calls').textContent = String(call && call.open ? 1 : 0); }
+function updateButtons() {
+    $('start').disabled = !!peer;
+    $('call').disabled = !peer?.open || !!call;
+    $('hangup').disabled = !call;
+    $('switch-floor').disabled = !call || !source;
+    $('restore-floor').disabled = !call || !source;
+    $('switch-video').disabled = !call || !source;
+    $('enable-audio').disabled = !remoteStream;
+    countCalls();
+}
+
+function synthTone(frequency) {
+    const oscillator = audioContext.createOscillator();
+    const destination = audioContext.createMediaStreamDestination();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+    oscillator.connect(destination);
+    oscillator.start();
+    return {frequency, oscillator, destination, track: destination.stream.getAudioTracks()[0],
+        dispose() {oscillator.stop(); oscillator.disconnect(); destination.stream.getTracks().forEach(track => track.stop());}};
+}
+
+// The canvas is never added to the DOM twice: both initial and replacement
+// sources use the same visible preview.
+function createVideoSource(variant) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    const generation = ++videoGeneration;
+    let lastDraw = 0;
+    const frame = now => {
+        if (generation !== videoGeneration) return;
+        if (now - lastDraw >= 120) {
+            ctx.fillStyle = variant ? '#276450' : '#204b76';
+            ctx.fillRect(0, 0, 640, 360);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 32px sans-serif';
+            ctx.fillText(variant ? 'VIDEO B / FLOOR' : 'VIDEO A / CAMERA', 60, 135);
+            ctx.font = '22px sans-serif';
+            ctx.fillText('Frame at ' + (now / 1000).toFixed(1) + ' s', 60, 185);
+            lastDraw = now;
+        }
+        frameLoop = requestAnimationFrame(frame);
+    };
+    frameLoop = requestAnimationFrame(frame);
+    const stream = canvas.captureStream(8);
+    const track = stream.getVideoTracks()[0];
+    return {track, stream, dispose() {stream.getTracks().forEach(t => t.stop());}};
+}
+function refreshLocalPreview(variant) {
+    const ctx = $('local-canvas').getContext('2d');
+    ctx.fillStyle = variant ? '#276450' : '#204b76';
+    ctx.fillRect(0, 0, 640, 360);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText(variant ? 'VIDEO B / FLOOR' : 'VIDEO A / CAMERA', 55, 175);
+}
+async function prepareMedia() {
+    audioContext ||= new AudioContext();
+    await audioContext.resume();
+    const mic = synthTone(440), floor = synthTone(880), video = createVideoSource(0);
+    source = {mic, floor, video, variant: 0};
+    const mediaStream = new MediaStream([mic.track, floor.track, video.track]);
+    refreshLocalPreview(0);
+    $('source-info').textContent = '440 Hz + 880 Hz + video A';
+    return mediaStream;
+}
+function getSender(originalTrack) {
+    return call?.peerConnection?.getSenders().find(sender => sender.track?.id === originalTrack?.id);
+}
+function senderInfo() {
+    const pc = call?.peerConnection;
+    if (!pc) return;
+    const senders = pc.getSenders().map(sender => sender.track ? sender.track.kind + ':' + sender.track.id.slice(0, 8) : 'null');
+    $('sender-info').textContent = 'Senders: ' + senders.join(' | ');
+    $('connection-state').textContent = 'signaling=' + pc.signalingState + ', ICE=' + pc.iceConnectionState +
+        ', transceivers=' + pc.getTransceivers().map(t => t.mid ?? '?').join(',');
+}
+function attachCall(connection, isCaller) {
+    if (call && call !== connection) {
+        log('Unexpected second MediaConnection rejected');
+        connection.close();
+        return;
+    }
+    call = connection;
+    log((isCaller ? 'Outgoing' : 'Incoming') + ' media call ID=' + connection.connectionId);
+    connection.on('stream', stream => {
+        log('MediaConnection stream event: ' + stream.getAudioTracks().length + ' audio, ' +
+            stream.getVideoTracks().length + ' video');
+        installRemoteStream(stream);
+    });
+    connection.on('close', () => {
+        log('Media connection closed');
+        if (call === connection) teardownCall(false);
+    });
+    connection.on('error', err => log('Media call error: ' + (err?.message || err)));
+    if (!isCaller) connection.answer();
+    setTimeout(() => {senderInfo();updateButtons();}, 700);
+    updateButtons();
+}
+function installRemoteStream(stream) {
+    remoteStream = stream;
+    $('received-count').textContent = 'Received: ' + stream.getAudioTracks().length +
+        ' audio, ' + stream.getVideoTracks().length + ' video tracks.';
+    const video = stream.getVideoTracks()[0];
+    if (video) {
+        $('remote-video').srcObject = new MediaStream([video]);
+        $('remote-video').play().catch(err => log('Video autoplay: ' + err.message));
+    }
+    if (!observedRemoteStreams.has(stream)) {
+        observedRemoteStreams.add(stream);
+        stream.addEventListener('addtrack', () => {
+            log('Remote addtrack event');
+            installRemoteStream(stream);
+        });
+        stream.addEventListener('removetrack', () => {
+            log('Remote removetrack event');
+            installRemoteStream(stream);
+        });
+    }
+    updateButtons();
+}
+function teardownRemoteAudio() {
+    for (const item of remoteNodes) {
+        item.src.disconnect();
+        item.analyser.disconnect();
+        item.gain.disconnect();
+    }
+    remoteNodes = [];
+    $('audio-tracks').replaceChildren();
+}
+async function enableMonitoring() {
+    if (!remoteStream) return;
+    remoteGainContext ||= new AudioContext();
+    await remoteGainContext.resume();
+    teardownRemoteAudio();
+    const list = remoteStream.getAudioTracks();
+    for (let index = 0; index < list.length; index++) {
+        const track = list[index];
+        const src = remoteGainContext.createMediaStreamSource(new MediaStream([track]));
+        const analyser = remoteGainContext.createAnalyser();
+        analyser.fftSize = 8192;
+        const gain = remoteGainContext.createGain();
+        gain.gain.value = 0;
+        src.connect(analyser);
+        analyser.connect(gain);
+        gain.connect(remoteGainContext.destination);
+        const row = document.createElement('div');
+        row.className = 'track';
+        const label = document.createElement('label');
+        label.textContent = 'Audio ' + (index + 1) + ': ';
+        const spectrum = document.createElement('strong');
+        spectrum.textContent = 'measuring...';
+        const slider = document.createElement('input');
+        slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = '0';
+        slider.setAttribute('aria-label', 'Volume for audio ' + (index + 1));
+        slider.addEventListener('input', () => {gain.gain.value = Number(slider.value) / 100 * .15;});
+        row.append(label, spectrum, document.createTextNode(' · volume '), slider);
+        $('audio-tracks').append(row);
+        remoteNodes.push({src, analyser, gain, track, spectrum, samples: new Uint8Array(analyser.frequencyBinCount)});
+    }
+    log('Monitoring enabled: ' + list.length + ' independent audio tracks');
+}
+function measureRemoteTones() {
+    if (remoteGainContext?.state !== 'running') return;
+    for (const item of remoteNodes) {
+        item.analyser.getByteFrequencyData(item.samples);
+        const hzPerBin = remoteGainContext.sampleRate / item.analyser.fftSize;
+        let best = 0, peak = 0;
+        for (let hz = 350; hz <= 980; hz += 2) {
+            const bin = Math.round(hz / hzPerBin), power = item.samples[bin];
+            if (power > peak) {peak = power;best = bin * hzPerBin;}
+        }
+        const named = best && peak > 70 ?
+            ([440, 660, 880].map(f => ({f, dist: Math.abs(f - best)}))
+                .sort((a,b) => a.dist - b.dist)[0]) : null;
+        item.spectrum.textContent = named && named.dist < 35 ?
+            named.f + ' Hz (' + (named.f === 440 ? 'mic' : 'floor') + '), peak ' + peak :
+            'no reliable tone (' + peak + ')';
+    }
+}
+
+async function switchFloor(frequency) {
+    if (!call?.peerConnection || !source) return;
+    const old = source.floor;
+    const sender = getSender(old.track);
+    if (!sender) {log('ERROR: floor sender not found');return;}
+    const replacement = synthTone(frequency);
+    try {
+        await sender.replaceTrack(replacement.track);
+        source.floor = replacement;
+        old.dispose();
+        $('source-info').textContent = '440 Hz + ' + frequency + ' Hz + video ' + (source.variant ? 'B' : 'A');
+        log('Floor replaced: ' + frequency + ' Hz; same RTCPeerConnection, without renegotiation');
+        senderInfo();
+    } catch (err) {
+        replacement.dispose();
+        log('replaceTrack(audio) failed: ' + err.message);
+    }
+}
+async function switchVideo() {
+    if (!call?.peerConnection || !source) return;
+    const old = source.video;
+    const sender = getSender(old.track);
+    if (!sender) {log('ERROR: video sender not found');return;}
+    const nextVariant = 1 - source.variant;
+    const replacement = createVideoSource(nextVariant);
+    try {
+        await sender.replaceTrack(replacement.track);
+        source.video = replacement;
+        source.variant = nextVariant;
+        old.dispose();
+        refreshLocalPreview(nextVariant);
+        log('Video replaced: ' + (nextVariant ? 'B' : 'A') + '; no new call');
+        senderInfo();
+    } catch (err) {
+        replacement.dispose();
+        log('replaceTrack(video) failed: ' + err.message);
+    }
+}
+function teardownCall(closeConnection = true) {
+    const old = call;
+    call = null;
+    if (old && closeConnection) old.close();
+    if (source) {
+        source.mic.dispose();source.floor.dispose();source.video.dispose();
+        source = null;
+    }
+    videoGeneration++;
+    cancelAnimationFrame(frameLoop);
+    $('source-info').textContent = 'not started';
+    $('sender-info').textContent = 'No senders.';
+    $('connection-state').textContent = 'no RTCPeerConnection';
+    $('remote-video').srcObject = null;
+    remoteStream = null;
+    teardownRemoteAudio();
+    $('received-count').textContent = 'Received: 0 audio, 0 video tracks.';
+    status(peer?.open ? 'ready' : 'disconnected');
+    updateButtons();
+}
+function attachData(connection) {
+    dataConnection = connection;
+    connection.on('open', () => log('Data channel open: ' + connection.peer));
+    connection.on('data', data => {
+        if (data?.type === 'note') log('Peer note: ' + data.message);
+    });
+    connection.on('close', () => {if (dataConnection === connection)dataConnection=null;log('Data channel closed');});
+    connection.on('error', error => log('Data channel error: ' + error.message));
+}
+async function createPeer() {
+    if (peer) return;
+    try {
+        const options = typeof PeerJSConfig !== 'undefined' ? PeerJSConfig : {};
+        peer = new Peer(options);
+        status('connecting');
+        peer.on('open', id => {
+            $('my-id').textContent = id;
+            status('ready');
+            log('Peer opened: ' + id);
+            updateButtons();
+        });
+        peer.on('connection', attachData);
+        peer.on('call', connection => attachCall(connection, false));
+        peer.on('error', err => {log('Peer error: ' + (err?.message || err));status('error');});
+        peer.on('disconnected', () => {log('Signaling disconnected');status('signaling disconnected');});
+        peer.on('close', () => {log('Peer closed');peer=null;status('closed');updateButtons();});
+        updateButtons();
+    } catch (err) {log('Cannot start PeerJS: ' + err.message);peer=null;updateButtons();}
+}
+async function startCall() {
+    if (!peer?.open || call) return;
+    const remote = $('remote-id').value.trim();
+    if (!remote || remote === peer.id) {log('Enter a different remote peer ID');return;}
+    $('call').disabled = true;
+    try {
+        const stream = await prepareMedia();
+        attachData(peer.connect(remote, {reliable:true}));
+        const connection = peer.call(remote, stream, {metadata:{experiment:'2audio-1video'}});
+        if (!connection) throw new Error('PeerJS did not create a MediaConnection');
+        attachCall(connection, true);
+        log('Published ' + stream.getAudioTracks().length + ' audio and ' + stream.getVideoTracks().length + ' video tracks');
+        setTimeout(senderInfo, 1500);
+    } catch (err) {log('Cannot create call: '+err.message);teardownCall();}
+}
+$('start').addEventListener('click', createPeer);
+$('call').addEventListener('click', startCall);
+$('hangup').addEventListener('click', () => teardownCall());
+$('switch-floor').addEventListener('click', () => switchFloor(660));
+$('restore-floor').addEventListener('click', () => switchFloor(880));
+$('switch-video').addEventListener('click', switchVideo);
+$('enable-audio').addEventListener('click', enableMonitoring);
+$('clear-log').addEventListener('click', () => {$('log').textContent='';});
+setInterval(() => {measureRemoteTones();senderInfo();countCalls();}, 700);
+window.addEventListener('pagehide', () => {
+    teardownCall();
+    if (peer) peer.destroy();
+    if (audioContext) void audioContext.close();
+    if (remoteGainContext) void remoteGainContext.close();
+});
+</script>
+</body>
+</html>
