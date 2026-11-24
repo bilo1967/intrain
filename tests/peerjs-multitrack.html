@@ -82,8 +82,6 @@ let audioContext = null;
 let source = null;
 let remoteStream = null;
 let remoteNodes = [];
-let frameLoop = 0;
-let videoGeneration = 0;
 let remoteGainContext = null;
 const observedRemoteStreams = new WeakSet();
 
@@ -124,10 +122,11 @@ function createVideoSource(variant) {
     canvas.width = 640;
     canvas.height = 360;
     const ctx = canvas.getContext('2d');
-    const generation = ++videoGeneration;
+    let active = true;
+    let raf = 0;
     let lastDraw = 0;
     const frame = now => {
-        if (generation !== videoGeneration) return;
+        if (!active) return;
         if (now - lastDraw >= 120) {
             ctx.fillStyle = variant ? '#276450' : '#204b76';
             ctx.fillRect(0, 0, 640, 360);
@@ -138,12 +137,16 @@ function createVideoSource(variant) {
             ctx.fillText('Frame at ' + (now / 1000).toFixed(1) + ' s', 60, 185);
             lastDraw = now;
         }
-        frameLoop = requestAnimationFrame(frame);
+        raf = requestAnimationFrame(frame);
     };
-    frameLoop = requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
     const stream = canvas.captureStream(8);
     const track = stream.getVideoTracks()[0];
-    return {track, stream, dispose() {stream.getTracks().forEach(t => t.stop());}};
+    return {track, stream, dispose() {
+        active = false;
+        cancelAnimationFrame(raf);
+        stream.getTracks().forEach(t => t.stop());
+    }};
 }
 function refreshLocalPreview(variant) {
     const ctx = $('local-canvas').getContext('2d');
@@ -324,8 +327,6 @@ function teardownCall(closeConnection = true) {
         source.mic.dispose();source.floor.dispose();source.video.dispose();
         source = null;
     }
-    videoGeneration++;
-    cancelAnimationFrame(frameLoop);
     $('source-info').textContent = 'not started';
     $('sender-info').textContent = 'No senders.';
     $('connection-state').textContent = 'no RTCPeerConnection';
