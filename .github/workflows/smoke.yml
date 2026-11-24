@@ -32,7 +32,14 @@ jobs:
             esac
             node --check "$script"
           done
+      - name: Check 1.2 training mute policy
+        if: always()
+        run: node --test --test-name-pattern='1\\.2 training' tests/smoke.test.js
+      - name: Check 1.2 late-track handling
+        if: always()
+        run: node --test --test-name-pattern='1\\.2 remote media' tests/smoke.test.js
       - name: Run regression tests
+        if: always()
         run: node --test tests/smoke.test.js
       - name: Test local file media and stereo recording in Chrome
         timeout-minutes: 2
