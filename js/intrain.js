@@ -570,6 +570,7 @@ async function resetConnection(role, t = 0) {
         supervisorData = supervisorMedia = supervisorMediaStream = null;
         supervisorPeer = null;
         if (supervisorVideo) supervisorVideo.srcObject = null;
+        if (typeof InTrainFloorMedia !== 'undefined') InTrainFloorMedia.clear(media);
         closePeerConnection(data);
         closePeerConnection(media);
         break;
@@ -595,6 +596,8 @@ async function closeAllConnections(t = 0) {
     interpreterData = interpreterMedia = interpreterMediaStream = interpreterPeer = null;
     supervisorData = supervisorMedia = supervisorMediaStream = supervisorPeer = null;
     screenshareConnection = null;
+    if (typeof InTrainFloorMedia !== 'undefined' && myRole !== RoleSupervisor)
+        InTrainFloorMedia.clear();
     for (const connection of connections) closePeerConnection(connection);
     if (myPeer && !myPeer.destroyed) {
         try { myPeer.destroy(); }
@@ -867,7 +870,9 @@ function muteMicrophone(role, muted = true) {
         if (myRole == RoleSupervisor) {
             $("#cross-fader").trigger("input");
         } else {
-            c.muted = muted;    
+            c.muted = role === RoleSupervisor ? true : muted;
+            if (role === RoleSupervisor && typeof InTrainFloorMedia !== 'undefined')
+                InTrainFloorMedia.applyVolume();
         }             
     }
     
@@ -1337,6 +1342,9 @@ async function gotLocalMediaStream(mediaStream) {
     // Do not publish the new local stream until all existing senders accept it.
     await Promise.all([speakerMedia, interpreterMedia, supervisorMedia]
         .map(conn => replaceStreamInMediaConnection(conn, mediaStream)));
+    if (myRole === RoleSupervisor && sharingScreenActive && screenshareMediaStream &&
+        typeof InTrainFloorMedia !== 'undefined')
+        await InTrainFloorMedia.publishVideo(screenshareMediaStream, mediaStream);
 
     window.stream = mediaStream; // accessible for debugging
     localVideo.srcObject = mediaStream;

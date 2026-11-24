@@ -61,6 +61,32 @@ var pendingMediaModeSwitch = null; // Action awaiting the supervisor's confirmat
 var floorSelectionEpoch = 0; // Ignore obsolete screen capture and local-file loads
 var localFileFloor = null; // Owns decoder, audio nodes, canvas track and object URL
 var sharedFloorKind = 'screen';
+var supervisorFloorAudioAvailable = true;
+
+// The supervisor keeps a dedicated microphone track and a persistent floor
+// track inside the ordinary media calls. No extra PeerJS floor call is made.
+function supervisorFloorState() {
+    const kind = getSupervisorFloor();
+    const stream = (kind === 'screen' || kind === 'file') ? screenshareMediaStream : null;
+    const hasAudio = kind === 'file' ? supervisorFloorAudioAvailable :
+        kind === 'screen' ? !!stream?.getAudioTracks().length : false;
+    return {kind, hasAudio, hasVideo: !!stream?.getVideoTracks().length, mode: sessionMode};
+}
+function sendSupervisorFloorState(connection) {
+    InTrainFloorMedia.sendState(connection, supervisorFloorState());
+}
+function broadcastSupervisorFloorState() {
+    InTrainFloorMedia.broadcast(supervisorFloorState());
+}
+function updatePublishedSupervisorFloor() {
+    const state = supervisorFloorState();
+    const stream = (state.kind === 'screen' || state.kind === 'file') ?
+        screenshareMediaStream : null;
+    InTrainFloorMedia.publishFloorAudio(stream, audioContext);
+    void InTrainFloorMedia.publishVideo(stream, localStream);
+    broadcastSupervisorFloorState();
+}
+
 var currentVideoURL = null; // Supervisor-owned video source, for late joiners
 var videoLoadGeneration = 0; // Ignore stale pending loads
 
@@ -371,6 +397,7 @@ function setSupervisorPlayerVisible(visible) {
     if (showPlayer) requestAnimationFrame(fitSupervisorPlayerToVideo);
     if (interpreterData && interpreterData.open)
         interpreterData.send({action: showPlayer ? 'showplayer' : 'hideplayer'});
+    updatePublishedSupervisorFloor();
 
     // The recorder taps the mono buses before the listening gain controls.
     if (audioContext && split1 && split2) initCrossFader();
@@ -723,12 +750,15 @@ $(document).ready(async function() {
                     interpreterMedia = c;
                 }
             
-                c.answer(localStream);
+                const floorVideo = (sharingScreenActive && screenshareMediaStream) ?
+                    screenshareMediaStream.getVideoTracks()[0] : null;
+                c.answer(InTrainFloorMedia.outgoingStream(localStream, audioContext,
+                    floorVideo));
                 
                 c.on('stream', function(mediaStream) {
                 
                     if (role == "speaker") {
-                        speakerMediaStream = mediaStream;
+                        speakerMediaStream = InTrainFloorMedia.participantPrimaryMedia(c, mediaStream);
                         refreshSpeakerVideoSource();
                         speakerVideo.onloadedmetadata = function(e) {
                             speakerVideo.play();
@@ -736,7 +766,7 @@ $(document).ready(async function() {
                         }
                     } else {
                         interpreterVideo.srcObject = mediaStream;
-                        interpreterMediaStream = mediaStream;
+                        interpreterMediaStream = InTrainFloorMedia.participantPrimaryMedia(c, mediaStream);
                         
                         interpreterVideo.onloadedmetadata = function(e) {
                             interpreterVideo.play();
@@ -745,14 +775,10 @@ $(document).ready(async function() {
 
                     }
                     
-                    if (role === RoleInterpreter && sharingScreen()) {
-                        console.log("Screen share is active, sending it to interpreter");
-                        if (!screenshareConnection || screenshareConnection.peer !== c.peer) {
-                            closePeerConnection(screenshareConnection);
-                            screenshareConnection = myPeer.call(
-                                c.peer, screenshareMediaStream, { metadata: {role: RoleScreenShare} }
-                            );
-                        }
+                    const dataConnection = role === RoleSpeaker ? speakerData : interpreterData;
+                    if (dataConnection?.open) {
+                        sendSupervisorFloorState(dataConnection);
+                        setTimeout(() => sendSupervisorFloorState(dataConnection), 600);
                     }
 
                   
@@ -762,10 +788,6 @@ $(document).ready(async function() {
                     // Ignore stale calls closing after a participant reconnects.
                     if (role === RoleInterpreter && interpreterMedia !== c) return;
                     if (role === RoleSpeaker && speakerMedia !== c) return;
-                    if (role === RoleInterpreter && screenshareConnection) {
-                        closePeerConnection(screenshareConnection);
-                        screenshareConnection = null;
-                    }
                     resetConnection(role);
                     if (role === RoleSpeaker) updateSupervisorFloorSelector();
                     logToPanel("<b>" + role + "</b> media connection closed", "danger");
@@ -802,6 +824,13 @@ $(document).ready(async function() {
                     // Bring a late joiner up to date with session mode and recording.
                     c.send({action: 'setaudiomode', mode: sessionMode});
                     c.send({action: 'recording', mode: recording ? 'on' : 'off'});
+                    // MID assignment may finish slightly after data opens.
+                    sendSupervisorFloorState(c);
+                    for (const delay of [300, 900, 1600]) {
+                        setTimeout(() => {
+                            if (c.open) sendSupervisorFloorState(c);
+                        }, delay);
+                    }
                     // A new interpreter receives the CURRENT playback position.
                     // Pause the supervisor first if playback was in progress,
                     // then run the initial handshake again before resuming.
@@ -1107,8 +1136,12 @@ $(document).ready(async function() {
             candidate = await createLocalFileFloor(file, audioContext, status => {
                 if (localFileFloor !== candidate) return;
                 if (status === 'unavailable') {
+                    supervisorFloorAudioAvailable = false;
+                    broadcastSupervisorFloorState();
                     logToPanel('No audio is being decoded from the local file. It may have no audio, or its audio codec may not be supported by this browser. Play it in a compatible player and select Screen share, including audio if your browser offers it for that source. Alternatively, use a file with AAC audio.', 'warning');
                 } else if (status === 'decoded') {
+                    supervisorFloorAudioAvailable = true;
+                    broadcastSupervisorFloorState();
                     logToPanel('Audio decoding is now available for the local file.', 'info');
                 }
             });
@@ -1307,13 +1340,13 @@ $(document).ready(async function() {
             localFileFloor = null;
         }
         sharedFloorKind = 'screen';
+        supervisorFloorAudioAvailable = true;
         $('#local-floor-container').addClass('d-none').empty();
         if (stream) stream.getTracks().forEach(track => {
             track.onended = null;
             track.stop();
         });
-        closePeerConnection(screenshareConnection);
-        screenshareConnection = null;
+        updatePublishedSupervisorFloor();
         refreshSpeakerVideoSource();
         updateSupervisorFloorSelector();
         initCrossFader();
@@ -1338,16 +1371,10 @@ $(document).ready(async function() {
             const videoTrack = stream.getVideoTracks()[0];
             if (videoTrack && kind === 'screen') videoTrack.onended = () => unshareScreen();
             
-            if (interpreterPeer != null) {
-                
-                console.log("Now calling the interpreter");
-                screenshareConnection = myPeer.call(
-                    interpreterPeer, stream, { metadata: {role: RoleScreenShare}  } 
-                );
-                
-
-            }
-            
+            supervisorFloorAudioAvailable = true;
+            if (!stream.getAudioTracks().length)
+                logToPanel('The selected floor has no audio track; transmitting silent floor audio.', 'warning');
+            updatePublishedSupervisorFloor();
             initCrossFader();
         
         }

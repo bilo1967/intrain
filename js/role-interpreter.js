@@ -356,6 +356,7 @@ $(document).ready(async function() {
         changeAudioDestination(speakerVideo);
         changeAudioDestination(supervisorVideo);
         changeAudioDestination(audioOutputElement);
+        InTrainFloorMedia.changeAudioOutput();
     });
     
     // Wait for local devices to be ready
@@ -375,6 +376,7 @@ $(document).ready(async function() {
         changeAudioDestination(speakerVideo);
         changeAudioDestination(supervisorVideo);
         changeAudioDestination(audioOutputElement);
+        InTrainFloorMedia.changeAudioOutput();
 
         await setUserMediaConstraints(); 
 
@@ -457,7 +459,7 @@ $(document).ready(async function() {
                 animateCSS('#toggle-microphone', 'rubberBand');
                 loadAndPlay("sounds/boing.wav", $('#select-audio-output').val());
             }
-            if (showPlayer) {
+            if (showPlayer || InTrainFloorMedia.floorActive()) {
                 if (!speakerAudioMuted && speakerMedia && speakerMedia.open) {
                     muteMicrophone(RoleSpeaker, true);
                     animateCSS('#speaker-audio-toggle', 'heartBeat');
@@ -484,6 +486,8 @@ $(document).ready(async function() {
         } else {
             // ... error ?
         }
+        InTrainFloorMedia.applyVolume();
+        InTrainFloorMedia.syncInterpreterLayout();
     }
 
 

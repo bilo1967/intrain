@@ -118,9 +118,7 @@ function loadPeerHandlers(setAudioMode = () => {}) {
         // but not from the supervisor, who is called by each of them.
         // The interpreter can also receive the supervisor's screen or local-file floor.
         if (role == myRole || role == RoleSupervisor ||
-            (myRole == RoleSpeaker && role == RoleScreenShare) ||
-            (role == RoleScreenShare && c.peer !== userID) ||
-            (role != RoleScreenShare && !verifyMediaConnection(c, role))) {
+            !verifyMediaConnection(c, role)) {
             c.close();
             return;
         }
@@ -128,32 +126,6 @@ function loadPeerHandlers(setAudioMode = () => {}) {
         console.log("media call from ", c);
         
         switch (role) {
-        case RoleScreenShare:
-            screenshareConnection = c;
-            c.answer();
-            c.on('stream', function(stream) {
-                if (screenshareConnection !== c) return;
-                screenshareMediaStream = stream;
-                refreshSpeakerVideoSource();
-
-                // Late speaker media must not replace the supervisor's current floor.
-                stream.getTracks().forEach(track => {
-                    track.onended = () => {
-                        if (screenshareConnection !== c || screenshareMediaStream !== stream) return;
-                        screenshareMediaStream = null;
-                        refreshSpeakerVideoSource();
-                    };
-                });
-                console.log('Receiving a screen share');
-            });
-            c.on('close', function() {
-                // Ignore an old connection closing after a replacement arrived.
-                if (screenshareConnection !== c) return;
-                screenshareConnection = null;
-                screenshareMediaStream = null;
-                refreshSpeakerVideoSource();
-            });
-            break;                
         case RoleSpeaker:
             speakerMedia = c;
             speakerMedia.answer(localStream);
@@ -251,6 +223,9 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                 if (InTrainFileTransfer.receive(supervisorData, data, RoleSupervisor)) return;
 
                 switch (act) {
+                case 'floorstate':
+                    InTrainFloorMedia.receiveState(supervisorData, data);
+                    break;
                 case 'chat':
                     logToChat(escapeHTML(data.message), RoleSupervisor, ColorSupervisor);
                     break;
@@ -345,6 +320,8 @@ function loadPeerHandlers(setAudioMode = () => {}) {
                 case 'setaudiomode':
                     setSessionMode(data.mode);
                     setAudioMode(data.mode);
+                    InTrainFloorMedia.applyVolume();
+                    InTrainFloorMedia.syncInterpreterLayout();
                     break;
                 case 'switch-role':
                     handleRoleSwitch(data);
@@ -379,28 +356,36 @@ function loadPeerHandlers(setAudioMode = () => {}) {
         // Media call the supervisor
         //
         
-        supervisorMedia = myPeer.call(userID, localStream, { metadata: {role: myRole} } );
+        supervisorMedia = myPeer.call(userID,
+            InTrainFloorMedia.participantOfferStream(localStream, audioContext),
+            { metadata: {role: myRole} } );
 
         // Media call successful
         supervisorMedia.on('stream', function(mediaStream) {
             // `stream` is the mediaStream of the remote peer.
             // Here you'd add it to an HTML video/canvas element.
             
-            supervisorVideo.srcObject = mediaStream;
+            // The video element plays picture only; audio tracks have separate outputs.
             supervisorMediaStream = mediaStream;
+            InTrainFloorMedia.captureRemote(supervisorMedia, mediaStream);
+            supervisorVideo.srcObject = new MediaStream(mediaStream.getVideoTracks());
+            supervisorVideo.muted = true;
+            InTrainFloorMedia.changeAudioOutput();
             
             //supervisorVideo.play();
             //supervisorVideo.muted = supervisorAudioMuted;
             
             supervisorVideo.onloadedmetadata = function(e) {
                 supervisorVideo.play();
-                supervisorVideo.muted = supervisorAudioMuted;
+                supervisorVideo.muted = true;
+                InTrainFloorMedia.applyVolume();
             }
             
             loadAndPlay("sounds/whistle.mp3", $('#select-audio-output').val());
         });
 
         supervisorMedia.on('close', function() {
+            InTrainFloorMedia.clear(supervisorMedia);
             resetConnection(RoleSupervisor);
             logToPanel("<b>" + RoleSupervisor + "</b> media connection closed", "danger");
             logToChat("<b>" + RoleSupervisor + "</b> media connection closed");

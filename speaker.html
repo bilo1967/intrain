@@ -70,10 +70,11 @@
 
   <script src="js/utils.js?0.01"></script>
   <script src="js/common.js?0.03"></script>
-  <script src="js/peercommon.js?v=1.0.4"></script>
+  <script src="js/peercommon.js?v=1.2.1"></script>
   <script src="config/config.js"></script>
-  <script src="js/intrain.js?v=1.0.8"></script>
+  <script src="js/intrain.js?v=1.2.1"></script>
   <script src="js/file-transfer.js?v=1.0.1"></script>
+  <script src="js/floor-media.js?v=1.2.1"></script>
   <script src="js/log.js?0.01"></script>
   <script src="js/io-devices.js?0.01"></script>
 
@@ -85,7 +86,7 @@
 
 <script src="js/storage.js"></script>
 <script src="js/headphones.js?v=1.0.1"></script>
-<script src="js/role-speaker.js?v=1.0.1"></script>
+<script src="js/role-speaker.js?v=1.2.1"></script>
 
 </head>
 
@@ -199,6 +200,7 @@
           <div class="video-container normal-video-height" id="video3">
             <video class="normal-video border rounded" data-source="" data-video-url="" autoplay playsinline poster="images/cattivo.jpg" id="supervisorVideo" muted></video>
             <div id="supervisor-video-caption" class="video-caption video-position-bc">[ supervisor ]</div>
+            <div id="supervisor-floor-notice" class="position-absolute top-0 start-50 translate-middle-x bg-dark text-white rounded px-2 py-1 small d-none" style="z-index:5;white-space:nowrap"></div>
             <div class="video-button video-position-bl">
               <div data-bs-toggle="tooltip" title="Send a file to the supervisor">
                 <input type="file" name="file" id="send-file-to-supervisor" class="input-file" />

@@ -64,6 +64,7 @@ $(document).ready(async function() {
         changeAudioDestination(interpreterVideo);
         changeAudioDestination(supervisorVideo);
         changeAudioDestination(audioOutputElement);
+        InTrainFloorMedia.changeAudioOutput();
     });
     
     // Wait for local devices to be ready
@@ -83,6 +84,7 @@ $(document).ready(async function() {
         changeAudioDestination(interpreterVideo);
         changeAudioDestination(supervisorVideo);
         changeAudioDestination(audioOutputElement);
+        InTrainFloorMedia.changeAudioOutput();
 
         await setUserMediaConstraints(); 
 
@@ -132,7 +134,8 @@ $(document).ready(async function() {
                 animateCSS('#interpreter-audio-toggle', 'heartBeat');
             }
         } else {
-        }    
+        }
+        InTrainFloorMedia.applyVolume();
     }
 
 
