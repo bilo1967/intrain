@@ -60,6 +60,8 @@
     <h2>3. Receiver</h2>
     <video id="remote-video" autoplay muted playsinline></video>
     <p id="received-count" class="meter">Received: 0 audio, 0 video tracks.</p>
+    <p id="inbound-stats" class="meter hint">Inbound RTP audio: waiting for connection.</p>
+    <p id="monitor-state" class="meter hint">AudioContext: not started.</p>
     <button id="enable-audio" disabled>Enable audio monitoring</button>
     <p class="hint">Separate gain controls for each remote audio track. The detected tone identifies the track independently of arrival order or track ID. Levels default to 0 to avoid unexpected playback.</p>
     <div id="audio-tracks"></div>
@@ -223,6 +225,8 @@ function installRemoteStream(stream) {
 }
 function teardownRemoteAudio() {
     for (const item of remoteNodes) {
+        item.directAudio.pause();
+        item.directAudio.srcObject = null;
         item.src.disconnect();
         item.analyser.disconnect();
         item.gain.disconnect();
@@ -236,9 +240,12 @@ async function enableMonitoring() {
     await remoteGainContext.resume();
     teardownRemoteAudio();
     const list = remoteStream.getAudioTracks();
+    $('monitor-state').textContent = 'AudioContext: ' + remoteGainContext.state +
+        ', sampleRate=' + remoteGainContext.sampleRate + ' Hz';
     for (let index = 0; index < list.length; index++) {
         const track = list[index];
-        const src = remoteGainContext.createMediaStreamSource(new MediaStream([track]));
+        const trackStream = new MediaStream([track]);
+        const src = remoteGainContext.createMediaStreamSource(trackStream);
         const analyser = remoteGainContext.createAnalyser();
         analyser.fftSize = 8192;
         const gain = remoteGainContext.createGain();
@@ -252,16 +259,45 @@ async function enableMonitoring() {
         label.textContent = 'Audio ' + (index + 1) + ': ';
         const spectrum = document.createElement('strong');
         spectrum.textContent = 'measuring...';
+        const directAudio = document.createElement('audio');
+        directAudio.srcObject = trackStream;
+        directAudio.autoplay = false;
+        directAudio.controls = true;
+        directAudio.volume = 0.15;
+        directAudio.setAttribute('aria-label', 'Direct playback of audio ' + (index + 1));
         const slider = document.createElement('input');
         slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = '0';
         slider.setAttribute('aria-label', 'Volume for audio ' + (index + 1));
         slider.addEventListener('input', () => {gain.gain.value = Number(slider.value) / 100 * .15;});
-        row.append(label, spectrum, document.createTextNode(' · volume '), slider);
+        row.append(label, spectrum, document.createTextNode(' · Web Audio volume '), slider,
+            document.createTextNode(' · Direct HTML audio: '), directAudio);
         $('audio-tracks').append(row);
-        remoteNodes.push({src, analyser, gain, track, spectrum, samples: new Uint8Array(analyser.frequencyBinCount)});
+        remoteNodes.push({src, analyser, gain, trackStream, directAudio, track, spectrum,
+            samples: new Uint8Array(analyser.frequencyBinCount)});
     }
     log('Monitoring enabled: ' + list.length + ' independent audio tracks');
 }
+async function inspectInboundAudio() {
+    const pc = call?.peerConnection;
+    if (!pc || !call?.open) return;
+    try {
+        const reports = await pc.getStats();
+        const active = [];
+        reports.forEach(report => {
+            if (report.type === 'inbound-rtp' && report.kind === 'audio' && !report.isRemote) {
+                active.push('mid=' + (report.mid ?? '?') +
+                    ', bytes=' + (report.bytesReceived ?? '?') +
+                    ', packets=' + (report.packetsReceived ?? '?') +
+                    ', loss=' + (report.packetsLost ?? '?') +
+                    ', level=' + (report.audioLevel ?? '?'));
+            }
+        });
+        $('inbound-stats').textContent = active.length ?
+            'Inbound RTP audio: ' + active.join(' | ') :
+            'Inbound RTP audio: no audio reports yet';
+    } catch (error) { $('inbound-stats').textContent = 'Inbound RTP stats error: ' + error.message; }
+}
+
 function measureRemoteTones() {
     if (remoteGainContext?.state !== 'running') return;
     for (const item of remoteNodes) {
@@ -275,9 +311,11 @@ function measureRemoteTones() {
         const named = best && peak > 70 ?
             ([440, 660, 880].map(f => ({f, dist: Math.abs(f - best)}))
                 .sort((a,b) => a.dist - b.dist)[0]) : null;
-        item.spectrum.textContent = named && named.dist < 35 ?
+        const state = ' [enabled=' + item.track.enabled + ', muted=' + item.track.muted +
+            ', readyState=' + item.track.readyState + ']';
+        item.spectrum.textContent = (named && named.dist < 35 ?
             named.f + ' Hz (' + (named.f === 440 ? 'mic' : 'floor') + '), peak ' + peak :
-            'no reliable tone (' + peak + ')';
+            'no reliable tone (' + peak + ')') + state;
     }
 }
 
@@ -389,7 +427,7 @@ $('restore-floor').addEventListener('click', () => switchFloor(880));
 $('switch-video').addEventListener('click', switchVideo);
 $('enable-audio').addEventListener('click', enableMonitoring);
 $('clear-log').addEventListener('click', () => {$('log').textContent='';});
-setInterval(() => {measureRemoteTones();senderInfo();countCalls();}, 700);
+setInterval(() => {measureRemoteTones();senderInfo();countCalls();void inspectInboundAudio();}, 1000);
 window.addEventListener('pagehide', () => {
     teardownCall();
     if (peer) peer.destroy();

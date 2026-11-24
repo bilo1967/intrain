@@ -83,6 +83,15 @@ without opening a second call. Repeat after **Hang up** and reconnect.
 The page loads the repo's bundled `js/peerjs.min.js` and, if deployed,
 `config/config.js`; without the local configuration file PeerJS uses its
 default signaling server (which may lack the deployment's TURN configuration).
+When the receiver reports `no reliable tone (0)`, check the diagnostic
+`muted`/`enabled` state, the incoming RTP byte and packet counters, and the
+per-track **Direct HTML audio** playback control. In particular, if Firefox
+receives both tracks but Chrome receives silence irrespective of sender,
+distinguish missing RTP from a Chrome/Web Audio rendering issue before making
+any changes to InTrain's media topology. HTML audio is a diagnostic alternative
+to the separate Web Audio frequency analysers; leave its volume low to avoid
+feedback.
+
 The page is an isolated experiment: it does not load or change InTrain's
 supervisor, interpreter or speaker code. Outcomes must be checked manually in
 real browsers; successful syntax/static tests alone do not establish WebRTC
