@@ -1,7 +1,7 @@
 /* Load before config.js */
 
 const appName           = "inTrain";
-const appVersion        = "1.0.2";
+const appVersion        = "1.2.0";
 const appAuthor         = "Gabriele Carioli";
 const appCompany        = "Dipartimento di Interpretazione e Traduzione &ndash; Universit&agrave; di Bologna &ndash; Campus di Forl&igrave;";
 const appLicense        = 'Available under <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL v3</a> license (see <a href="credits" target="_blank">credits</a>)';
