@@ -1,12 +1,14 @@
-name: InTrain 1.0 smoke tests
+name: InTrain smoke tests
 
 on:
   push:
     branches:
       - '1.0'
+      - '1.2'
   pull_request:
     branches:
       - '1.0'
+      - '1.2'
 
 permissions:
   contents: read
