@@ -841,8 +841,12 @@ function muteMicrophone(role, muted = true) {
     // This function mutes local playback of a remote participant, not their
     // transmitted microphone. An embedded floor must exclude the live speaker
     // even if a briefing/training change tries to restore participant audio.
-    if (myRole === RoleInterpreter && role === RoleSpeaker &&
-        typeof showPlayer !== 'undefined' && showPlayer) muted = true;
+    const alternativeFloorActive = typeof InTrainFloorMedia !== 'undefined' &&
+        sessionMode === 'training' && InTrainFloorMedia.floorActive();
+    if ((myRole === RoleInterpreter && role === RoleSpeaker &&
+        ((typeof showPlayer !== 'undefined' && showPlayer) || alternativeFloorActive)) ||
+        (myRole === RoleSpeaker && role === RoleInterpreter && alternativeFloorActive))
+        muted = true;
     var e = null;
     var c = null;
     
@@ -1339,11 +1343,15 @@ async function gotLocalMediaStream(mediaStream) {
     }
     camEnabled = isCamEnabled() !== false;
     
-    // Do not publish the new local stream until all existing senders accept it.
+    // Keep publishing the floor picture when the supervisor changes webcam.
+    // Never replace the active floor video with a temporary camera frame.
+    const floorPicture = myRole === RoleSupervisor && sharingScreenActive &&
+        screenshareMediaStream?.getVideoTracks()[0];
+    const publishedStream = floorPicture ?
+        new MediaStream([...mediaStream.getAudioTracks(), floorPicture]) : mediaStream;
     await Promise.all([speakerMedia, interpreterMedia, supervisorMedia]
-        .map(conn => replaceStreamInMediaConnection(conn, mediaStream)));
-    if (myRole === RoleSupervisor && sharingScreenActive && screenshareMediaStream &&
-        typeof InTrainFloorMedia !== 'undefined')
+        .map(conn => replaceStreamInMediaConnection(conn, publishedStream)));
+    if (floorPicture && typeof InTrainFloorMedia !== 'undefined')
         await InTrainFloorMedia.publishVideo(screenshareMediaStream, mediaStream);
 
     window.stream = mediaStream; // accessible for debugging

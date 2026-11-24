@@ -483,6 +483,47 @@ test('supervisor keeps screen sharing visible when a speaker disconnects', async
     assert.equal(c.speakerVideo.srcObject, speaker);
 });
 
+test('1.2 training does not allow participant mutes to reactivate inactive floor microphones', () => {
+    const interpreter = loadApp();
+    const receiveInterpreter = vm.runInContext('InTrainFloorMedia', interpreter);
+    interpreter.myRole = 'interpreter';
+    interpreter.sessionMode = 'training';
+    interpreter.speakerMedia = {open:true};
+    interpreter.speakerVideo = {muted:false};
+    interpreter.supervisorData = {open:true};
+    receiveInterpreter.receiveState(interpreter.supervisorData,
+        {kind:'screen',mode:'training',hasAudio:true});
+    assert.equal(interpreter.speakerVideo.muted,true);
+    interpreter.muteMicrophone('speaker',false);
+    assert.equal(interpreter.speakerVideo.muted,true);
+    receiveInterpreter.receiveState(interpreter.supervisorData,
+        {kind:'speaker',mode:'training',hasAudio:false});
+    assert.equal(interpreter.speakerVideo.muted,false);
+
+    const speaker = loadApp();
+    const receiveSpeaker = vm.runInContext('InTrainFloorMedia', speaker);
+    speaker.myRole = 'speaker';
+    speaker.sessionMode = 'training';
+    speaker.interpreterVideo = {muted:false};
+    speaker.supervisorData = {open:true};
+    receiveSpeaker.receiveState(speaker.supervisorData,
+        {kind:'file',mode:'training',hasAudio:true});
+    speaker.muteMicrophone('interpreter',false);
+    assert.equal(speaker.interpreterVideo.muted,true);
+    speaker.sessionMode = 'briefing';
+    speaker.muteMicrophone('interpreter',false);
+    assert.equal(speaker.interpreterVideo.muted,false);
+});
+
+test('1.2 remote media can refresh on late video track arrival', () => {
+    const peer = fs.readFileSync(path.resolve(__dirname, '../js/peercommon.js'), 'utf8');
+    const common = fs.readFileSync(path.resolve(__dirname, '../js/intrain.js'), 'utf8');
+    assert.ok(peer.includes("mediaStream.addEventListener?.('addtrack', updateRemoteMedia)"));
+    assert.ok(peer.includes('supervisorVideo.srcObject = new MediaStream([picture])'));
+    assert.ok(common.includes('const publishedStream = floorPicture ?'));
+    assert.ok(common.includes('new MediaStream([...mediaStream.getAudioTracks(), floorPicture])'));
+});
+
 test('1.2 publishes separate supervisor mic/floor audio tracks and replaces video in existing calls', async () => {
     const c = loadApp();
     const floorMedia = vm.runInContext('InTrainFloorMedia', c);

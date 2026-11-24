@@ -362,25 +362,26 @@ function loadPeerHandlers(setAudioMode = () => {}) {
 
         // Media call successful
         supervisorMedia.on('stream', function(mediaStream) {
-            // `stream` is the mediaStream of the remote peer.
-            // Here you'd add it to an HTML video/canvas element.
-            
-            // The video element plays picture only; audio tracks have separate outputs.
-            supervisorMediaStream = mediaStream;
-            InTrainFloorMedia.captureRemote(supervisorMedia, mediaStream);
-            supervisorVideo.srcObject = new MediaStream(mediaStream.getVideoTracks());
-            supervisorVideo.muted = true;
-            InTrainFloorMedia.changeAudioOutput();
-            
-            //supervisorVideo.play();
-            //supervisorVideo.muted = supervisorAudioMuted;
-            
-            supervisorVideo.onloadedmetadata = function(e) {
-                supervisorVideo.play();
-                supervisorVideo.muted = true;
+            const currentCall = supervisorMedia;
+            // Track events can arrive separately (especially across browsers).
+            // Bind only tracks belonging to the current supervisor connection.
+            const updateRemoteMedia = () => {
+                if (supervisorMedia !== currentCall) return;
+                supervisorMediaStream = mediaStream;
+                InTrainFloorMedia.captureRemote(currentCall, mediaStream);
+                const picture = mediaStream.getVideoTracks()[0];
+                if (picture && supervisorVideo.srcObject?.getVideoTracks()[0] !== picture) {
+                    supervisorVideo.srcObject = new MediaStream([picture]);
+                    supervisorVideo.muted = true;
+                    const playback = supervisorVideo.play();
+                    if (playback?.catch) playback.catch(error =>
+                        console.warn('Supervisor video autoplay prevented:', error));
+                }
+                InTrainFloorMedia.changeAudioOutput();
                 InTrainFloorMedia.applyVolume();
-            }
-            
+            };
+            updateRemoteMedia();
+            mediaStream.addEventListener?.('addtrack', updateRemoteMedia);
             loadAndPlay("sounds/whistle.mp3", $('#select-audio-output').val());
         });
 
