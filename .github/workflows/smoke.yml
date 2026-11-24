@@ -32,56 +32,7 @@ jobs:
             esac
             node --check "$script"
           done
-      - name: Check 1.2 training mute policy
-        if: always()
-        run: node --test --test-name-pattern='1\\.2 training' tests/smoke.test.js
-      - name: Check 1.2 late-track handling
-        if: always()
-        run: node --test --test-name-pattern='1\\.2 remote media' tests/smoke.test.js
-      - name: Regression cases 0-16
-        if: always()
-        run: node tests/smoke-range.cjs 0 17
-      - name: Regression case 17
-        if: always()
-        run: node tests/smoke-range.cjs 17 18
-      - name: Regression case 18
-        if: always()
-        run: node tests/smoke-range.cjs 18 19
-      - name: Regression case 19
-        if: always()
-        run: node tests/smoke-range.cjs 19 20
-      - name: Regression case 20
-        if: always()
-        run: node tests/smoke-range.cjs 20 21
-      - name: Regression case 21
-        if: always()
-        run: node tests/smoke-range.cjs 21 22
-      - name: Regression case 22
-        if: always()
-        run: node tests/smoke-range.cjs 22 23
-      - name: Regression case 23
-        if: always()
-        run: node tests/smoke-range.cjs 23 24
-      - name: Regression case 24
-        if: always()
-        run: node tests/smoke-range.cjs 24 25
-      - name: Regression cases 17-24
-        if: always()
-        run: node tests/smoke-range.cjs 17 25
-      - name: Regression cases 25-32
-        if: always()
-        run: node tests/smoke-range.cjs 25 33
-      - name: Regression cases 17-32
-        if: always()
-        run: node tests/smoke-range.cjs 17 33
-      - name: Regression cases 0-32
-        if: always()
-        run: node tests/smoke-range.cjs 0 33
-      - name: Regression cases 33-65
-        if: always()
-        run: node tests/smoke-range.cjs 33 66
       - name: Run regression tests
-        if: always()
         run: node --test tests/smoke.test.js
       - name: Test local file media and stereo recording in Chrome
         timeout-minutes: 2

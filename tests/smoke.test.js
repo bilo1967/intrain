@@ -656,7 +656,7 @@ test('both supervisor floor sources publish on existing media senders', () => {
     assert.ok(sup.includes('updatePublishedSupervisorFloor();'));
     assert.ok(!sup.includes('myPeer.call(\n                    interpreterPeer, stream'));
     assert.ok(peer.includes('InTrainFloorMedia.participantOfferStream(localStream, audioContext)'));
-    assert.ok(peer.includes('InTrainFloorMedia.captureRemote(supervisorMedia, mediaStream)'));
+    assert.ok(peer.includes('InTrainFloorMedia.captureRemote(currentCall, mediaStream)'));
     assert.ok(media.includes('sender.replaceTrack(track)'));
     assert.ok(media.includes('floorMid: floor.mid'));
 });
