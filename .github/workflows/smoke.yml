@@ -41,6 +41,12 @@ jobs:
       - name: Regression cases 0-16
         if: always()
         run: node tests/smoke-range.cjs 0 17
+      - name: Regression cases 17-24
+        if: always()
+        run: node tests/smoke-range.cjs 17 25
+      - name: Regression cases 25-32
+        if: always()
+        run: node tests/smoke-range.cjs 25 33
       - name: Regression cases 17-32
         if: always()
         run: node tests/smoke-range.cjs 17 33
