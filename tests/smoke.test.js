@@ -594,7 +594,7 @@ test('1.2 publishes separate supervisor mic/floor audio tracks and replaces vide
     assert.equal(messages[0].floorMid,'1');
 });
 
-test('1.2 receiver routes supervisor audio by MID, not stream order', () => {
+test('1.2 receiver keeps supervisor microphone independent of training floor audio', () => {
     const c = loadApp(), players = [];
     const floorMedia = vm.runInContext('InTrainFloorMedia', c);
     c.MediaStream = class {
@@ -626,8 +626,18 @@ test('1.2 receiver routes supervisor audio by MID, not stream order', () => {
     assert.equal(players.length,2);
     assert.equal(players[0].srcObject.getAudioTracks()[0],mic);
     assert.equal(players[1].srcObject.getAudioTracks()[0],floor);
+    // Training mutes the *source track* on the supervisor, not the
+    // microphone output on receivers. The teacher can re-enable the track
+    // without interrupting the shared floor audio.
+    assert.equal(players[0].muted,false);
+    assert.equal(players[1].muted,false);
+    c.supervisorAudioMuted = true;
+    floorMedia.applyVolume();
     assert.equal(players[0].muted,true);
     assert.equal(players[1].muted,false);
+    c.supervisorAudioMuted = false;
+    floorMedia.applyVolume();
+    assert.equal(players[0].muted,false);
     floorMedia.receiveState(data,{action:'floorstate',kind:'speaker',mode:'training',hasAudio:false});
     assert.equal(players[0].muted,false);
     assert.equal(players[1].muted,true);

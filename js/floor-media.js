@@ -204,7 +204,10 @@ const InTrainFloorMedia = (() => {
         if (!audioMic || !audioFloor) return;
         const mode = typeof sessionMode === 'string' ? sessionMode : incoming.state.mode;
         const floorPlaying = isActive(incoming.state.kind) && mode === 'training';
-        audioMic.muted = floorPlaying || !!supervisorAudioMuted;
+        // The supervisor's training button disables the microphone's source
+        // track. If the teacher explicitly enables it again, let it be heard
+        // even while the separate floor track keeps playing.
+        audioMic.muted = !!supervisorAudioMuted;
         audioFloor.muted = !floorPlaying || incoming.state.hasAudio === false;
     }
 

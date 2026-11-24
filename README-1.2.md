@@ -37,12 +37,20 @@ picture only, avoiding duplicate audio playback.
 
 With Screen share or Multimedia file selected **in training mode**:
 - Interpreter: automatically shows supervisor video in the main frame (using
-  the existing speaker/supervisor swap), mutes the live speaker and supervisor
-  microphones, and listens to the separate floor track.
-- Speaker: sees the supervisor's floor video, mutes the interpreter and
-  supervisor microphones, and listens to the separate floor track.
+  the existing speaker/supervisor swap), mutes the live speaker microphone,
+  and listens to the separate floor track. The supervisor microphone is heard
+  only if the supervisor enables its source track.
+- Speaker: sees the supervisor's floor video, mutes the interpreter
+  microphone, and listens to the separate floor track. The supervisor
+  microphone can be heard if the supervisor explicitly enables it.
 - Supervisor: keeps the 1.0 local crossfader and the independent stereo WAV
   tap unchanged. The new published floor stream never feeds this local mix.
+
+On entering training mode, the supervisor's microphone source track is
+disabled automatically, as in 1.0. The supervisor may explicitly re-enable it
+using the microphone button to speak over an ongoing screen/file floor;
+receivers do not force-mute that separate track. Returning to briefing
+automatically enables the supervisor microphone again.
 
 In briefing mode, the supervisor microphone is available as before and the
 remote floor track is muted locally. Reverting to Speaker restores the
