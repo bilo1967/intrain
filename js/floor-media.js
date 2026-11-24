@@ -52,6 +52,7 @@ const InTrainFloorMedia = (() => {
     }
 
     function publishFloorAudio(stream, context) {
+        if (!context || typeof context.createMediaStreamDestination !== 'function') return false;
         if (!published.destination) published.destination = context.createMediaStreamDestination();
         if (published.source) {
             published.source.disconnect();

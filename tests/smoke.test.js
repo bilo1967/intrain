@@ -22,7 +22,7 @@ function loadApp() {
         Blob, ArrayBuffer,
         window: {addEventListener() {}},
     });
-    for (const file of ['js/common.js', 'js/intrain.js', 'js/peercommon.js']) {
+    for (const file of ['js/common.js', 'js/intrain.js', 'js/peercommon.js', 'js/floor-media.js']) {
         vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, {filename: file});
     }
     return context;
@@ -483,90 +483,30 @@ test('supervisor keeps screen sharing visible when a speaker disconnects', async
     assert.equal(c.speakerVideo.srcObject, speaker);
 });
 
-test('late speaker media cannot replace an active screen share on the interpreter', () => {
+test('the interpreter no longer accepts an additional supervisor screenshare media call', () => {
     const c = loadApp(), handlers = {};
     c.myRole = 'interpreter';
     c.userID = 'supervisor-id';
-    c.speakerVideo = {srcObject: null, muted: true, play() {return Promise.resolve();}};
     c.myPeer = {on(event, fn) {handlers[event] = fn;}};
     c.loadPeerHandlers();
-
-    const share = fakeIncomingCall('screenshare', 'supervisor-id');
-    const sharedStream = {id: 'shared', getTracks: () => [{onended: null}]};
-    handlers.call(share);
-    share.emit('stream', sharedStream);
-    assert.equal(c.speakerVideo.srcObject, sharedStream);
-
-    const speaker = fakeIncomingCall('speaker', 'speaker-id');
-    const camera1 = {id: 'camera1'}, camera2 = {id: 'camera2'};
-    handlers.call(speaker);
-    speaker.emit('stream', camera1);
-    assert.equal(c.speakerVideo.srcObject, sharedStream);
-
-    speaker.emit('stream', camera2);
-    assert.equal(c.speakerVideo.srcObject, sharedStream);
-
-    share.close();
-    assert.equal(c.speakerVideo.srcObject, camera2);
-    assert.equal(c.speakerVideo.muted, c.speakerAudioMuted);
+    const additional = fakeIncomingCall('screenshare', 'supervisor-id');
+    handlers.call(additional);
+    assert.equal(additional.open, false);
+    assert.equal(c.screenshareConnection, null);
 });
 
-test('speaker-first arrival and stale screen share closure retain current screen', () => {
-    const c = loadApp(), handlers = {};
-    c.myRole = 'interpreter';
-    c.userID = 'supervisor-id';
-    c.speakerVideo = {srcObject: null, muted: true, play() {return Promise.resolve();}};
-    c.myPeer = {on(event, fn) {handlers[event] = fn;}};
-    c.loadPeerHandlers();
-
-    const speaker = fakeIncomingCall('speaker', 'speaker-id');
-    const camera = {id: 'camera'};
-    handlers.call(speaker);
-    speaker.emit('stream', camera);
-    assert.equal(c.speakerVideo.srcObject, camera);
-
-    const oldShare = fakeIncomingCall('screenshare', 'supervisor-id');
-    const firstStream = {id: 'share1', getTracks: () => [{onended: null}]};
-    handlers.call(oldShare);
-    oldShare.emit('stream', firstStream);
-    assert.equal(c.speakerVideo.srcObject, firstStream);
-
-    const newShare = fakeIncomingCall('screenshare', 'supervisor-id');
-    const secondStream = {id: 'share2', getTracks: () => [{onended: null}]};
-    handlers.call(newShare);
-    newShare.emit('stream', secondStream);
-
-    oldShare.close();
-    assert.equal(c.speakerVideo.srcObject, secondStream);
-    newShare.close();
-    assert.equal(c.speakerVideo.srcObject, camera);
+test('both supervisor floor sources publish on existing media senders', () => {
+    const sup = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
+    const peer = fs.readFileSync(path.resolve(__dirname, '../js/peercommon.js'), 'utf8');
+    const media = fs.readFileSync(path.resolve(__dirname, '../js/floor-media.js'), 'utf8');
+    assert.ok(sup.includes('InTrainFloorMedia.outgoingStream(localStream, audioContext,'));
+    assert.ok(sup.includes('updatePublishedSupervisorFloor();'));
+    assert.ok(!sup.includes('myPeer.call(\n                    interpreterPeer, stream'));
+    assert.ok(peer.includes('InTrainFloorMedia.participantOfferStream(localStream, audioContext)'));
+    assert.ok(peer.includes('InTrainFloorMedia.captureRemote(supervisorMedia, mediaStream)'));
+    assert.ok(media.includes('sender.replaceTrack(track)'));
+    assert.ok(media.includes('floorMid: floor.mid'));
 });
-
-test('interpreter outgoing dial to a rejoining speaker preserves the active screen', () => {
-    const c = loadApp();
-    const share = {id: 'share'}, camera = {id: 'camera'};
-    c.myRole = 'interpreter';
-    c.screenshareMediaStream = share;
-    c.speakerVideo = {srcObject: share, muted: false, play() {return Promise.resolve();}};
-    const media = fakeIncomingCall('speaker', 'speaker-id');
-    c.myPeer = {
-        connect() {return fakeIncomingCall('interpreter', 'speaker-id');},
-        call() {return media;}
-    };
-    c.dialPeer('speaker-id', 'interpreter', 'speaker');
-    media.emit('stream', camera);
-    assert.equal(c.speakerVideo.srcObject, share);
-    c.screenshareMediaStream = null;
-    c.refreshSpeakerVideoSource();
-    assert.equal(c.speakerVideo.srcObject, camera);
-});
-
-test('supervisor resends an active screen only to the incoming interpreter', () => {
-    const html = fs.readFileSync(path.resolve(__dirname, '../js/role-supervisor.js'), 'utf8');
-    assert.match(html, /role === RoleInterpreter && sharingScreen\(\)/);
-    assert.match(html, /c\.peer, screenshareMediaStream/);
-});
-
 
 test('role pages load Bootstrap 5 and external, unminified application scripts', () => {
     const root = path.resolve(__dirname, '..');
@@ -915,7 +855,7 @@ test('supervisor MediaElement remains within the central speaker video area', ()
     assert.match(css, /\.mejs__container:not\(\.mejs__container-fullscreen\)\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
     assert.match(css, /\.mejs__mediaelement iframe\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
     assert.match(markup, /<video id="myplayer" width="480" height="300"/);
-    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.0\.\d+"/);
+    assert.match(markup, /src="js\/role-supervisor\.js\?v=1\.2\.\d+"/);
 });
 
 test('interpreter video renderer fits the central speaker video, not the mini videos', () => {
@@ -965,7 +905,7 @@ test('interpreter video renderer fits the central speaker video, not the mini vi
     assert.match(css, /#player-container\.interpreter-video-player \.mejs__mediaelement iframe\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/);
     assert.match(html, /<video id="myplayer" width="480" height="300"/);
     assert.match(html, /class="video-player-interaction-shield"/);
-    assert.match(html, /src="js\/role-interpreter\.js\?v=1\.0\.\d+"/);
+    assert.match(html, /src="js\/role-interpreter\.js\?v=1\.2\.\d+"/);
 });
 
 
@@ -1270,7 +1210,7 @@ test('external video stops at its natural end on supervisor and interpreter', ()
         assert.match(playerOptions, /autoRewind:\s*false/);
         assert.match(html, /<video id="myplayer"[^>]*>/);
         assert.doesNotMatch(html.match(/<video id="myplayer"[^>]*>/)[0], /\sloop(?:\s|=|>)/);
-        assert.match(html, new RegExp('src="js/role-' + role + '\\.js\\?v=1\\.0\\.\\d+"'));
+        assert.match(html, new RegExp('src="js/role-' + role + '\\.js\\?v=1\\.2\\.\\d+"'));
     }
 });
 
@@ -1529,6 +1469,8 @@ function loadSupervisorFloor() {
     c.escapeHTML = text => text;
     c.InTrainUI = {showModal() {}};
     c.myPeer = {call(peer, stream) {return {peer, stream, close() {}};}};
+    c.updatePublishedSupervisorFloor = () => {};
+    c.broadcastSupervisorFloorState = () => {};
     const start = role.indexOf('    function selectSupervisorFloor(floor, options = {})');
     vm.runInContext(role.slice(start, role.indexOf('    // Reset to the informative placeholder', start)), c);
     const sharing = role.indexOf('    function sharingScreen()');
@@ -1568,7 +1510,7 @@ test('audio-only file becomes the shared floor and returning to speaker disposes
     await handlers.change.call({files: [{}]});
     assert.equal(c.getSupervisorFloor(), 'file');
     assert.equal(c.sharingScreen(), true); // Also covers late-join eligibility for audio-only files.
-    assert.equal(c.screenshareConnection.stream, stream);
+    assert.equal(c.screenshareConnection, null); // No extra WebRTC media call.
     assert.equal(elements['local-floor-container'].media, candidate.media);
     assert.ok(old.getTracks().every(t => t.readyState === 'ended'));
     c.confirmMediaModeSwitch = (_, action) => action();
