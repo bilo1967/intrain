@@ -483,6 +483,118 @@ test('supervisor keeps screen sharing visible when a speaker disconnects', async
     assert.equal(c.speakerVideo.srcObject, speaker);
 });
 
+test('1.2 publishes separate supervisor mic/floor audio tracks and replaces video in existing calls', async () => {
+    const c = loadApp();
+    const floorMedia = vm.runInContext('InTrainFloorMedia', c);
+    c.MediaStream = class {
+        constructor(tracks = []) {this.tracks = tracks.slice();}
+        addTrack(t) {this.tracks.push(t);}
+        getTracks() {return this.tracks;}
+        getAudioTracks() {return this.tracks.filter(t => t.kind === 'audio');}
+        getVideoTracks() {return this.tracks.filter(t => t.kind === 'video');}
+    };
+    const mic = {id: 'mic', kind: 'audio', readyState: 'live'};
+    const cam = {id: 'cam', kind: 'video', readyState: 'live'};
+    const floor = {id: 'floor', kind: 'audio', readyState: 'live'};
+    const screen = {id: 'screen', kind: 'video', readyState: 'live'};
+    const baseline = new c.MediaStream([mic,cam]);
+    const dest = {stream: new c.MediaStream([floor])};
+    const sources = [];
+    const context = {
+        createMediaStreamDestination() {return dest;},
+        createMediaStreamSource(stream) {
+            const source = {
+                stream, links: [], disconnected: false,
+                connect(target) {this.links.push(target);},
+                disconnect() {this.disconnected = true;}
+            };
+            sources.push(source);return source;
+        }
+    };
+    const offered = floorMedia.outgoingStream(baseline,context);
+    assert.deepEqual(offered.getAudioTracks(), [mic,floor]);
+    assert.deepEqual(offered.getVideoTracks(), [cam]);
+
+    function connection() {
+        const cameraSender = {track: cam, calls: [], async replaceTrack(track) {
+            this.calls.push(track); this.track = track;
+        }};
+        const audioSenders = [{track: mic},{track: floor}];
+        return {
+            open: true, cameraSender,
+            peerConnection: {
+                getSenders() {return [cameraSender, ...audioSenders];},
+                getTransceivers() {return [
+                    {mid:'0',sender:audioSenders[0]},
+                    {mid:'1',sender:audioSenders[1]}
+                ];}
+            }
+        };
+    }
+    const speakerCall = connection(), interpreterCall = connection();
+    c.speakerMedia = speakerCall;
+    c.interpreterMedia = interpreterCall;
+    const sharedStream = new c.MediaStream([floor, screen]);
+    assert.equal(floorMedia.publishFloorAudio(sharedStream,context), true);
+    assert.equal(sources[0].links[0],dest);
+    await floorMedia.publishVideo(sharedStream,baseline);
+    assert.equal(speakerCall.cameraSender.track,screen);
+    assert.equal(interpreterCall.cameraSender.track,screen);
+    await floorMedia.publishVideo(null,baseline);
+    assert.equal(speakerCall.cameraSender.track,cam);
+    assert.equal(interpreterCall.cameraSender.track,cam);
+    assert.equal(floorMedia.publishFloorAudio(new c.MediaStream(),context), false);
+    assert.equal(sources[0].disconnected,true);
+
+    const messages = [];
+    c.speakerData = {open: true, send(m) {messages.push(m);}};
+    floorMedia.sendState(c.speakerData,{kind:'speaker',hasAudio:false,mode:'training'});
+    assert.equal(messages[0].micMid,'0');
+    assert.equal(messages[0].floorMid,'1');
+});
+
+test('1.2 receiver routes supervisor audio by MID, not stream order', () => {
+    const c = loadApp(), players = [];
+    const floorMedia = vm.runInContext('InTrainFloorMedia', c);
+    c.MediaStream = class {
+        constructor(tracks = []) {this.tracks = tracks;}
+        getAudioTracks() {return this.tracks.filter(t => t.kind === 'audio');}
+        getVideoTracks() {return this.tracks.filter(t => t.kind === 'video');}
+    };
+    c.Audio = class {
+        constructor() {players.push(this);this.muted=false;}
+        setAttribute() {}
+        play() {return Promise.resolve();}
+        pause() {}
+    };
+    c.myRole = 'speaker';
+    c.sessionMode = 'training';
+    const mic = {id:'microphone',kind:'audio',readyState:'live'};
+    const floor = {id:'shared-floor',kind:'audio',readyState:'live'};
+    const media = {peerConnection:{getTransceivers() {return [
+        {mid:'7',receiver:{track: floor}},
+        {mid:'2',receiver:{track: mic}}
+    ];}}};
+    const data = {open:true};
+    c.supervisorMedia = media;
+    c.supervisorData = data;
+    floorMedia.captureRemote(media,new c.MediaStream([floor,mic]));
+    floorMedia.receiveState(data,{
+        action:'floorstate',kind:'screen',mode:'training',hasAudio:true,micMid:'2',floorMid:'7'
+    });
+    assert.equal(players.length,2);
+    assert.equal(players[0].srcObject.getAudioTracks()[0],mic);
+    assert.equal(players[1].srcObject.getAudioTracks()[0],floor);
+    assert.equal(players[0].muted,true);
+    assert.equal(players[1].muted,false);
+    floorMedia.receiveState(data,{action:'floorstate',kind:'speaker',mode:'training',hasAudio:false});
+    assert.equal(players[0].muted,false);
+    assert.equal(players[1].muted,true);
+    floorMedia.clear(media);
+    assert.equal(players[0].srcObject,null);
+    assert.equal(players[1].srcObject,null);
+});
+
 test('the interpreter no longer accepts an additional supervisor screenshare media call', () => {
     const c = loadApp(), handlers = {};
     c.myRole = 'interpreter';
