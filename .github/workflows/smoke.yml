@@ -38,6 +38,12 @@ jobs:
       - name: Check 1.2 late-track handling
         if: always()
         run: node --test --test-name-pattern='1\\.2 remote media' tests/smoke.test.js
+      - name: Regression cases 0-16
+        if: always()
+        run: node tests/smoke-range.cjs 0 17
+      - name: Regression cases 17-32
+        if: always()
+        run: node tests/smoke-range.cjs 17 33
       - name: Regression cases 0-32
         if: always()
         run: node tests/smoke-range.cjs 0 33
